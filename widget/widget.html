@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web-RAG Widget Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 80px auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 { margin-bottom: 8px; }
+        p { color: #666; margin-bottom: 24px; }
+        .info {
+            background: #f0f4ff;
+            border: 1px solid #dbeafe;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Web-RAG Widget Test Page</h1>
+    <p>The chat widget should appear as a blue bubble in the bottom-right corner.</p>
+
+    <div class="info">
+        <strong>Embedding code:</strong><br>
+        <code>&lt;script src="http://localhost:8090/widget.js" data-site-id="2" data-title="MSU Assistant"&gt;&lt;/script&gt;</code>
+        <br><br>
+        <strong>Customization attributes:</strong><br>
+        &bull; <code>data-site-id</code> — which indexed site to query<br>
+        &bull; <code>data-api</code> — API server URL (default: same origin)<br>
+        &bull; <code>data-title</code> — chat panel header text<br>
+        &bull; <code>data-color</code> — accent color (hex)<br>
+        &bull; <code>data-position</code> — "right" or "left"
+    </div>
+
+    <!-- The widget script — in production this would be loaded from your server -->
+    <script
+        src="http://localhost:8090/widget.js"
+        data-site-id="2"
+        data-api="http://localhost:8090"
+        data-title="MSU Assistant"
+    ></script>
+</body>
+</html>
