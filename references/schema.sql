@@ -93,3 +93,11 @@ create table if not exists telegram_bindings (
     username    text,
     bound_at    timestamptz default now()
 );
+
+-- Trial site support (run this migration if tables already exist)
+alter table sites add column if not exists is_trial boolean default false;
+alter table sites add column if not exists expires_at timestamptz;
+
+create index if not exists idx_sites_trial_expiry
+    on sites(is_trial, expires_at)
+    where is_trial = true;
