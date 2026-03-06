@@ -96,10 +96,11 @@ Rules:
 """
 
 LANGUAGE_NAMES = {
-    "en": "English", "ru": "Russian", "es": "Spanish", "fr": "French",
-    "de": "German", "zh": "Chinese", "ja": "Japanese", "ko": "Korean",
-    "pt": "Portuguese", "ar": "Arabic", "hi": "Hindi", "it": "Italian",
-    "tr": "Turkish", "nl": "Dutch", "pl": "Polish", "uk": "Ukrainian",
+    "en": "English", "ru": "Russian", "kk": "Kazakh", "es": "Spanish",
+    "fr": "French", "de": "German", "zh": "Chinese", "ja": "Japanese",
+    "ko": "Korean", "pt": "Portuguese", "ar": "Arabic", "hi": "Hindi",
+    "it": "Italian", "tr": "Turkish", "nl": "Dutch", "pl": "Polish",
+    "uk": "Ukrainian",
 }
 
 
@@ -620,3 +621,81 @@ async def trigger_trial_cleanup():
         .execute()
     deleted = len(resp.data) if resp.data else 0
     return {"deleted": deleted}
+
+
+# ── Registration & Activation ─────────────────────────────────────────────
+
+ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "211111")
+
+
+@app.post("/api/register")
+async def register(request: Request):
+    body = await request.json()
+    name = body.get("name", "").strip()
+    email = body.get("email", "").strip().lower()
+    company = body.get("company", "").strip()
+
+    if not name or not email:
+        return JSONResponse({"error": "Name and email are required"}, status_code=400)
+
+    # Check if already registered
+    existing = sb.table("registrations").select("token").eq("email", email).execute()
+    if existing.data:
+        token = existing.data[0]["token"]
+        log.info(f"Returning existing registration for {email}")
+        return {"token": token, "message": "Welcome back"}
+
+    # New registration
+    token = f"wr_{uuid.uuid4().hex}"
+    sb.table("registrations").insert({
+        "name": name,
+        "email": email,
+        "company": company or None,
+        "token": token,
+    }).execute()
+
+    log.info(f"New registration: {email} ({name})")
+    return {"token": token, "message": "Registered successfully"}
+
+
+@app.post("/api/activate")
+async def activate(request: Request):
+    body = await request.json()
+    code = body.get("code", "").strip()
+    site_id = body.get("site_id")
+    token = body.get("token", "").strip()
+
+    if not code or not site_id or not token:
+        return JSONResponse({"error": "Code, site_id, and token are required"}, status_code=400)
+
+    # Verify token
+    reg = sb.table("registrations").select("email").eq("token", token).execute()
+    if not reg.data:
+        return JSONResponse({"error": "Invalid session"}, status_code=401)
+
+    # Verify code
+    if code != ACTIVATION_CODE:
+        return JSONResponse({"error": "Invalid activation code"}, status_code=403)
+
+    # Verify site exists and is a trial
+    site = sb.table("sites").select("*").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    site_data = site.data[0]
+    source_url = site_data.get("settings", {}).get("source_url", "")
+
+    # Convert trial to permanent: remove trial flag and expiry
+    sb.table("sites").update({
+        "is_trial": False,
+        "expires_at": None,
+    }).eq("id", site_id).execute()
+
+    log.info(f"Site {site_id} activated by {reg.data[0]['email']}")
+
+    return {
+        "success": True,
+        "site_id": site_id,
+        "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://your-server.com")}/widget.js" data-site-id="{site_id}"></script>',
+        "source_url": source_url,
+    }

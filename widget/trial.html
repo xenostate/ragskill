@@ -1,756 +1,1473 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web-RAG — Try It Now</title>
+    <title>Web-RAG — AI-ассистент для вашего сайта</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #06060b;
+            --surface: #111118;
+            --surface2: #1a1a24;
+            --border: #252535;
+            --text: #e8e8f0;
+            --text2: #8585a0;
+            --text3: #555570;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --accent-glow: rgba(99, 102, 241, 0.12);
+            --accent-glow2: rgba(99, 102, 241, 0.06);
+            --green: #22c55e;
+            --red: #ef4444;
+            --radius: 16px;
+        }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #1a1a1a;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 720px;
-            margin: 0 auto;
-            padding: 48px 24px;
+        /* ── Top bar ── */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(6,6,11,0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(37,37,53,0.5);
         }
 
-        h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
+        .logo {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
-        .subtitle {
-            color: #64748b;
-            font-size: 16px;
-            margin-bottom: 40px;
+        .logo span { color: var(--accent); }
+
+        .lang-switch {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 3px;
+            border: 1px solid var(--border);
         }
 
-        .section { display: none; }
-        .section.active { display: block; }
-
-        /* ── Form ── */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 6px;
-            color: #374151;
-        }
-
-        .form-group .hint {
+        .lang-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text2);
             font-size: 13px;
-            color: #9ca3af;
-            margin-top: 4px;
-        }
-
-        input[type="url"], select {
-            width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 10px;
-            font-size: 15px;
+            font-weight: 600;
             font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        input[type="url"]:focus, select:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .file-upload {
-            border: 2px dashed #d1d5db;
-            border-radius: 10px;
-            padding: 24px;
-            text-align: center;
             cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .lang-btn:hover:not(.active) { color: var(--text); }
+
+        /* ── Landing page ── */
+        .landing { display: block; }
+        .landing.hidden { display: none; }
+
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            padding: 140px 24px 60px;
             position: relative;
         }
 
-        .file-upload:hover {
-            border-color: #2563eb;
-            background: #f0f4ff;
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 70%);
+            pointer-events: none;
         }
 
-        .file-upload input {
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--accent-glow);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent-hover);
+            margin-bottom: 28px;
+        }
+
+        .hero-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 6vw, 58px);
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -1.5px;
+            margin-bottom: 20px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #818cf8 0%, #6366f1 40%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: clamp(16px, 2.2vw, 19px);
+            color: var(--text2);
+            line-height: 1.65;
+            max-width: 540px;
+            margin: 0 auto 40px;
+        }
+
+        .hero-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 32px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+        }
+
+        .hero-cta:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(99,102,241,0.4);
+        }
+
+        .hero-cta svg { width: 18px; height: 18px; }
+
+        /* ── Features ── */
+        .features {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            text-align: center;
+            transition: border-color 0.3s, transform 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(99,102,241,0.3);
+            transform: translateY(-3px);
+        }
+
+        .feature-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 16px;
+            background: var(--accent-glow);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .feature-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.3px;
+        }
+
+        .feature-card p {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.55;
+        }
+
+        /* ── Video ── */
+        .video-section {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+            text-align: center;
+        }
+
+        .video-section h2 {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .video-section > p {
+            font-size: 15px;
+            color: var(--text2);
+            margin-bottom: 32px;
+        }
+
+        .video-placeholder {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: var(--surface);
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text3);
+            transition: border-color 0.3s;
+        }
+
+        .video-placeholder:hover { border-color: rgba(99,102,241,0.3); }
+
+        .video-placeholder .play-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--accent-glow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-placeholder .play-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--accent);
+            margin-left: 3px;
+        }
+
+        .video-placeholder span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* ── Bottom CTA ── */
+        .bottom-cta {
+            text-align: center;
+            padding: 60px 24px 100px;
+            position: relative;
+        }
+
+        .bottom-cta::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            height: 300px;
+            background: radial-gradient(ellipse, rgba(99,102,241,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .bottom-cta h2 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .bottom-cta p {
+            font-size: 16px;
+            color: var(--text2);
+            margin-bottom: 32px;
+        }
+
+        /* ── App flow (steps) ── */
+        .app { display: none; }
+        .app.active { display: block; }
+
+        .page { max-width: 560px; margin: 0 auto; padding: 100px 20px 40px; }
+
+        /* ── Step indicator ── */
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 40px;
+        }
+
+        .step-dot {
+            width: 32px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+            transition: background 0.3s, width 0.3s;
+        }
+
+        .step-dot.active { background: var(--accent); width: 48px; }
+        .step-dot.done { background: var(--green); }
+
+        /* ── Headings ── */
+        .section-title {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+
+        .section-sub {
+            color: var(--text2);
+            font-size: 15px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        /* ── Sections ── */
+        .section { display: none; }
+        .section.active { display: block; animation: fadeUp 0.4s ease; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        /* ── Form inputs ── */
+        .field { margin-bottom: 16px; }
+
+        .field label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text2);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field input, .field select {
+            width: 100%;
+            padding: 11px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .field input:focus, .field select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .field input::placeholder { color: #555568; }
+        .field select option { background: var(--surface); }
+        .field-row { display: flex; gap: 12px; }
+        .field-row .field { flex: 1; }
+
+        /* ── File upload ── */
+        .file-drop {
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .file-drop:hover { border-color: var(--accent); background: var(--accent-glow); }
+
+        .file-drop input {
             position: absolute;
             inset: 0;
             opacity: 0;
             cursor: pointer;
         }
 
-        .file-upload .icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
+        .file-drop-icon { font-size: 24px; margin-bottom: 4px; }
+        .file-drop-text { color: var(--text2); font-size: 13px; }
+        .file-list { font-size: 12px; color: var(--accent); margin-top: 6px; }
+        .hint { font-size: 12px; color: #555568; margin-top: 4px; }
 
-        .file-upload .text {
-            color: #64748b;
-            font-size: 14px;
-        }
-
-        .file-list {
-            margin-top: 8px;
-            font-size: 13px;
-            color: #2563eb;
-        }
-
-        .row {
-            display: flex;
-            gap: 16px;
-            align-items: flex-end;
-        }
-
-        .row .form-group { flex: 1; }
-
+        /* ── Buttons ── */
         .btn {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 12px 32px;
-            font-size: 15px;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 24px;
+            font-size: 14px;
             font-weight: 600;
             font-family: inherit;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+            transition: all 0.2s;
         }
 
-        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-        .btn-primary {
-            background: #2563eb;
-            color: #fff;
-            width: 100%;
-            margin-top: 8px;
+        .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+
+        /* ── Back link ── */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text2);
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+            margin-bottom: 24px;
+            transition: color 0.2s;
         }
 
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+        .back-link:hover { color: var(--text); }
+        .back-link svg { width: 14px; height: 14px; }
 
         /* ── Progress ── */
-        .progress-card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        }
-
-        .progress-bar-bg {
+        .progress-bar-track {
             width: 100%;
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 3px;
             overflow: hidden;
-            margin-bottom: 16px;
+            margin: 20px 0 16px;
         }
 
-        .progress-bar-fill {
+        .progress-bar-val {
             height: 100%;
-            background: #2563eb;
-            border-radius: 4px;
-            transition: width 0.3s ease;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 0.3s;
             width: 0%;
         }
 
-        .progress-bar-fill.indeterminate {
-            width: 40%;
-            animation: slide 1.5s infinite ease-in-out;
+        .progress-bar-val.pulse {
+            width: 35%;
+            animation: pulse-slide 1.8s infinite ease-in-out;
         }
 
-        @keyframes slide {
+        @keyframes pulse-slide {
             0% { margin-left: 0; }
-            50% { margin-left: 60%; }
+            50% { margin-left: 65%; }
             100% { margin-left: 0; }
         }
 
-        .progress-message {
-            font-size: 14px;
-            color: #64748b;
-            text-align: center;
-        }
-
-        .progress-icon {
-            text-align: center;
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
+        .progress-status { text-align: center; font-size: 14px; color: var(--text2); }
+        .progress-emoji { text-align: center; font-size: 40px; margin-bottom: 12px; }
 
         /* ── Chat ── */
-        .chat-card {
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        .chat-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            height: 560px;
+            height: 480px;
         }
 
-        .chat-header {
-            padding: 16px 20px;
-            background: #2563eb;
+        .chat-bar {
+            padding: 14px 18px;
+            background: var(--accent);
             color: #fff;
             font-weight: 600;
-            font-size: 15px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .chat-header .expires {
-            font-weight: 400;
-            font-size: 12px;
-            opacity: 0.8;
-        }
+        .chat-bar small { font-weight: 400; font-size: 11px; opacity: 0.7; }
 
-        .chat-messages {
+        .chat-body {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
+            padding: 14px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
         }
 
-        .chat-msg {
-            max-width: 85%;
-            padding: 10px 14px;
-            border-radius: 12px;
+        .msg {
+            max-width: 82%;
+            padding: 9px 13px;
+            border-radius: 10px;
+            font-size: 13px;
             line-height: 1.55;
             word-wrap: break-word;
-            font-size: 14px;
         }
 
-        .chat-msg.user {
-            align-self: flex-end;
-            background: #2563eb;
-            color: #fff;
-            border-bottom-right-radius: 4px;
-        }
+        .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+        .msg.bot { align-self: flex-start; background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; }
+        .msg.bot a { color: var(--accent-hover); }
+        .msg.sys { align-self: center; background: var(--accent-glow); color: var(--accent-hover); font-size: 12px; border-radius: 6px; }
 
-        .chat-msg.bot {
-            align-self: flex-start;
-            background: #f0f0f0;
-            color: #1a1a1a;
-            border-bottom-left-radius: 4px;
-        }
+        .msg-sources { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; }
+        .msg-sources a { color: var(--accent-hover); text-decoration: none; display: block; margin-top: 2px; }
+        .msg-sources a:hover { text-decoration: underline; }
 
-        .chat-msg.bot a { color: #2563eb; }
+        .badge { font-size: 10px; padding: 2px 6px; border-radius: 6px; display: inline-block; margin-bottom: 3px; }
+        .badge.high { background: #16432a; color: #4ade80; }
+        .badge.medium { background: #422006; color: #fbbf24; }
+        .badge.low { background: #450a0a; color: #f87171; }
 
-        .chat-msg.system {
-            align-self: center;
-            background: #dbeafe;
-            color: #1e40af;
-            font-size: 13px;
-            border-radius: 8px;
-        }
+        .typing { display: none; align-self: flex-start; padding: 9px 13px; background: var(--surface2); border-radius: 10px; }
+        .typing.on { display: block; }
+        .typing span { display: inline-block; width: 5px; height: 5px; background: #666; border-radius: 50%; margin: 0 2px; animation: tbounce 1.2s infinite; }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes tbounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
 
-        .chat-sources {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #ddd;
-            font-size: 12px;
-            color: #666;
-        }
+        .chat-foot { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
 
-        .chat-sources a {
-            color: #2563eb;
-            text-decoration: none;
-            display: block;
-            margin-top: 2px;
-        }
-
-        .chat-sources a:hover { text-decoration: underline; }
-
-        .confidence {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 8px;
-            display: inline-block;
-            margin-bottom: 4px;
-        }
-
-        .confidence.high { background: #dcfce7; color: #166534; }
-        .confidence.medium { background: #fef9c3; color: #854d0e; }
-        .confidence.low { background: #fecaca; color: #991b1b; }
-
-        .typing-indicator {
-            align-self: flex-start;
-            padding: 10px 14px;
-            background: #f0f0f0;
-            border-radius: 12px;
-            display: none;
-        }
-
-        .typing-indicator.active { display: block; }
-
-        .typing-indicator span {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            background: #999;
-            border-radius: 50%;
-            margin: 0 2px;
-            animation: bounce 1.2s infinite;
-        }
-
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-6px); }
-        }
-
-        .chat-input-row {
-            padding: 12px;
-            border-top: 1px solid #eee;
-            display: flex;
-            gap: 8px;
-        }
-
-        .chat-input {
+        .chat-foot input {
             flex: 1;
             padding: 10px 14px;
-            border: 1px solid #ddd;
-            border-radius: 24px;
-            outline: none;
-            font-size: 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text);
+            font-size: 13px;
             font-family: inherit;
+            outline: none;
         }
 
-        .chat-input:focus { border-color: #2563eb; }
+        .chat-foot input:focus { border-color: var(--accent); }
 
-        .chat-send {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: none;
-            background: #2563eb;
-            color: #fff;
+        .chat-foot button {
+            width: 38px; height: 38px;
+            border-radius: 50%; border: none;
+            background: var(--accent); color: #fff;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
         }
 
-        .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+        .chat-foot button:hover { background: var(--accent-hover); }
+        .chat-foot button:disabled { opacity: 0.3; cursor: not-allowed; }
+        .chat-foot button svg { width: 16px; height: 16px; }
 
-        .chat-send svg { width: 18px; height: 18px; }
+        /* ── Activate / Widget code ── */
+        .code-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--green);
+            word-break: break-all;
+            line-height: 1.6;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .code-box:hover { border-color: var(--accent); }
+
+        .copy-hint {
+            position: absolute; top: 8px; right: 10px;
+            font-size: 10px; color: var(--text2);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .success-icon { text-align: center; font-size: 48px; margin-bottom: 12px; }
 
         /* ── Error ── */
-        .error-box {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 10px;
-            padding: 16px;
-            color: #991b1b;
-            font-size: 14px;
-            margin-top: 16px;
+        .err {
+            background: #1a0808;
+            border: 1px solid #3a1515;
+            border-radius: 8px;
+            padding: 12px;
+            color: #f87171;
+            font-size: 13px;
+            margin-top: 12px;
             display: none;
         }
 
-        .error-box.visible { display: block; }
+        .err.on { display: block; }
 
-        /* ── Try again ── */
-        .btn-secondary {
-            background: #f1f5f9;
-            color: #475569;
-            margin-top: 16px;
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text3);
+            font-size: 13px;
         }
 
-        .btn-secondary:hover { background: #e2e8f0; }
-
         /* ── Responsive ── */
-        @media (max-width: 600px) {
-            .container { padding: 24px 16px; }
-            h1 { font-size: 24px; }
-            .row { flex-direction: column; gap: 0; }
-            .chat-card { height: calc(100vh - 180px); }
+        @media (max-width: 700px) {
+            .features { grid-template-columns: 1fr; max-width: 400px; }
+            .page { padding: 90px 16px 24px; }
+            .section-title { font-size: 24px; }
+            .field-row { flex-direction: column; gap: 0; }
+            .chat-box { height: calc(100vh - 220px); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Try Web-RAG</h1>
-        <p class="subtitle">Paste a website URL, upload PDFs, and chat with the content in seconds.</p>
 
-        <!-- ═══ State 1: Form ═══ -->
-        <div id="form-section" class="section active">
-            <div class="form-group">
-                <label>Website URL</label>
-                <input type="url" id="url-input" placeholder="https://example.com" required>
-            </div>
+<!-- ── Top bar ── -->
+<div class="topbar">
+    <div class="logo">Web<span>RAG</span></div>
+    <div class="lang-switch">
+        <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
+    </div>
+</div>
 
-            <div class="form-group">
-                <label>Additional PDFs (optional)</label>
-                <div class="file-upload" id="file-drop">
-                    <div class="icon">📄</div>
-                    <div class="text">Drop PDF files here or click to browse</div>
-                    <input type="file" id="pdf-input" accept=".pdf" multiple>
-                </div>
-                <div class="file-list" id="file-list"></div>
-                <div class="hint">Max 10MB per file. Text-based PDFs only (scanned images won't work).</div>
-            </div>
+<!-- ══════════ LANDING PAGE ══════════ -->
+<div class="landing" id="landing">
 
-            <div class="row">
-                <div class="form-group">
-                    <label>Pages to crawl</label>
-                    <select id="max-pages">
-                        <option value="1">1 page only</option>
-                        <option value="3">Up to 3 pages</option>
-                        <option value="5" selected>Up to 5 pages</option>
-                        <option value="10">Up to 10 pages</option>
-                        <option value="20">Up to 20 pages</option>
-                        <option value="30">Up to 30 pages</option>
-                        <option value="50">Up to 50 pages</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Assistant language</label>
-                    <select id="language">
-                        <option value="en">English</option>
-                        <option value="ru">Russian</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="zh">Chinese</option>
-                        <option value="ja">Japanese</option>
-                        <option value="ko">Korean</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="ar">Arabic</option>
-                        <option value="hi">Hindi</option>
-                        <option value="it">Italian</option>
-                        <option value="tr">Turkish</option>
-                        <option value="nl">Dutch</option>
-                        <option value="pl">Polish</option>
-                        <option value="uk">Ukrainian</option>
-                    </select>
-                </div>
-            </div>
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-badge" data-i18n="heroBadge"></div>
+        <h1 data-i18n-html="heroTitle"></h1>
+        <p data-i18n="heroSub"></p>
+        <button class="hero-cta" onclick="goToRegister()">
+            <span data-i18n="heroCta"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+    </section>
 
-            <button class="btn btn-primary" id="start-btn" onclick="startTrial()">
-                Start Trial
-            </button>
-
-            <div class="error-box" id="form-error"></div>
+    <!-- Features -->
+    <section class="features">
+        <div class="feature-card">
+            <div class="feature-icon">&#128301;</div>
+            <h3 data-i18n="feat1Title"></h3>
+            <p data-i18n="feat1Desc"></p>
         </div>
-
-        <!-- ═══ State 2: Progress ═══ -->
-        <div id="progress-section" class="section">
-            <div class="progress-card">
-                <div class="progress-icon" id="progress-icon">🔍</div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill indeterminate" id="progress-fill"></div>
-                </div>
-                <div class="progress-message" id="progress-message">Starting...</div>
-            </div>
-
-            <div class="error-box" id="progress-error"></div>
+        <div class="feature-card">
+            <div class="feature-icon">&#9889;</div>
+            <h3 data-i18n="feat2Title"></h3>
+            <p data-i18n="feat2Desc"></p>
         </div>
+        <div class="feature-card">
+            <div class="feature-icon">&#127760;</div>
+            <h3 data-i18n="feat3Title"></h3>
+            <p data-i18n="feat3Desc"></p>
+        </div>
+    </section>
 
-        <!-- ═══ State 3: Chat ═══ -->
-        <div id="chat-section" class="section">
-            <div class="chat-card">
-                <div class="chat-header">
-                    <span id="chat-title">Ask a question</span>
-                    <div class="expires" id="chat-expires"></div>
-                </div>
-                <div class="chat-messages" id="chat-messages">
-                    <div class="chat-msg system">
-                        Your content has been indexed! Ask anything about it.
-                    </div>
-                    <div class="typing-indicator" id="typing">
-                        <span></span><span></span><span></span>
-                    </div>
-                </div>
-                <div class="chat-input-row">
-                    <input class="chat-input" id="chat-input" placeholder="Type your question..." />
-                    <button class="chat-send" id="send-btn" onclick="sendMessage()">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                        </svg>
-                    </button>
-                </div>
+    <!-- Video section -->
+    <section class="video-section">
+        <h2 data-i18n="videoTitle"></h2>
+        <p data-i18n="videoSub"></p>
+        <div class="video-placeholder" id="video-area">
+            <div class="play-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
             </div>
+            <span data-i18n="videoPlaceholder"></span>
+        </div>
+    </section>
 
-            <button class="btn btn-secondary" onclick="resetTrial()" style="width:100%">
-                Try another site
+    <!-- Bottom CTA -->
+    <section class="bottom-cta">
+        <h2 data-i18n="ctaTitle"></h2>
+        <p data-i18n="ctaSub"></p>
+        <button class="hero-cta" onclick="goToRegister()">
+            <span data-i18n="ctaBtn"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+    </section>
+
+    <div class="footer">
+        &copy; 2025 WebRAG. <span data-i18n="footerText"></span>
+    </div>
+</div>
+
+<!-- ══════════ APP FLOW ══════════ -->
+<div class="app" id="app-flow">
+<div class="page">
+
+    <!-- Step dots -->
+    <div class="steps">
+        <div class="step-dot active" id="dot-1"></div>
+        <div class="step-dot" id="dot-2"></div>
+        <div class="step-dot" id="dot-3"></div>
+        <div class="step-dot" id="dot-4"></div>
+    </div>
+
+    <!-- ═══ STEP 1: Register ═══ -->
+    <div id="s-register" class="section active">
+        <a class="back-link" onclick="goLanding()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            <span data-i18n="backToMain"></span>
+        </a>
+        <h1 class="section-title" data-i18n="regTitle"></h1>
+        <p class="section-sub" data-i18n="regSub"></p>
+
+        <div class="card">
+            <div class="field">
+                <label data-i18n="regName"></label>
+                <input type="text" id="reg-name" data-i18n-ph="regNamePh">
+            </div>
+            <div class="field">
+                <label data-i18n="regEmail"></label>
+                <input type="email" id="reg-email" data-i18n-ph="regEmailPh">
+            </div>
+            <div class="field">
+                <label data-i18n="regCompany"></label>
+                <input type="text" id="reg-company" data-i18n-ph="regCompanyPh">
+            </div>
+            <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">
+                <span data-i18n="regBtn"></span>
             </button>
+            <div class="err" id="reg-err"></div>
         </div>
     </div>
 
-    <script>
-    (function() {
-        "use strict";
+    <!-- ═══ STEP 2: Trial setup ═══ -->
+    <div id="s-trial" class="section">
+        <h1 class="section-title" data-i18n="trialTitle"></h1>
+        <p class="section-sub" data-i18n="trialSub"></p>
 
-        const API = window.location.origin;
-        let siteId = null;
+        <div class="card">
+            <div class="field">
+                <label data-i18n="trialUrl"></label>
+                <input type="url" id="t-url" placeholder="https://yoursite.com">
+            </div>
 
-        // ── DOM refs ──
-        const urlInput = document.getElementById("url-input");
-        const pdfInput = document.getElementById("pdf-input");
-        const maxPages = document.getElementById("max-pages");
-        const langSelect = document.getElementById("language");
-        const startBtn = document.getElementById("start-btn");
-        const fileList = document.getElementById("file-list");
-        const formError = document.getElementById("form-error");
+            <div class="field">
+                <label data-i18n="trialPdf"></label>
+                <div class="file-drop">
+                    <div class="file-drop-icon">+</div>
+                    <div class="file-drop-text" data-i18n="trialDrop"></div>
+                    <input type="file" id="t-pdfs" accept=".pdf" multiple>
+                </div>
+                <div class="file-list" id="t-file-list"></div>
+                <div class="hint" data-i18n="trialHint"></div>
+            </div>
 
-        const progressFill = document.getElementById("progress-fill");
-        const progressMsg = document.getElementById("progress-message");
-        const progressIcon = document.getElementById("progress-icon");
-        const progressError = document.getElementById("progress-error");
+            <div class="field-row">
+                <div class="field">
+                    <label data-i18n="trialPages"></label>
+                    <select id="t-pages">
+                        <option value="1">1</option>
+                        <option value="3">3</option>
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label data-i18n="trialLang"></label>
+                    <select id="t-lang">
+                        <option value="ru" selected>Русский</option>
+                        <option value="en">English</option>
+                        <option value="kk">Қазақша</option>
+                    </select>
+                </div>
+            </div>
 
-        const chatMessages = document.getElementById("chat-messages");
-        const chatInput = document.getElementById("chat-input");
-        const sendBtn = document.getElementById("send-btn");
-        const typing = document.getElementById("typing");
-        const chatTitle = document.getElementById("chat-title");
-        const chatExpires = document.getElementById("chat-expires");
+            <button class="btn btn-primary" id="t-start-btn" onclick="startTrial()">
+                <span data-i18n="trialBtn"></span>
+            </button>
+            <div class="err" id="t-err"></div>
+        </div>
+    </div>
 
-        // ── Section switching ──
-        function showSection(name) {
-            document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
-            document.getElementById(name + "-section").classList.add("active");
+    <!-- ═══ STEP 2b: Progress ═══ -->
+    <div id="s-progress" class="section">
+        <h1 class="section-title" data-i18n="progTitle"></h1>
+        <p class="section-sub" data-i18n="progSub"></p>
+
+        <div class="card" style="text-align:center;">
+            <div class="progress-emoji" id="p-icon">&#128270;</div>
+            <div class="progress-bar-track">
+                <div class="progress-bar-val pulse" id="p-bar"></div>
+            </div>
+            <div class="progress-status" id="p-msg" data-i18n="progStart"></div>
+        </div>
+        <div class="err" id="p-err"></div>
+    </div>
+
+    <!-- ═══ STEP 3: Chat ═══ -->
+    <div id="s-chat" class="section">
+        <h1 class="section-title" data-i18n="chatTitle"></h1>
+        <p class="section-sub" data-i18n="chatSub"></p>
+
+        <div class="chat-box">
+            <div class="chat-bar">
+                <span id="c-title">Assistant</span>
+                <small>trial &middot; 24h</small>
+            </div>
+            <div class="chat-body" id="c-body">
+                <div class="msg sys" data-i18n="chatReady"></div>
+                <div class="typing" id="c-typing"><span></span><span></span><span></span></div>
+            </div>
+            <div class="chat-foot">
+                <input id="c-input" data-i18n-ph="chatPh">
+                <button id="c-send" onclick="sendMsg()">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:16px" onclick="goActivate()">
+            <span data-i18n="chatGetCode"></span>
+        </button>
+        <button class="btn btn-ghost" style="margin-top:8px" onclick="resetAll()">
+            <span data-i18n="chatTryAnother"></span>
+        </button>
+    </div>
+
+    <!-- ═══ STEP 4: Activate ═══ -->
+    <div id="s-activate" class="section">
+        <h1 class="section-title" data-i18n="actTitle"></h1>
+        <p class="section-sub" data-i18n="actSub"></p>
+
+        <div class="card" id="activate-form">
+            <div class="field">
+                <label data-i18n="actCode"></label>
+                <input type="text" id="a-code" data-i18n-ph="actCodePh">
+            </div>
+            <button class="btn btn-primary" onclick="doActivate()">
+                <span data-i18n="actBtn"></span>
+            </button>
+            <div class="err" id="a-err"></div>
+        </div>
+
+        <div class="card" id="activate-success" style="display:none;">
+            <div class="success-icon">&#9989;</div>
+            <h2 style="text-align:center;font-size:18px;margin-bottom:4px;" data-i18n="actDone"></h2>
+            <p style="text-align:center;color:var(--text2);font-size:13px;margin-bottom:20px;" data-i18n="actPaste"></p>
+            <div class="code-box" id="widget-code" onclick="copyCode()">
+                <span class="copy-hint" data-i18n="actCopy"></span>
+            </div>
+            <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:12px;" id="copy-status"></p>
+        </div>
+
+        <button class="btn btn-ghost" style="margin-top:12px" onclick="goChat()">
+            <span data-i18n="actBack"></span>
+        </button>
+    </div>
+
+</div>
+</div>
+
+<script>
+(function() {
+    "use strict";
+
+    // ── Translations ──
+    const T = {
+        ru: {
+            pageTitle: "Web-RAG — AI-ассистент для вашего сайта",
+            heroBadge: "AI-ассистент нового поколения",
+            heroTitle: 'Превратите ваш сайт в <span class="gradient-text">умного помощника</span>',
+            heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
+            heroCta: "Попробовать бесплатно",
+            feat1Title: "Умный поиск по контенту",
+            feat1Desc: "AI анализирует весь ваш сайт и документы, находит самую релевантную информацию и даёт точные ответы с ссылками.",
+            feat2Title: "Установка за 5 минут",
+            feat2Desc: "Просто вставьте одну строчку кода на сайт — и ассистент готов к работе. Никакой сложной интеграции.",
+            feat3Title: "Мультиязычность",
+            feat3Desc: "Поддержка русского, английского, казахского и других языков. Ассистент отвечает на языке вашей аудитории.",
+            videoTitle: "Как это работает",
+            videoSub: "Посмотрите демонстрацию работы AI-ассистента на реальном сайте",
+            videoPlaceholder: "Видео скоро появится",
+            ctaTitle: "Готовы попробовать?",
+            ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
+            ctaBtn: "Начать бесплатно",
+            footerText: "Интеллектуальные решения для бизнеса",
+            backToMain: "На главную",
+            regTitle: "Регистрация",
+            regSub: "Зарегистрируйтесь, чтобы попробовать AI-ассистента на вашем сайте бесплатно.",
+            regName: "Полное имя",
+            regNamePh: "Иван Петров",
+            regEmail: "Рабочая почта",
+            regEmailPh: "ivan@company.kz",
+            regCompany: "Компания (необязательно)",
+            regCompanyPh: "ТОО «Компания»",
+            regBtn: "Продолжить",
+            regErrEmpty: "Пожалуйста, укажите имя и email.",
+            regErrEmail: "Пожалуйста, введите корректный email.",
+            regErrNet: "Ошибка сети. Сервер запущен?",
+            trialTitle: "Настройка демо",
+            trialSub: "Укажите URL сайта — мы проиндексируем его контент для вашего ассистента.",
+            trialUrl: "URL сайта",
+            trialPdf: "PDF-файлы (необязательно)",
+            trialDrop: "Перетащите PDF или нажмите для выбора",
+            trialHint: "Максимум 10 МБ на файл. Только текстовые PDF.",
+            trialPages: "Страницы",
+            trialLang: "Язык ответов",
+            trialBtn: "Запустить индексацию",
+            trialErrUrl: "Пожалуйста, введите URL.",
+            trialErrNet: "Ошибка сети.",
+            progTitle: "Индексация...",
+            progSub: "Сканируем и индексируем контент вашего сайта. Обычно это занимает 10-30 секунд.",
+            progStart: "Начинаем...",
+            progFail: "Ошибка.",
+            progLost: "Соединение потеряно. Попробуйте обновить страницу.",
+            chatTitle: "Ваш ассистент работает",
+            chatSub: "Задайте любой вопрос по содержимому проиндексированного сайта.",
+            chatReady: "Контент проиндексирован. Задайте мне вопрос!",
+            chatPh: "Введите вопрос...",
+            chatGetCode: "Получить код виджета",
+            chatTryAnother: "Попробовать другой сайт",
+            chatError: "Что-то пошло не так.",
+            actTitle: "Активация ассистента",
+            actSub: "Введите код активации, чтобы получить код для встраивания на сайт.",
+            actCode: "Код активации",
+            actCodePh: "Введите код",
+            actBtn: "Активировать",
+            actErrEmpty: "Пожалуйста, введите код.",
+            actErrNet: "Ошибка сети.",
+            actDone: "Активировано!",
+            actPaste: "Вставьте этот код в HTML вашего сайта:",
+            actCopy: "нажмите, чтобы скопировать",
+            actBack: "Назад к чату",
+        },
+        en: {
+            pageTitle: "Web-RAG — AI Website Assistant",
+            heroBadge: "Next-gen AI assistant",
+            heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
+            heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
+            heroCta: "Try for free",
+            feat1Title: "Smart content search",
+            feat1Desc: "AI analyzes your entire website and documents, finds the most relevant information, and gives precise answers with sources.",
+            feat2Title: "Setup in 5 minutes",
+            feat2Desc: "Just paste one line of code into your site — and the assistant is ready. No complex integrations needed.",
+            feat3Title: "Multilingual support",
+            feat3Desc: "Supports Russian, English, Kazakh and more. The assistant responds in your audience's language.",
+            videoTitle: "How it works",
+            videoSub: "See a demo of the AI assistant on a real website",
+            videoPlaceholder: "Video coming soon",
+            ctaTitle: "Ready to try?",
+            ctaSub: "Free demo — index your website and test the assistant right now",
+            ctaBtn: "Start for free",
+            footerText: "Intelligent solutions for business",
+            backToMain: "Back to home",
+            regTitle: "Register",
+            regSub: "Sign up to try the AI assistant on your website for free.",
+            regName: "Full name",
+            regNamePh: "John Smith",
+            regEmail: "Work email",
+            regEmailPh: "john@company.com",
+            regCompany: "Company (optional)",
+            regCompanyPh: "Acme Inc",
+            regBtn: "Continue",
+            regErrEmpty: "Please fill in your name and email.",
+            regErrEmail: "Please enter a valid email.",
+            regErrNet: "Network error. Is the server running?",
+            trialTitle: "Set up your trial",
+            trialSub: "Paste a website URL and we'll index its content for your assistant.",
+            trialUrl: "Website URL",
+            trialPdf: "PDFs (optional)",
+            trialDrop: "Drop PDF files or click to browse",
+            trialHint: "Max 10 MB per file. Text-based PDFs only.",
+            trialPages: "Pages",
+            trialLang: "Response language",
+            trialBtn: "Index & Launch Assistant",
+            trialErrUrl: "Please enter a URL.",
+            trialErrNet: "Network error.",
+            progTitle: "Indexing...",
+            progSub: "We're crawling and embedding your content. This usually takes 10-30 seconds.",
+            progStart: "Starting...",
+            progFail: "Failed.",
+            progLost: "Lost connection. Try refreshing.",
+            chatTitle: "Your assistant is live",
+            chatSub: "Ask anything about the indexed content.",
+            chatReady: "Content indexed. Ask me anything!",
+            chatPh: "Type a question...",
+            chatGetCode: "Get Widget Code",
+            chatTryAnother: "Try another site",
+            chatError: "Something went wrong.",
+            actTitle: "Activate your assistant",
+            actSub: "Enter your activation code to get the embed snippet.",
+            actCode: "Activation Code",
+            actCodePh: "Enter code",
+            actBtn: "Activate",
+            actErrEmpty: "Please enter a code.",
+            actErrNet: "Network error.",
+            actDone: "Activated!",
+            actPaste: "Paste this snippet into your website's HTML:",
+            actCopy: "click to copy",
+            actBack: "Back to chat",
+        },
+        kk: {
+            pageTitle: "Web-RAG — Сайтыңыз үшін AI-көмекші",
+            heroBadge: "Жаңа буын AI-көмекші",
+            heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
+            heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
+            heroCta: "Тегін байқап көру",
+            feat1Title: "Ақылды мазмұн іздеу",
+            feat1Desc: "AI бүкіл сайтыңыз бен құжаттарды талдайды, ең сәйкес ақпаратты тауып, сілтемелермен дәл жауап береді.",
+            feat2Title: "5 минутта орнату",
+            feat2Desc: "Сайтқа бір жол код қойыңыз — көмекші жұмысқа дайын. Күрделі интеграция қажет емес.",
+            feat3Title: "Көптілділік",
+            feat3Desc: "Қазақ, орыс, ағылшын және басқа тілдерді қолдайды. Көмекші аудиторияңыздың тілінде жауап береді.",
+            videoTitle: "Қалай жұмыс істейді",
+            videoSub: "AI-көмекшінің нақты сайтта жұмыс істеуін көріңіз",
+            videoPlaceholder: "Бейне жақында қосылады",
+            ctaTitle: "Байқап көруге дайынсыз ба?",
+            ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
+            ctaBtn: "Тегін бастау",
+            footerText: "Бизнеске арналған интеллектуалды шешімдер",
+            backToMain: "Басты бетке",
+            regTitle: "Тіркелу",
+            regSub: "AI-көмекшіні сайтыңызда тегін сынап көру үшін тіркеліңіз.",
+            regName: "Толық аты-жөні",
+            regNamePh: "Ахмет Сериков",
+            regEmail: "Жұмыс поштасы",
+            regEmailPh: "ahmet@company.kz",
+            regCompany: "Компания (міндетті емес)",
+            regCompanyPh: "«Компания» ЖШС",
+            regBtn: "Жалғастыру",
+            regErrEmpty: "Атыңыз бен email-ді толтырыңыз.",
+            regErrEmail: "Дұрыс email енгізіңіз.",
+            regErrNet: "Желі қатесі. Сервер іске қосылған ба?",
+            trialTitle: "Демо баптау",
+            trialSub: "Сайт URL-ін енгізіңіз — біз оның мазмұнын көмекші үшін индекстейміз.",
+            trialUrl: "Сайт URL",
+            trialPdf: "PDF файлдар (міндетті емес)",
+            trialDrop: "PDF файлдарды сүйреңіз немесе таңдаңыз",
+            trialHint: "Файлға 10 МБ дейін. Тек мәтіндік PDF.",
+            trialPages: "Беттер",
+            trialLang: "Жауап тілі",
+            trialBtn: "Индекстеуді бастау",
+            trialErrUrl: "URL енгізіңіз.",
+            trialErrNet: "Желі қатесі.",
+            progTitle: "Индекстеу...",
+            progSub: "Сайт мазмұнын сканерлеу және индекстеу жүруде. Әдетте 10-30 секунд алады.",
+            progStart: "Бастаудамыз...",
+            progFail: "Қате.",
+            progLost: "Байланыс үзілді. Бетті жаңартып көріңіз.",
+            chatTitle: "Көмекшіңіз жұмыс істеуде",
+            chatSub: "Индекстелген мазмұн бойынша кез келген сұрақ қойыңыз.",
+            chatReady: "Мазмұн индекстелді. Маған сұрақ қойыңыз!",
+            chatPh: "Сұрақ жазыңыз...",
+            chatGetCode: "Виджет кодын алу",
+            chatTryAnother: "Басқа сайтты сынау",
+            chatError: "Бір нәрсе дұрыс болмады.",
+            actTitle: "Көмекшіні белсендіру",
+            actSub: "Сайтқа ендіру кодын алу үшін белсендіру кодын енгізіңіз.",
+            actCode: "Белсендіру коды",
+            actCodePh: "Кодты енгізіңіз",
+            actBtn: "Белсендіру",
+            actErrEmpty: "Кодты енгізіңіз.",
+            actErrNet: "Желі қатесі.",
+            actDone: "Белсендірілді!",
+            actPaste: "Бұл кодты сайтыңыздың HTML-іне қойыңыз:",
+            actCopy: "көшіру үшін басыңыз",
+            actBack: "Чатқа оралу",
         }
+    };
 
-        // ── File list display ──
-        pdfInput.addEventListener("change", () => {
-            const names = Array.from(pdfInput.files).map(f => f.name);
-            fileList.textContent = names.length ? names.join(", ") : "";
+    let currentLang = localStorage.getItem("wr_lang") || "ru";
+
+    function applyTranslations() {
+        const t = T[currentLang];
+        document.title = t.pageTitle;
+        document.documentElement.lang = currentLang === "kk" ? "kk" : currentLang;
+
+        // Text content
+        document.querySelectorAll("[data-i18n]").forEach(el => {
+            const key = el.getAttribute("data-i18n");
+            if (t[key]) el.textContent = t[key];
         });
 
-        // ── Start Trial ──
-        window.startTrial = async function() {
-            const url = urlInput.value.trim();
-            if (!url) {
-                showError(formError, "Please enter a URL.");
+        // InnerHTML (for gradient spans etc.)
+        document.querySelectorAll("[data-i18n-html]").forEach(el => {
+            const key = el.getAttribute("data-i18n-html");
+            if (t[key]) el.innerHTML = t[key];
+        });
+
+        // Placeholders
+        document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+            const key = el.getAttribute("data-i18n-ph");
+            if (t[key]) el.placeholder = t[key];
+        });
+
+        // Update lang buttons
+        document.querySelectorAll(".lang-btn").forEach(b => {
+            b.classList.toggle("active", b.getAttribute("data-lang") === currentLang);
+        });
+    }
+
+    window.setLang = function(lang) {
+        currentLang = lang;
+        localStorage.setItem("wr_lang", lang);
+        applyTranslations();
+    };
+
+    // Apply on load
+    applyTranslations();
+
+    // ── State ──
+    const API = window.location.origin;
+    let token = localStorage.getItem("wr_token");
+    let siteId = null;
+
+    const dots = [1,2,3,4].map(i => document.getElementById("dot-" + i));
+
+    // ── Navigation ──
+    function go(name, step) {
+        document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+        document.getElementById("s-" + name).classList.add("active");
+        dots.forEach((d, i) => {
+            d.classList.remove("active", "done");
+            if (i < step - 1) d.classList.add("done");
+            else if (i === step - 1) d.classList.add("active");
+        });
+    }
+
+    function showApp() {
+        document.getElementById("landing").classList.add("hidden");
+        document.getElementById("app-flow").classList.add("active");
+    }
+
+    window.goLanding = function() {
+        document.getElementById("landing").classList.remove("hidden");
+        document.getElementById("app-flow").classList.remove("active");
+    };
+
+    window.goToRegister = function() {
+        if (token) {
+            showApp();
+            go("trial", 2);
+        } else {
+            showApp();
+            go("register", 1);
+        }
+    };
+
+    // Auto-login if already registered — go straight to trial on CTA click
+    // But stay on landing by default
+
+    // ── Step 1: Register ──
+    window.doRegister = async function() {
+        const t = T[currentLang];
+        const name = document.getElementById("reg-name").value.trim();
+        const email = document.getElementById("reg-email").value.trim();
+        const company = document.getElementById("reg-company").value.trim();
+        const btn = document.getElementById("reg-btn");
+        const err = document.getElementById("reg-err");
+
+        if (!name || !email) { showErr(err, t.regErrEmpty); return; }
+        if (!email.includes("@")) { showErr(err, t.regErrEmail); return; }
+
+        btn.disabled = true;
+        hideErr(err);
+
+        try {
+            const resp = await fetch(API + "/api/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, company }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }
+
+            token = data.token;
+            localStorage.setItem("wr_token", token);
+            go("trial", 2);
+        } catch (e) {
+            showErr(err, t.regErrNet);
+            btn.disabled = false;
+        }
+    };
+
+    // ── Step 2: Trial ──
+    document.getElementById("t-pdfs").addEventListener("change", function() {
+        const names = Array.from(this.files).map(f => f.name);
+        document.getElementById("t-file-list").textContent = names.length ? names.join(", ") : "";
+    });
+
+    window.startTrial = async function() {
+        const t = T[currentLang];
+        const url = document.getElementById("t-url").value.trim();
+        const btn = document.getElementById("t-start-btn");
+        const err = document.getElementById("t-err");
+
+        if (!url) { showErr(err, t.trialErrUrl); return; }
+
+        btn.disabled = true;
+        hideErr(err);
+
+        const fd = new FormData();
+        fd.append("url", url);
+        fd.append("max_pages", document.getElementById("t-pages").value);
+        fd.append("language", document.getElementById("t-lang").value);
+        for (const f of document.getElementById("t-pdfs").files) fd.append("pdfs", f);
+
+        try {
+            const resp = await fetch(API + "/api/trial/start", { method: "POST", body: fd });
+            const data = await resp.json();
+
+            if (!resp.ok) { showErr(err, data.error || t.trialErrNet); btn.disabled = false; return; }
+
+            siteId = data.site_id;
+            document.getElementById("c-title").textContent = url;
+            go("progress", 2);
+            watchProgress(siteId);
+        } catch (e) {
+            showErr(err, t.trialErrNet);
+            btn.disabled = false;
+        }
+    };
+
+    function watchProgress(id) {
+        const t = T[currentLang];
+        const bar = document.getElementById("p-bar");
+        const msg = document.getElementById("p-msg");
+        const icon = document.getElementById("p-icon");
+        const err = document.getElementById("p-err");
+
+        const es = new EventSource(API + "/api/trial/progress/" + id);
+        es.onmessage = (ev) => {
+            const p = JSON.parse(ev.data);
+
+            if (p.error) {
+                es.close();
+                icon.innerHTML = "&#10060;";
+                msg.textContent = t.progFail;
+                bar.style.width = "100%"; bar.style.background = "var(--red)"; bar.classList.remove("pulse");
+                showErr(err, p.error);
                 return;
             }
 
-            startBtn.disabled = true;
-            hideError(formError);
+            msg.textContent = p.message;
 
-            const formData = new FormData();
-            formData.append("url", url);
-            formData.append("max_pages", maxPages.value);
-            formData.append("language", langSelect.value);
-            for (const file of pdfInput.files) {
-                formData.append("pdfs", file);
+            if (p.total > 0 && p.step > 0) {
+                bar.classList.remove("pulse");
+                bar.style.width = Math.round(p.step / p.total * 100) + "%";
             }
 
-            try {
-                const resp = await fetch(`${API}/api/trial/start`, {
-                    method: "POST",
-                    body: formData,
-                });
-
-                const data = await resp.json();
-
-                if (!resp.ok) {
-                    showError(formError, data.error || "Failed to start trial.");
-                    startBtn.disabled = false;
-                    return;
-                }
-
-                siteId = data.site_id;
-                chatTitle.textContent = url;
-                chatExpires.textContent = "Trial expires in 24 hours";
-
-                showSection("progress");
-                connectProgress(siteId);
-
-            } catch (err) {
-                showError(formError, "Network error. Is the server running?");
-                startBtn.disabled = false;
+            if (p.done) {
+                es.close();
+                icon.innerHTML = "&#9989;";
+                bar.classList.remove("pulse");
+                bar.style.width = "100%";
+                setTimeout(() => {
+                    go("chat", 3);
+                    document.getElementById("c-input").focus();
+                }, 600);
             }
         };
 
-        // ── SSE Progress ──
-        function connectProgress(siteId) {
-            const evtSource = new EventSource(`${API}/api/trial/progress/${siteId}`);
+        es.onerror = () => {
+            es.close();
+            icon.innerHTML = "&#10060;";
+            msg.textContent = t.progLost;
+            showErr(err, t.progLost);
+        };
+    }
 
-            evtSource.onmessage = (event) => {
-                const p = JSON.parse(event.data);
+    // ── Step 3: Chat ──
+    window.sendMsg = async function() {
+        const t = T[currentLang];
+        const inp = document.getElementById("c-input");
+        const q = inp.value.trim();
+        if (!q || !siteId) return;
 
-                if (p.error) {
-                    evtSource.close();
-                    progressIcon.textContent = "❌";
-                    progressMsg.textContent = "Indexing failed.";
-                    progressFill.style.width = "100%";
-                    progressFill.style.background = "#ef4444";
-                    progressFill.classList.remove("indeterminate");
-                    showError(progressError, p.error);
+        inp.value = "";
+        document.getElementById("c-send").disabled = true;
+        addChat(q, "user");
+        document.getElementById("c-typing").classList.add("on");
+        scrollChat();
 
-                    // Add retry button
-                    progressError.innerHTML += '<br><br><button class="btn btn-secondary" onclick="resetTrial()" style="width:100%">Try again</button>';
-                    return;
-                }
-
-                progressMsg.textContent = p.message;
-
-                if (p.total > 0 && p.step > 0) {
-                    const pct = Math.round((p.step / p.total) * 100);
-                    progressFill.classList.remove("indeterminate");
-                    progressFill.style.width = pct + "%";
-                }
-
-                if (p.done) {
-                    evtSource.close();
-                    progressIcon.textContent = "✅";
-                    progressFill.classList.remove("indeterminate");
-                    progressFill.style.width = "100%";
-
-                    setTimeout(() => {
-                        showSection("chat");
-                        chatInput.focus();
-                    }, 800);
-                }
-            };
-
-            evtSource.onerror = () => {
-                evtSource.close();
-                progressIcon.textContent = "❌";
-                progressMsg.textContent = "Connection lost.";
-                showError(progressError, "Lost connection to server. Try refreshing the page.");
-            };
+        try {
+            const resp = await fetch(API + "/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ site_id: siteId, query: q }),
+            });
+            const data = await resp.json();
+            addBotChat(data.answer, data.sources, data.confidence);
+        } catch (e) {
+            addChat(t.chatError, "bot");
+        } finally {
+            document.getElementById("c-typing").classList.remove("on");
+            document.getElementById("c-send").disabled = false;
+            inp.focus();
         }
+    };
 
-        // ── Chat ──
-        window.sendMessage = async function() {
-            const query = chatInput.value.trim();
-            if (!query || !siteId) return;
+    document.getElementById("c-input").addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+    });
 
-            chatInput.value = "";
-            sendBtn.disabled = true;
-            addMsg(query, "user");
-            typing.classList.add("active");
-            scrollChat();
+    function addChat(text, type) {
+        const d = document.createElement("div");
+        d.className = "msg " + type;
+        d.textContent = text;
+        const body = document.getElementById("c-body");
+        body.insertBefore(d, document.getElementById("c-typing"));
+        scrollChat();
+    }
 
-            try {
-                const resp = await fetch(`${API}/api/chat`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ site_id: siteId, query: query }),
-                });
+    function addBotChat(text, sources, conf) {
+        const d = document.createElement("div");
+        d.className = "msg bot";
+        let h = "";
+        if (conf) h += '<span class="badge ' + conf + '">' + conf + '</span><br>';
+        h += text
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+            .replace(/\n/g, "<br>");
+        if (sources && sources.length) {
+            h += '<div class="msg-sources"><strong>Sources:</strong>';
+            sources.forEach((s, i) => {
+                const href = s.url.startsWith("pdf://") ? "#" : s.url;
+                h += '<a href="' + href + '" target="_blank">[' + (i+1) + '] ' + s.title + '</a>';
+            });
+            h += '</div>';
+        }
+        d.innerHTML = h;
+        document.getElementById("c-body").insertBefore(d, document.getElementById("c-typing"));
+        scrollChat();
+    }
 
-                const data = await resp.json();
-                addBotMsg(data.answer, data.sources, data.confidence);
-            } catch (err) {
-                addMsg("Sorry, something went wrong. Please try again.", "bot");
-            } finally {
-                typing.classList.remove("active");
-                sendBtn.disabled = false;
-                chatInput.focus();
-            }
-        };
+    function scrollChat() {
+        const b = document.getElementById("c-body");
+        b.scrollTop = b.scrollHeight;
+    }
 
-        chatInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+    // ── Step 4: Activate ──
+    window.goActivate = function() { go("activate", 4); };
+    window.goChat = function() { go("chat", 3); };
+
+    window.doActivate = async function() {
+        const t = T[currentLang];
+        const code = document.getElementById("a-code").value.trim();
+        const err = document.getElementById("a-err");
+
+        if (!code) { showErr(err, t.actErrEmpty); return; }
+        hideErr(err);
+
+        try {
+            const resp = await fetch(API + "/api/activate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code, site_id: siteId, token }),
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) { showErr(err, data.error); return; }
+
+            document.getElementById("activate-form").style.display = "none";
+            document.getElementById("activate-success").style.display = "block";
+            document.getElementById("widget-code").textContent = data.widget_code;
+        } catch (e) {
+            showErr(err, t.actErrNet);
+        }
+    };
+
+    window.copyCode = function() {
+        const text = document.getElementById("widget-code").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            document.getElementById("copy-status").textContent = currentLang === "ru" ? "Скопировано!" : currentLang === "kk" ? "Көшірілді!" : "Copied!";
+            setTimeout(() => document.getElementById("copy-status").textContent = "", 2000);
         });
+    };
 
-        function addMsg(text, type) {
-            const msg = document.createElement("div");
-            msg.className = `chat-msg ${type}`;
-            msg.textContent = text;
-            chatMessages.insertBefore(msg, typing);
-            scrollChat();
-        }
+    // ── Reset ──
+    window.resetAll = function() {
+        siteId = null;
+        document.getElementById("t-url").value = "";
+        document.getElementById("t-pdfs").value = "";
+        document.getElementById("t-file-list").textContent = "";
+        document.getElementById("t-start-btn").disabled = false;
 
-        function addBotMsg(text, sources, confidence) {
-            const msg = document.createElement("div");
-            msg.className = "chat-msg bot";
+        const bar = document.getElementById("p-bar");
+        bar.style.width = "0%"; bar.style.background = "var(--accent)"; bar.classList.add("pulse");
+        document.getElementById("p-msg").textContent = T[currentLang].progStart;
+        document.getElementById("p-icon").innerHTML = "&#128270;";
+        hideErr(document.getElementById("p-err"));
 
-            let html = "";
+        document.getElementById("c-body").querySelectorAll(".msg:not(.sys)").forEach(m => m.remove());
 
-            if (confidence) {
-                html += `<span class="confidence ${confidence}">${confidence}</span><br>`;
-            }
+        document.getElementById("a-code").value = "";
+        document.getElementById("activate-form").style.display = "block";
+        document.getElementById("activate-success").style.display = "none";
+        hideErr(document.getElementById("a-err"));
+        hideErr(document.getElementById("t-err"));
 
-            // Basic markdown rendering
-            html += text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-                .replace(/\n/g, "<br>");
+        go("trial", 2);
+    };
 
-            if (sources && sources.length > 0) {
-                html += `<div class="chat-sources"><strong>Sources:</strong>`;
-                sources.forEach((s, i) => {
-                    const href = s.url.startsWith("pdf://") ? "#" : s.url;
-                    html += `<a href="${href}" target="_blank">[${i + 1}] ${s.title}</a>`;
-                });
-                html += `</div>`;
-            }
+    // ── Helpers ──
+    function showErr(el, msg) { el.textContent = msg; el.classList.add("on"); }
+    function hideErr(el) { el.textContent = ""; el.classList.remove("on"); }
 
-            msg.innerHTML = html;
-            chatMessages.insertBefore(msg, typing);
-            scrollChat();
-        }
-
-        function scrollChat() {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // ── Reset ──
-        window.resetTrial = function() {
-            siteId = null;
-            urlInput.value = "";
-            pdfInput.value = "";
-            fileList.textContent = "";
-            startBtn.disabled = false;
-
-            // Reset progress UI
-            progressFill.style.width = "0%";
-            progressFill.style.background = "#2563eb";
-            progressFill.classList.add("indeterminate");
-            progressMsg.textContent = "Starting...";
-            progressIcon.textContent = "🔍";
-            hideError(progressError);
-
-            // Clear chat messages (keep system message and typing)
-            const msgs = chatMessages.querySelectorAll(".chat-msg:not(.system)");
-            msgs.forEach(m => m.remove());
-
-            hideError(formError);
-            showSection("form");
-        };
-
-        // ── Helpers ──
-        function showError(el, msg) {
-            el.textContent = msg;
-            el.classList.add("visible");
-        }
-
-        function hideError(el) {
-            el.textContent = "";
-            el.classList.remove("visible");
-        }
-
-        // Enter key on URL input triggers start
-        urlInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                startTrial();
-            }
-        });
-    })();
-    </script>
+    // Enter keys
+    document.getElementById("reg-name").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("reg-email").focus(); });
+    document.getElementById("reg-email").addEventListener("keydown", e => { if (e.key === "Enter") doRegister(); });
+    document.getElementById("t-url").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); startTrial(); } });
+    document.getElementById("a-code").addEventListener("keydown", e => { if (e.key === "Enter") doActivate(); });
+})();
+</script>
 </body>
 </html>
