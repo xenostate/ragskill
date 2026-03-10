@@ -309,6 +309,47 @@
             margin-bottom: 14px;
         }
 
+        .qa-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .qa-overlay.open {
+            display: flex;
+        }
+
+        .qa-modal {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 32px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+
+        .qa-modal-close {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text2);
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .qa-modal-close:hover { color: var(--text); }
+
         /* ── App flow (steps) ── */
         .app { display: none; }
         .app.active { display: block; }
@@ -839,77 +880,9 @@
 
         <div class="quick-activate">
             <p class="quick-activate-label" data-i18n="qaTitle"></p>
-
-            <div class="card" id="qa-form" style="max-width:500px;margin:0 auto;text-align:left;">
-                <div class="field">
-                    <label data-i18n="qaUrl"></label>
-                    <input type="url" id="qa-url" placeholder="https://yoursite.com">
-                </div>
-
-                <div class="field">
-                    <label data-i18n="qaPdf"></label>
-                    <div class="file-drop">
-                        <div class="file-drop-icon">+</div>
-                        <div class="file-drop-text" data-i18n="qaDrop"></div>
-                        <input type="file" id="qa-pdfs" accept=".pdf" multiple>
-                    </div>
-                    <div class="file-list" id="qa-file-list"></div>
-                </div>
-
-                <div class="field-row">
-                    <div class="field">
-                        <label data-i18n="qaPages"></label>
-                        <select id="qa-pages">
-                            <option value="50">50</option>
-                            <option value="100" selected>100</option>
-                            <option value="150">150</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label data-i18n="qaLang"></label>
-                        <select id="qa-lang">
-                            <option value="" selected data-i18n="qaLangAuto">Auto</option>
-                            <option value="ru">Русский</option>
-                            <option value="en">English</option>
-                            <option value="kk">Қазақша</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="field" style="margin-top:4px;">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
-                        <input type="checkbox" id="qa-playwright" style="width:auto;cursor:pointer;">
-                        Enable Playwright (for JavaScript-heavy sites)
-                    </label>
-                </div>
-
-                <div class="field">
-                    <label data-i18n="qaCode"></label>
-                    <input type="text" id="qa-code" data-i18n-ph="qaCodePh">
-                </div>
-
-                <button class="btn btn-primary" id="qa-btn" onclick="quickActivate()">
-                    <span data-i18n="qaBtn"></span>
-                </button>
-                <div class="err" id="qa-err"></div>
-            </div>
-
-            <div id="qa-progress" style="display:none;max-width:500px;margin:16px auto 0;text-align:center;">
-                <div class="progress-bar" style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:8px;">
-                    <div id="qa-bar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
-                </div>
-                <p id="qa-msg" style="font-size:13px;color:var(--text2);"></p>
-            </div>
-
-            <div id="qa-success" style="display:none;max-width:500px;margin:16px auto 0;">
-                <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:12px;" data-i18n="qaDone"></p>
-                <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;text-align:left;">
-                    <span class="copy-hint" data-i18n="qaCopy"></span>
-                </div>
-                <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;" id="qa-copy-status"></p>
-            </div>
+            <button class="btn btn-primary" style="padding:12px 32px;" onclick="openQaModal()">
+                <span data-i18n="qaBtn"></span>
+            </button>
         </div>
     </section>
 
@@ -1144,7 +1117,9 @@
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
             ctaBtn: "Начать бесплатно",
-            qaTitle: "Уже приобрели? Активируйте полную версию",
+            qaTitle: "Уже приобрели?",
+            qaModalTitle: "Активация полной версии",
+            qaModalSub: "Укажите URL сайта, загрузите файлы и введите код активации",
             qaUrl: "URL сайта",
             qaPdf: "PDF-файлы (необязательно)",
             qaDrop: "Нажмите или перетащите PDF",
@@ -1239,7 +1214,9 @@
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
             ctaBtn: "Start for free",
-            qaTitle: "Already purchased? Activate the full version",
+            qaTitle: "Already purchased?",
+            qaModalTitle: "Full version activation",
+            qaModalSub: "Enter your website URL, upload files, and enter the activation code",
             qaUrl: "Website URL",
             qaPdf: "PDF files (optional)",
             qaDrop: "Click or drag PDFs here",
@@ -1334,7 +1311,9 @@
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
             ctaBtn: "Тегін бастау",
-            qaTitle: "Сатып алдыңыз ба? Толық нұсқаны белсендіріңіз",
+            qaTitle: "Сатып алдыңыз ба?",
+            qaModalTitle: "Толық нұсқаны белсендіру",
+            qaModalSub: "Сайт URL енгізіңіз, файлдарды жүктеңіз және белсендіру кодын енгізіңіз",
             qaUrl: "Сайт URL",
             qaPdf: "PDF файлдар (міндетті емес)",
             qaDrop: "PDF файлдарды осында басыңыз немесе сүйреңіз",
@@ -1916,6 +1895,97 @@
     document.getElementById("t-url").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); startTrial(); } });
     document.getElementById("a-code").addEventListener("keydown", e => { if (e.key === "Enter") doActivate(); });
 })();
+</script>
+
+<!-- ── Quick-activate modal ── -->
+<div class="qa-overlay" id="qa-overlay" onclick="if(event.target===this)closeQaModal()">
+    <div class="qa-modal">
+        <button class="qa-modal-close" onclick="closeQaModal()">&times;</button>
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="qaModalTitle"></h2>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:20px;" data-i18n="qaModalSub"></p>
+
+        <div id="qa-form">
+            <div class="field">
+                <label data-i18n="qaUrl"></label>
+                <input type="url" id="qa-url" placeholder="https://yoursite.com">
+            </div>
+
+            <div class="field">
+                <label data-i18n="qaPdf"></label>
+                <div class="file-drop">
+                    <div class="file-drop-icon">+</div>
+                    <div class="file-drop-text" data-i18n="qaDrop"></div>
+                    <input type="file" id="qa-pdfs" accept=".pdf" multiple>
+                </div>
+                <div class="file-list" id="qa-file-list"></div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label data-i18n="qaPages"></label>
+                    <select id="qa-pages">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="150">150</option>
+                        <option value="200">200</option>
+                        <option value="300">300</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label data-i18n="qaLang"></label>
+                    <select id="qa-lang">
+                        <option value="" selected>Auto</option>
+                        <option value="ru">Русский</option>
+                        <option value="en">English</option>
+                        <option value="kk">Қазақша</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field" style="margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+                    <input type="checkbox" id="qa-playwright" style="width:auto;cursor:pointer;">
+                    Enable Playwright (for JavaScript-heavy sites)
+                </label>
+            </div>
+
+            <div class="field">
+                <label data-i18n="qaCode"></label>
+                <input type="text" id="qa-code" data-i18n-ph="qaCodePh">
+            </div>
+
+            <button class="btn btn-primary" id="qa-btn" onclick="quickActivate()">
+                <span data-i18n="qaBtn"></span>
+            </button>
+            <div class="err" id="qa-err"></div>
+        </div>
+
+        <div id="qa-progress" style="display:none;text-align:center;">
+            <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:8px;">
+                <div id="qa-bar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
+            </div>
+            <p id="qa-msg" style="font-size:13px;color:var(--text2);"></p>
+        </div>
+
+        <div id="qa-success" style="display:none;">
+            <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:12px;" data-i18n="qaDone"></p>
+            <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;">
+                <span class="copy-hint" data-i18n="qaCopy"></span>
+            </div>
+            <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;" id="qa-copy-status"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+function openQaModal() {
+    document.getElementById("qa-overlay").classList.add("open");
+    document.body.style.overflow = "hidden";
+}
+function closeQaModal() {
+    document.getElementById("qa-overlay").classList.remove("open");
+    document.body.style.overflow = "";
+}
 </script>
 </body>
 </html>
