@@ -307,6 +307,7 @@
           site_id: parseInt(SITE_ID),
           query: query,
           session_id: sessionId,
+          origin_domain: window.location.hostname,
         }),
       });
 

@@ -25,7 +25,8 @@ import sys
 import time
 import uuid
 import logging
-from collections import deque
+import threading
+from collections import deque, defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -38,7 +39,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from pypdf import PdfReader
 
@@ -83,6 +84,63 @@ landing_site_id: int | None = None
 
 LANDING_DOMAIN = "landing.wrs.kz"
 
+
+# ── Rate Limiter ──────────────────────────────────────────────────────────
+
+class RateLimiter:
+    """In-memory sliding-window rate limiter per IP address."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # { "bucket_name:ip": deque([timestamp, ...]) }
+        self._hits: dict[str, deque] = defaultdict(deque)
+
+    def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
+        """Return True if request is within limit, False if rate-exceeded."""
+        now = time.time()
+        cutoff = now - window_seconds
+        with self._lock:
+            q = self._hits[key]
+            # Evict old entries
+            while q and q[0] < cutoff:
+                q.popleft()
+            if len(q) >= max_requests:
+                return False
+            q.append(now)
+            return True
+
+    def cleanup(self):
+        """Remove stale keys (call periodically)."""
+        now = time.time()
+        with self._lock:
+            stale = [k for k, q in self._hits.items() if not q or q[-1] < now - 3600]
+            for k in stale:
+                del self._hits[k]
+
+
+rate_limiter = RateLimiter()
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP, respecting X-Forwarded-For from Nginx."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def rate_limit_check(request: Request, bucket: str, max_requests: int, window: int):
+    """Check rate limit; raise 429 if exceeded."""
+    ip = get_client_ip(request)
+    key = f"{bucket}:{ip}"
+    if not rate_limiter.is_allowed(key, max_requests, window):
+        log.warning(f"Rate limit hit: {bucket} from {ip}")
+        return JSONResponse(
+            {"error": "Too many requests. Please try again later."},
+            status_code=429,
+        )
+    return None
+
 LANDING_CONTENT = [
     {
         "title": "О WebRAG Systems",
@@ -126,6 +184,7 @@ Key features: 5-minute setup with one line of code, multilingual support (Russia
 
 Особенно актуально для бизнеса в Казахстане: поддержка казахского, русского и английского языков из коробки.""",
     },
+    
     {
         "title": "Контакты и пробная версия / Contact and trial",
         "text": """Вы можете попробовать WebRAG бесплатно прямо на нашем сайте wrs.kz — нажмите кнопку 'Начать бесплатно' внизу страницы.
@@ -181,9 +240,10 @@ def rag_fn(site_id: int, query: str) -> dict:
 
 
 async def cleanup_expired_trials():
-    """Periodic task: delete expired trial sites (cascade deletes docs + chunks)."""
+    """Periodic task: delete expired trial sites + clean rate limiter."""
     while True:
         await asyncio.sleep(3600)  # run every hour
+        rate_limiter.cleanup()
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
             resp = sb.table("sites") \
@@ -244,12 +304,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="web-rag API", lifespan=lifespan)
 
+# CORS: open for widget.js (embedded on customer sites) + chat API
+# Rate limiting protects against abuse instead of origin-based restriction
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -257,9 +319,10 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     site_id: int
-    query: str
+    query: str = Field(..., max_length=2000)
     session_id: str | None = None
-    top_k: int = RAG_TOP_K
+    top_k: int = Field(default=RAG_TOP_K, le=20)
+    origin_domain: str | None = None  # sent by widget.js for domain verification
 
 
 class ChatResponse(BaseModel):
@@ -358,7 +421,27 @@ async def health():
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, request: Request):
+    # Rate limit: 20 messages per minute per IP
+    blocked = rate_limit_check(request, "chat", 20, 60)
+    if blocked:
+        return blocked
+
+    # Domain verification: check that widget is used on the correct site
+    if req.origin_domain:
+        site_row = sb.table("sites").select("domain, settings").eq("id", req.site_id).execute()
+        if site_row.data:
+            site_domain = site_row.data[0].get("domain", "")
+            site_settings = site_row.data[0].get("settings") or {}
+            is_landing = site_settings.get("landing", False)
+            is_trial = "trial" in site_domain
+            # Skip check for landing site, trial sites, and wrs.kz itself
+            if not is_landing and not is_trial and req.origin_domain not in ("wrs.kz", "localhost"):
+                # Check if the origin matches the registered domain
+                if req.origin_domain != site_domain and not req.origin_domain.endswith(f".{site_domain}"):
+                    log.warning(f"Domain mismatch: site {req.site_id} domain={site_domain} origin={req.origin_domain}")
+                    return JSONResponse({"error": "Widget not authorized for this domain"}, status_code=403)
+
     t0 = time.time()
 
     # 1. Retrieve
@@ -591,11 +674,17 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int, pdf_data: list[di
 
 @app.post("/api/trial/start")
 async def trial_start(
+    request: Request,
     url: str = Form(...),
     max_pages: int = Form(default=5),
     language: str = Form(default="en"),
     pdfs: list[UploadFile] = File(default=[]),
 ):
+    # Rate limit: 3 trials per hour per IP
+    blocked = rate_limit_check(request, "trial_start", 3, 3600)
+    if blocked:
+        return blocked
+
     # Validate URL
     parsed = urlparse(url)
     if not parsed.scheme:
@@ -604,8 +693,8 @@ async def trial_start(
     if not parsed.netloc:
         return JSONResponse({"error": "Invalid URL"}, status_code=400)
 
-    # Cap max pages at 50
-    max_pages = min(max_pages, 50)
+    # Cap max pages for trial (keeps CPU/time bounded)
+    max_pages = max(1, min(max_pages, 10))
 
     domain = f"trial-{uuid.uuid4().hex[:8]}.demo"
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
@@ -647,7 +736,11 @@ async def trial_start(
 
 
 @app.get("/api/trial/progress/{site_id}")
-async def trial_progress_stream(site_id: int):
+async def trial_progress_stream(site_id: int, request: Request):
+    # Rate limit: 10 SSE connections per minute per IP
+    blocked = rate_limit_check(request, "sse", 10, 60)
+    if blocked:
+        return blocked
     async def event_generator():
         while True:
             progress = trial_progress.get(site_id)
@@ -712,13 +805,15 @@ def setup_landing_site():
     existing = sb.table("sites").select("id").eq("domain", LANDING_DOMAIN).execute()
     if existing.data:
         landing_site_id = existing.data[0]["id"]
+        # Ensure language is set to auto-detect (None)
+        sb.table("sites").update({"language": None}).eq("id", landing_site_id).execute()
         log.info(f"Landing site already exists: site_id={landing_site_id}")
         return landing_site_id
 
     # Create new site
     site_resp = sb.table("sites").insert({
         "domain": LANDING_DOMAIN,
-        "language": "ru",
+        "language": None,
         "is_trial": False,
         "settings": {"landing": True},
     }).execute()
@@ -781,6 +876,11 @@ ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "211111")
 
 @app.post("/api/register")
 async def register(request: Request):
+    # Rate limit: 5 registrations per hour per IP
+    blocked = rate_limit_check(request, "register", 5, 3600)
+    if blocked:
+        return blocked
+
     body = await request.json()
     name = body.get("name", "").strip()
     email = body.get("email", "").strip().lower()
@@ -811,6 +911,11 @@ async def register(request: Request):
 
 @app.post("/api/activate")
 async def activate(request: Request):
+    # Rate limit: 10 activation attempts per hour per IP (brute-force protection)
+    blocked = rate_limit_check(request, "activate", 10, 3600)
+    if blocked:
+        return blocked
+
     body = await request.json()
     code = body.get("code", "").strip()
     site_id = body.get("site_id")
@@ -847,6 +952,6 @@ async def activate(request: Request):
     return {
         "success": True,
         "site_id": site_id,
-        "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://your-server.com")}/widget.js" data-site-id="{site_id}"></script>',
+        "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://wrs.kz")}/widget.js" data-site-id="{site_id}"></script>',
         "source_url": source_url,
     }

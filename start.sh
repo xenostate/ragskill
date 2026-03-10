@@ -1,29 +1,29 @@
 #!/bin/bash
-# Start the web-rag RAG API server
+# Start the WebRAG server
 # Usage: ./start.sh [--port 8090]
 
-SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV="$SKILL_DIR/.venv/bin"
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV="$APP_DIR/.venv/bin"
 PORT="${1:-8090}"
 
-echo "🕸️  web-rag server"
-echo "   Skill dir: $SKILL_DIR"
-echo "   Port:      $PORT"
+echo "WebRAG Server"
+echo "   Dir:  $APP_DIR"
+echo "   Port: $PORT"
 echo ""
 
 # Check venv
 if [ ! -f "$VENV/uvicorn" ]; then
-    echo "❌ venv not found. Run:"
-    echo "   python3 -m venv $SKILL_DIR/.venv"
-    echo "   $VENV/pip install -r $SKILL_DIR/scripts/requirements.txt"
+    echo "Error: venv not found. Run:"
+    echo "   python3 -m venv $APP_DIR/.venv"
+    echo "   $VENV/pip install -r $APP_DIR/scripts/requirements.txt"
     exit 1
 fi
 
 # Check .env
-if [ ! -f "$SKILL_DIR/.env" ]; then
-    echo "❌ .env not found at $SKILL_DIR/.env"
+if [ ! -f "$APP_DIR/.env" ]; then
+    echo "Error: .env not found at $APP_DIR/.env"
     exit 1
 fi
 
-cd "$SKILL_DIR"
+cd "$APP_DIR"
 exec "$VENV/uvicorn" scripts.server:app --host 0.0.0.0 --port "$PORT"
