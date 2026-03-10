@@ -309,53 +309,6 @@
             margin-bottom: 14px;
         }
 
-        .quick-activate-row {
-            display: flex;
-            gap: 8px;
-            max-width: 700px;
-            margin: 0 auto;
-            align-items: center;
-        }
-
-        .qa-input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            background: var(--surface);
-            color: var(--text);
-            outline: none;
-        }
-
-        .qa-input:focus { border-color: var(--accent); }
-
-        .qa-code { max-width: 140px; }
-
-        .qa-select {
-            padding: 10px 8px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: inherit;
-            background: var(--surface);
-            color: var(--text);
-            cursor: pointer;
-        }
-
-        .qa-btn {
-            white-space: nowrap;
-            padding: 10px 20px;
-        }
-
-        @media (max-width: 600px) {
-            .quick-activate-row {
-                flex-direction: column;
-            }
-            .qa-code { max-width: none; }
-        }
-
         /* ── App flow (steps) ── */
         .app { display: none; }
         .app.active { display: block; }
@@ -886,25 +839,75 @@
 
         <div class="quick-activate">
             <p class="quick-activate-label" data-i18n="qaTitle"></p>
-            <div class="quick-activate-row">
-                <input type="text" id="qa-url" data-i18n-ph="qaUrlPh" class="qa-input">
-                <select id="qa-pages" class="qa-select">
-                    <option value="50">50</option>
-                    <option value="100" selected>100</option>
-                    <option value="150">150</option>
-                    <option value="200">200</option>
-                    <option value="300">300</option>
-                </select>
-                <input type="text" id="qa-code" data-i18n-ph="qaCodePh" class="qa-input qa-code">
-                <button class="btn btn-primary qa-btn" onclick="quickActivate()">
+
+            <div class="card" id="qa-form" style="max-width:500px;margin:0 auto;text-align:left;">
+                <div class="field">
+                    <label data-i18n="qaUrl"></label>
+                    <input type="url" id="qa-url" placeholder="https://yoursite.com">
+                </div>
+
+                <div class="field">
+                    <label data-i18n="qaPdf"></label>
+                    <div class="file-drop">
+                        <div class="file-drop-icon">+</div>
+                        <div class="file-drop-text" data-i18n="qaDrop"></div>
+                        <input type="file" id="qa-pdfs" accept=".pdf" multiple>
+                    </div>
+                    <div class="file-list" id="qa-file-list"></div>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label data-i18n="qaPages"></label>
+                        <select id="qa-pages">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="150">150</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label data-i18n="qaLang"></label>
+                        <select id="qa-lang">
+                            <option value="" selected data-i18n="qaLangAuto">Auto</option>
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
+                            <option value="kk">Қазақша</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field" style="margin-top:4px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+                        <input type="checkbox" id="qa-playwright" style="width:auto;cursor:pointer;">
+                        Enable Playwright (for JavaScript-heavy sites)
+                    </label>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="qaCode"></label>
+                    <input type="text" id="qa-code" data-i18n-ph="qaCodePh">
+                </div>
+
+                <button class="btn btn-primary" id="qa-btn" onclick="quickActivate()">
                     <span data-i18n="qaBtn"></span>
                 </button>
+                <div class="err" id="qa-err"></div>
             </div>
-            <div class="err" id="qa-err" style="text-align:center;margin-top:8px;"></div>
-            <div id="qa-progress" style="display:none;text-align:center;margin-top:12px;font-size:13px;color:var(--text2);"></div>
-            <div id="qa-success" style="display:none;margin-top:16px;">
-                <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:8px;" data-i18n="qaDone"></p>
-                <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="max-width:600px;margin:0 auto;cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;"></div>
+
+            <div id="qa-progress" style="display:none;max-width:500px;margin:16px auto 0;text-align:center;">
+                <div class="progress-bar" style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:8px;">
+                    <div id="qa-bar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
+                </div>
+                <p id="qa-msg" style="font-size:13px;color:var(--text2);"></p>
+            </div>
+
+            <div id="qa-success" style="display:none;max-width:500px;margin:16px auto 0;">
+                <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:12px;" data-i18n="qaDone"></p>
+                <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;text-align:left;">
+                    <span class="copy-hint" data-i18n="qaCopy"></span>
+                </div>
                 <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;" id="qa-copy-status"></p>
             </div>
         </div>
@@ -1141,11 +1144,18 @@
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
             ctaBtn: "Начать бесплатно",
-            qaTitle: "Уже приобрели? Введите код и URL сайта для полной версии",
-            qaUrlPh: "https://yoursite.com",
-            qaCodePh: "Код активации",
+            qaTitle: "Уже приобрели? Активируйте полную версию",
+            qaUrl: "URL сайта",
+            qaPdf: "PDF-файлы (необязательно)",
+            qaDrop: "Нажмите или перетащите PDF",
+            qaPages: "Страниц для индексации",
+            qaLang: "Язык ассистента",
+            qaLangAuto: "Авто",
+            qaCode: "Код активации",
+            qaCodePh: "Введите код",
             qaBtn: "Активировать",
             qaDone: "Сайт активирован! Индексация запущена.",
+            qaCopy: "Нажмите, чтобы скопировать",
             footerText: "Интеллектуальные решения для бизнеса",
             backToMain: "На главную",
             regTitle: "Регистрация",
@@ -1229,11 +1239,18 @@
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
             ctaBtn: "Start for free",
-            qaTitle: "Already purchased? Enter your code and website URL for the full version",
-            qaUrlPh: "https://yoursite.com",
-            qaCodePh: "Activation code",
+            qaTitle: "Already purchased? Activate the full version",
+            qaUrl: "Website URL",
+            qaPdf: "PDF files (optional)",
+            qaDrop: "Click or drag PDFs here",
+            qaPages: "Pages to index",
+            qaLang: "Assistant language",
+            qaLangAuto: "Auto",
+            qaCode: "Activation code",
+            qaCodePh: "Enter code",
             qaBtn: "Activate",
             qaDone: "Site activated! Indexing started.",
+            qaCopy: "Click to copy",
             footerText: "Intelligent solutions for business",
             backToMain: "Back to home",
             regTitle: "Register",
@@ -1317,11 +1334,18 @@
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
             ctaBtn: "Тегін бастау",
-            qaTitle: "Сатып алдыңыз ба? Толық нұсқа үшін кодты және сайт URL енгізіңіз",
-            qaUrlPh: "https://yoursite.com",
-            qaCodePh: "Белсендіру коды",
+            qaTitle: "Сатып алдыңыз ба? Толық нұсқаны белсендіріңіз",
+            qaUrl: "Сайт URL",
+            qaPdf: "PDF файлдар (міндетті емес)",
+            qaDrop: "PDF файлдарды осында басыңыз немесе сүйреңіз",
+            qaPages: "Индекстеу беттерінің саны",
+            qaLang: "Көмекші тілі",
+            qaLangAuto: "Авто",
+            qaCode: "Белсендіру коды",
+            qaCodePh: "Кодты енгізіңіз",
             qaBtn: "Белсендіру",
             qaDone: "Сайт белсендірілді! Индекстеу басталды.",
+            qaCopy: "Көшіру үшін басыңыз",
             footerText: "Бизнеске арналған интеллектуалды шешімдер",
             backToMain: "Басты бетке",
             regTitle: "Тіркелу",
@@ -1755,38 +1779,68 @@
     };
 
     // ── Quick activate (from landing page) ──
+    document.getElementById("qa-pdfs").addEventListener("change", function() {
+        const names = Array.from(this.files).map(f => f.name);
+        document.getElementById("qa-file-list").textContent = names.length ? names.join(", ") : "";
+    });
+
     window.quickActivate = async function() {
         const t = T[currentLang];
         const url = document.getElementById("qa-url").value.trim();
         const code = document.getElementById("qa-code").value.trim();
-        const maxPages = parseInt(document.getElementById("qa-pages").value);
         const err = document.getElementById("qa-err");
-        const progress = document.getElementById("qa-progress");
-        const success = document.getElementById("qa-success");
+        const btn = document.getElementById("qa-btn");
+        const progressEl = document.getElementById("qa-progress");
+        const successEl = document.getElementById("qa-success");
 
-        if (!url) { showErr(err, t.qaUrlPh); return; }
-        if (!code) { showErr(err, t.qaCodePh); return; }
+        if (!url) { showErr(err, t.qaUrl || "URL required"); return; }
+        if (!code) { showErr(err, t.qaCode || "Code required"); return; }
         hideErr(err);
-        success.style.display = "none";
-        progress.style.display = "block";
-        progress.textContent = "...";
+        btn.disabled = true;
+        successEl.style.display = "none";
+
+        const fd = new FormData();
+        fd.append("url", url);
+        fd.append("code", code);
+        fd.append("max_pages", document.getElementById("qa-pages").value);
+        fd.append("language", document.getElementById("qa-lang").value);
+        fd.append("use_playwright", document.getElementById("qa-playwright").checked ? "1" : "0");
+        for (const f of document.getElementById("qa-pdfs").files) fd.append("pdfs", f);
 
         try {
-            const resp = await fetch(API + "/api/quick-activate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url, code, max_pages: maxPages }),
-            });
+            const resp = await fetch(API + "/api/quick-activate", { method: "POST", body: fd });
             const data = await resp.json();
 
-            if (!resp.ok) { showErr(err, data.error); progress.style.display = "none"; return; }
+            if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }
 
-            progress.style.display = "none";
-            success.style.display = "block";
-            document.getElementById("qa-widget-code").textContent = data.widget_code;
+            // Show progress and poll
+            document.getElementById("qa-form").style.display = "none";
+            progressEl.style.display = "block";
+            const qaSiteId = data.site_id;
+            const widgetCode = data.widget_code;
+
+            const sse = new EventSource(API + "/api/trial/progress/" + qaSiteId);
+            sse.onmessage = function(ev) {
+                const p = JSON.parse(ev.data);
+                document.getElementById("qa-msg").textContent = p.message || "";
+                if (p.total > 0) {
+                    document.getElementById("qa-bar").style.width = Math.round((p.step / p.total) * 100) + "%";
+                }
+                if (p.done || p.error) {
+                    sse.close();
+                    progressEl.style.display = "none";
+                    successEl.style.display = "block";
+                    document.getElementById("qa-widget-code").textContent = widgetCode;
+                    if (p.error) {
+                        document.getElementById("qa-msg").textContent = p.error;
+                        progressEl.style.display = "block";
+                    }
+                }
+            };
+            sse.onerror = function() { sse.close(); };
         } catch (e) {
-            progress.style.display = "none";
             showErr(err, "Network error");
+            btn.disabled = false;
         }
     };
 

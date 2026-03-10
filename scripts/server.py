@@ -1183,17 +1183,24 @@ async def activate(request: Request):
 
 
 @app.post("/api/quick-activate")
-async def quick_activate(request: Request):
+async def quick_activate(
+    request: Request,
+    url: str = Form(...),
+    code: str = Form(...),
+    max_pages: int = Form(default=100),
+    language: str = Form(default=""),
+    use_playwright: str = Form(default="0"),
+    pdfs: list[UploadFile] = File(default=[]),
+):
     """Activate directly from landing page — no trial/registration needed."""
     # Rate limit: 3 per hour per IP
     blocked = rate_limit_check(request, "quick_activate", 3, 3600)
     if blocked:
         return blocked
 
-    body = await request.json()
-    code = body.get("code", "").strip()
-    url = body.get("url", "").strip()
-    max_pages = min(int(body.get("max_pages", 100)), 300)
+    code = code.strip()
+    url = url.strip()
+    max_pages = max(1, min(max_pages, 300))
 
     if not code or not url:
         return JSONResponse({"error": "Code and URL are required"}, status_code=400)
@@ -1211,25 +1218,37 @@ async def quick_activate(request: Request):
 
     domain = parsed.netloc
 
+    # Read PDF bytes
+    pdf_data = []
+    for pdf in pdfs:
+        content = await pdf.read()
+        if len(content) > MAX_PDF_SIZE:
+            return JSONResponse(
+                {"error": f"PDF '{pdf.filename}' exceeds 10MB limit"},
+                status_code=400,
+            )
+        pdf_data.append({"filename": pdf.filename, "content": content})
+
     # Create permanent site
     site_resp = sb.table("sites").insert({
         "domain": domain,
-        "language": None,
+        "language": language or None,
         "is_trial": False,
         "settings": {"source_url": url},
     }).execute()
     site_id = site_resp.data[0]["id"]
 
     # Start indexing in background
+    pw = use_playwright == "1"
     trial_progress[site_id] = {
         "step": 0, "total": 0, "message": "Starting full indexing...",
         "done": False, "error": None,
     }
     asyncio.get_event_loop().create_task(
-        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, [])
+        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
     )
 
-    log.info(f"Quick-activate: site_id={site_id} domain={domain} max_pages={max_pages}")
+    log.info(f"Quick-activate: site_id={site_id} domain={domain} max_pages={max_pages} pdfs={len(pdf_data)} playwright={pw}")
 
     return {
         "success": True,
