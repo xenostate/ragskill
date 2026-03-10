@@ -111,34 +111,6 @@
             pointer-events: none;
         }
 
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--accent-glow);
-            border: 1px solid rgba(99,102,241,0.2);
-            border-radius: 100px;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--accent-hover);
-            margin-bottom: 28px;
-        }
-
-        .hero-badge::before {
-            content: '';
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--accent);
-            animation: blink 2s infinite;
-        }
-
-        @keyframes blink {
-            0%,100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
         .hero h1 {
             font-size: clamp(36px, 6vw, 58px);
             font-weight: 900;
@@ -238,7 +210,7 @@
             line-height: 1.55;
         }
 
-        /* ── Video ── */
+        /* ── Tutorial ── */
         .video-section {
             max-width: 780px;
             margin: 0 auto;
@@ -259,43 +231,49 @@
             margin-bottom: 32px;
         }
 
-        .video-placeholder {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: var(--surface);
-            border: 2px dashed var(--border);
-            border-radius: var(--radius);
+        .tutorial-steps {
+            text-align: left;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            color: var(--text3);
+            gap: 16px;
+        }
+
+        .tutorial-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
             transition: border-color 0.3s;
         }
 
-        .video-placeholder:hover { border-color: rgba(99,102,241,0.3); }
+        .tutorial-step:hover { border-color: rgba(99,102,241,0.3); }
 
-        .video-placeholder .play-icon {
-            width: 64px;
-            height: 64px;
-            background: var(--accent-glow);
-            border-radius: 50%;
+        .tutorial-num {
+            min-width: 36px;
+            height: 36px;
+            background: var(--accent);
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 16px;
+            font-weight: 800;
+            color: #fff;
         }
 
-        .video-placeholder .play-icon svg {
-            width: 24px;
-            height: 24px;
-            color: var(--accent);
-            margin-left: 3px;
+        .tutorial-content h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
         }
 
-        .video-placeholder span {
-            font-size: 14px;
-            font-weight: 500;
+        .tutorial-content p {
+            font-size: 13px;
+            color: var(--text2);
+            line-height: 1.5;
         }
 
         /* ── Bottom CTA ── */
@@ -473,6 +451,9 @@
         .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
         .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
 
+        .btn-stop { background: transparent; color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+        .btn-stop:hover { border-color: var(--red); background: rgba(239,68,68,0.08); }
+
         /* ── Back link ── */
         .back-link {
             display: inline-flex;
@@ -519,7 +500,6 @@
         }
 
         .progress-status { text-align: center; font-size: 14px; color: var(--text2); }
-        .progress-emoji { text-align: center; font-size: 40px; margin-bottom: 12px; }
 
         /* ── Chat ── */
         .chat-box {
@@ -567,15 +547,6 @@
         .msg.bot { align-self: flex-start; background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; }
         .msg.bot a { color: var(--accent-hover); }
         .msg.sys { align-self: center; background: var(--accent-glow); color: var(--accent-hover); font-size: 12px; border-radius: 6px; }
-
-        .msg-sources { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; }
-        .msg-sources a { color: var(--accent-hover); text-decoration: none; display: block; margin-top: 2px; }
-        .msg-sources a:hover { text-decoration: underline; }
-
-        .badge { font-size: 10px; padding: 2px 6px; border-radius: 6px; display: inline-block; margin-bottom: 3px; }
-        .badge.high { background: #16432a; color: #4ade80; }
-        .badge.medium { background: #422006; color: #fbbf24; }
-        .badge.low { background: #450a0a; color: #f87171; }
 
         .typing { display: none; align-self: flex-start; padding: 9px 13px; background: var(--surface2); border-radius: 10px; }
         .typing.on { display: block; }
@@ -675,7 +646,7 @@
 
 <!-- ── Top bar ── -->
 <div class="topbar">
-    <div class="logo">Web<span>RAG</span></div>
+    <div class="logo" id="logo-link" style="cursor:pointer;">Web<span>RAG</span> Systems</div>
     <div class="lang-switch">
         <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
         <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
@@ -688,7 +659,6 @@
 
     <!-- Hero -->
     <section class="hero">
-        <div class="hero-badge" data-i18n="heroBadge"></div>
         <h1 data-i18n-html="heroTitle"></h1>
         <p data-i18n="heroSub"></p>
         <button class="hero-cta" onclick="goToRegister()">
@@ -716,15 +686,39 @@
         </div>
     </section>
 
-    <!-- Video section -->
+    <!-- Tutorial section -->
     <section class="video-section">
-        <h2 data-i18n="videoTitle"></h2>
-        <p data-i18n="videoSub"></p>
-        <div class="video-placeholder" id="video-area">
-            <div class="play-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <h2 data-i18n="tutorialTitle"></h2>
+        <p data-i18n="tutorialSub"></p>
+        <div class="tutorial-steps">
+            <div class="tutorial-step">
+                <div class="tutorial-num">1</div>
+                <div class="tutorial-content">
+                    <h4 data-i18n="tut1Title"></h4>
+                    <p data-i18n="tut1Desc"></p>
+                </div>
             </div>
-            <span data-i18n="videoPlaceholder"></span>
+            <div class="tutorial-step">
+                <div class="tutorial-num">2</div>
+                <div class="tutorial-content">
+                    <h4 data-i18n="tut2Title"></h4>
+                    <p data-i18n="tut2Desc"></p>
+                </div>
+            </div>
+            <div class="tutorial-step">
+                <div class="tutorial-num">3</div>
+                <div class="tutorial-content">
+                    <h4 data-i18n="tut3Title"></h4>
+                    <p data-i18n="tut3Desc"></p>
+                </div>
+            </div>
+            <div class="tutorial-step">
+                <div class="tutorial-num">4</div>
+                <div class="tutorial-content">
+                    <h4 data-i18n="tut4Title"></h4>
+                    <p data-i18n="tut4Desc"></p>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -739,7 +733,7 @@
     </section>
 
     <div class="footer">
-        &copy; 2025 WebRAG. <span data-i18n="footerText"></span>
+        &copy; 2026 WebRAG Systems. <span data-i18n="footerText"></span>
     </div>
 </div>
 
@@ -842,7 +836,7 @@
         <p class="section-sub" data-i18n="progSub"></p>
 
         <div class="card" style="text-align:center;">
-            <div class="progress-emoji" id="p-icon">&#128270;</div>
+            <div class="progress-status" id="p-status" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;" data-i18n="progLoading"></div>
             <div class="progress-bar-track">
                 <div class="progress-bar-val pulse" id="p-bar"></div>
             </div>
@@ -878,6 +872,9 @@
         </button>
         <button class="btn btn-ghost" style="margin-top:8px" onclick="resetAll()">
             <span data-i18n="chatTryAnother"></span>
+        </button>
+        <button class="btn btn-stop" style="margin-top:8px" onclick="stopTrial()">
+            <span data-i18n="chatStopTrial"></span>
         </button>
     </div>
 
@@ -923,7 +920,6 @@
     const T = {
         ru: {
             pageTitle: "Web-RAG — AI-ассистент для вашего сайта",
-            heroBadge: "AI-ассистент нового поколения",
             heroTitle: 'Превратите ваш сайт в <span class="gradient-text">умного помощника</span>',
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
@@ -933,9 +929,16 @@
             feat2Desc: "Просто вставьте одну строчку кода на сайт — и ассистент готов к работе. Никакой сложной интеграции.",
             feat3Title: "Мультиязычность",
             feat3Desc: "Поддержка русского, английского, казахского и других языков. Ассистент отвечает на языке вашей аудитории.",
-            videoTitle: "Как это работает",
-            videoSub: "Посмотрите демонстрацию работы AI-ассистента на реальном сайте",
-            videoPlaceholder: "Видео скоро появится",
+            tutorialTitle: "Как это работает",
+            tutorialSub: "Четыре простых шага от регистрации до работающего ассистента",
+            tut1Title: "Зарегистрируйтесь",
+            tut1Desc: "Укажите имя, email и название компании — это займёт 30 секунд.",
+            tut2Title: "Вставьте URL вашего сайта",
+            tut2Desc: "Наш AI просканирует страницы и загрузит контент. Можно также добавить PDF-файлы.",
+            tut3Title: "Протестируйте ассистента",
+            tut3Desc: "Задайте вопросы в чате и убедитесь, что ассистент отвечает точно и по делу.",
+            tut4Title: "Установите виджет на сайт",
+            tut4Desc: "Скопируйте одну строчку кода и вставьте в HTML вашего сайта. Готово!",
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
             ctaBtn: "Начать бесплатно",
@@ -966,7 +969,10 @@
             trialErrNet: "Ошибка сети.",
             progTitle: "Индексация...",
             progSub: "Сканируем и индексируем контент вашего сайта. Обычно это занимает 10-30 секунд.",
+            progLoading: "Загрузка...",
             progStart: "Начинаем...",
+            progDone: "Готово!",
+            progError: "Ошибка",
             progFail: "Ошибка.",
             progLost: "Соединение потеряно. Попробуйте обновить страницу.",
             chatTitle: "Ваш ассистент работает",
@@ -975,6 +981,8 @@
             chatPh: "Введите вопрос...",
             chatGetCode: "Получить код виджета",
             chatTryAnother: "Попробовать другой сайт",
+            chatStopTrial: "Завершить пробный период",
+            chatStopConfirm: "Вы уверены? Все данные будут удалены и вы вернётесь на главную страницу.",
             chatError: "Что-то пошло не так.",
             actTitle: "Активация ассистента",
             actSub: "Введите код активации, чтобы получить код для встраивания на сайт.",
@@ -987,10 +995,10 @@
             actPaste: "Вставьте этот код в HTML вашего сайта:",
             actCopy: "нажмите, чтобы скопировать",
             actBack: "Назад к чату",
+            logoConfirm: "Вы хотите вернуться на главную страницу? Прогресс текущей сессии может быть потерян.",
         },
         en: {
             pageTitle: "Web-RAG — AI Website Assistant",
-            heroBadge: "Next-gen AI assistant",
             heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
@@ -1000,9 +1008,16 @@
             feat2Desc: "Just paste one line of code into your site — and the assistant is ready. No complex integrations needed.",
             feat3Title: "Multilingual support",
             feat3Desc: "Supports Russian, English, Kazakh and more. The assistant responds in your audience's language.",
-            videoTitle: "How it works",
-            videoSub: "See a demo of the AI assistant on a real website",
-            videoPlaceholder: "Video coming soon",
+            tutorialTitle: "How it works",
+            tutorialSub: "Four simple steps from registration to a working assistant",
+            tut1Title: "Register",
+            tut1Desc: "Enter your name, email, and company — takes 30 seconds.",
+            tut2Title: "Paste your website URL",
+            tut2Desc: "Our AI will crawl your pages and index the content. You can also upload PDF files.",
+            tut3Title: "Test the assistant",
+            tut3Desc: "Ask questions in the chat and make sure the assistant answers accurately.",
+            tut4Title: "Install the widget on your site",
+            tut4Desc: "Copy one line of code and paste it into your website's HTML. Done!",
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
             ctaBtn: "Start for free",
@@ -1033,7 +1048,10 @@
             trialErrNet: "Network error.",
             progTitle: "Indexing...",
             progSub: "We're crawling and embedding your content. This usually takes 10-30 seconds.",
+            progLoading: "Loading...",
             progStart: "Starting...",
+            progDone: "Done!",
+            progError: "Error",
             progFail: "Failed.",
             progLost: "Lost connection. Try refreshing.",
             chatTitle: "Your assistant is live",
@@ -1042,6 +1060,8 @@
             chatPh: "Type a question...",
             chatGetCode: "Get Widget Code",
             chatTryAnother: "Try another site",
+            chatStopTrial: "Stop trial",
+            chatStopConfirm: "Are you sure? All data will be deleted and you'll return to the main page.",
             chatError: "Something went wrong.",
             actTitle: "Activate your assistant",
             actSub: "Enter your activation code to get the embed snippet.",
@@ -1054,10 +1074,10 @@
             actPaste: "Paste this snippet into your website's HTML:",
             actCopy: "click to copy",
             actBack: "Back to chat",
+            logoConfirm: "Do you want to go back to the main page? Current session progress may be lost.",
         },
         kk: {
             pageTitle: "Web-RAG — Сайтыңыз үшін AI-көмекші",
-            heroBadge: "Жаңа буын AI-көмекші",
             heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
@@ -1067,9 +1087,16 @@
             feat2Desc: "Сайтқа бір жол код қойыңыз — көмекші жұмысқа дайын. Күрделі интеграция қажет емес.",
             feat3Title: "Көптілділік",
             feat3Desc: "Қазақ, орыс, ағылшын және басқа тілдерді қолдайды. Көмекші аудиторияңыздың тілінде жауап береді.",
-            videoTitle: "Қалай жұмыс істейді",
-            videoSub: "AI-көмекшінің нақты сайтта жұмыс істеуін көріңіз",
-            videoPlaceholder: "Бейне жақында қосылады",
+            tutorialTitle: "Қалай жұмыс істейді",
+            tutorialSub: "Тіркелуден жұмыс істейтін көмекшіге дейін төрт қарапайым қадам",
+            tut1Title: "Тіркеліңіз",
+            tut1Desc: "Атыңызды, email-ді және компания атауын енгізіңіз — 30 секунд алады.",
+            tut2Title: "Сайт URL-ін қойыңыз",
+            tut2Desc: "AI сайт беттерін сканерлеп, мазмұнды индекстейді. PDF файлдарды да жүктеуге болады.",
+            tut3Title: "Көмекшіні тексеріңіз",
+            tut3Desc: "Чатта сұрақтар қойып, көмекшінің дәл жауап беретініне көз жеткізіңіз.",
+            tut4Title: "Виджетті сайтқа орнатыңыз",
+            tut4Desc: "Бір жол кодты көшіріп, сайтыңыздың HTML-іне қойыңыз. Дайын!",
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
             ctaBtn: "Тегін бастау",
@@ -1100,7 +1127,10 @@
             trialErrNet: "Желі қатесі.",
             progTitle: "Индекстеу...",
             progSub: "Сайт мазмұнын сканерлеу және индекстеу жүруде. Әдетте 10-30 секунд алады.",
+            progLoading: "Жүктелуде...",
             progStart: "Бастаудамыз...",
+            progDone: "Дайын!",
+            progError: "Қате",
             progFail: "Қате.",
             progLost: "Байланыс үзілді. Бетті жаңартып көріңіз.",
             chatTitle: "Көмекшіңіз жұмыс істеуде",
@@ -1109,6 +1139,8 @@
             chatPh: "Сұрақ жазыңыз...",
             chatGetCode: "Виджет кодын алу",
             chatTryAnother: "Басқа сайтты сынау",
+            chatStopTrial: "Сынақ кезеңін тоқтату",
+            chatStopConfirm: "Сенімдісіз бе? Барлық деректер жойылады және сіз басты бетке ораласыз.",
             chatError: "Бір нәрсе дұрыс болмады.",
             actTitle: "Көмекшіні белсендіру",
             actSub: "Сайтқа ендіру кодын алу үшін белсендіру кодын енгізіңіз.",
@@ -1121,6 +1153,7 @@
             actPaste: "Бұл кодты сайтыңыздың HTML-іне қойыңыз:",
             actCopy: "көшіру үшін басыңыз",
             actBack: "Чатқа оралу",
+            logoConfirm: "Басты бетке оралғыңыз келе ме? Ағымдағы сессия барысы жоғалуы мүмкін.",
         }
     };
 
@@ -1163,6 +1196,18 @@
 
     // Apply on load
     applyTranslations();
+
+    // ── Logo click confirmation ──
+    document.getElementById("logo-link").addEventListener("click", function() {
+        const t = T[currentLang];
+        const appFlow = document.getElementById("app-flow");
+        // Only show confirmation if user is in the app flow (not on landing page)
+        if (appFlow.classList.contains("active")) {
+            if (confirm(t.logoConfirm)) {
+                goLanding();
+            }
+        }
+    });
 
     // ── State ──
     const API = window.location.origin;
@@ -1281,7 +1326,7 @@
         const t = T[currentLang];
         const bar = document.getElementById("p-bar");
         const msg = document.getElementById("p-msg");
-        const icon = document.getElementById("p-icon");
+        const status = document.getElementById("p-status");
         const err = document.getElementById("p-err");
 
         const es = new EventSource(API + "/api/trial/progress/" + id);
@@ -1290,7 +1335,8 @@
 
             if (p.error) {
                 es.close();
-                icon.innerHTML = "&#10060;";
+                status.textContent = t.progError;
+                status.style.color = "var(--red)";
                 msg.textContent = t.progFail;
                 bar.style.width = "100%"; bar.style.background = "var(--red)"; bar.classList.remove("pulse");
                 showErr(err, p.error);
@@ -1302,11 +1348,13 @@
             if (p.total > 0 && p.step > 0) {
                 bar.classList.remove("pulse");
                 bar.style.width = Math.round(p.step / p.total * 100) + "%";
+                status.textContent = t.progLoading;
             }
 
             if (p.done) {
                 es.close();
-                icon.innerHTML = "&#9989;";
+                status.textContent = t.progDone;
+                status.style.color = "var(--green)";
                 bar.classList.remove("pulse");
                 bar.style.width = "100%";
                 setTimeout(() => {
@@ -1318,7 +1366,8 @@
 
         es.onerror = () => {
             es.close();
-            icon.innerHTML = "&#10060;";
+            status.textContent = t.progError;
+            status.style.color = "var(--red)";
             msg.textContent = t.progLost;
             showErr(err, t.progLost);
         };
@@ -1370,21 +1419,11 @@
     function addBotChat(text, sources, conf) {
         const d = document.createElement("div");
         d.className = "msg bot";
-        let h = "";
-        if (conf) h += '<span class="badge ' + conf + '">' + conf + '</span><br>';
-        h += text
+        let h = text
             .replace(/&/g, "&amp;").replace(/</g, "&lt;")
             .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
             .replace(/\n/g, "<br>");
-        if (sources && sources.length) {
-            h += '<div class="msg-sources"><strong>Sources:</strong>';
-            sources.forEach((s, i) => {
-                const href = s.url.startsWith("pdf://") ? "#" : s.url;
-                h += '<a href="' + href + '" target="_blank">[' + (i+1) + '] ' + s.title + '</a>';
-            });
-            h += '</div>';
-        }
         d.innerHTML = h;
         document.getElementById("c-body").insertBefore(d, document.getElementById("c-typing"));
         scrollChat();
@@ -1444,7 +1483,9 @@
         const bar = document.getElementById("p-bar");
         bar.style.width = "0%"; bar.style.background = "var(--accent)"; bar.classList.add("pulse");
         document.getElementById("p-msg").textContent = T[currentLang].progStart;
-        document.getElementById("p-icon").innerHTML = "&#128270;";
+        const pStatus = document.getElementById("p-status");
+        pStatus.textContent = T[currentLang].progLoading;
+        pStatus.style.color = "var(--text)";
         hideErr(document.getElementById("p-err"));
 
         document.getElementById("c-body").querySelectorAll(".msg:not(.sys)").forEach(m => m.remove());
@@ -1456,6 +1497,32 @@
         hideErr(document.getElementById("t-err"));
 
         go("trial", 2);
+    };
+
+    // ── Stop Trial ──
+    window.stopTrial = async function() {
+        const t = T[currentLang];
+        if (!confirm(t.chatStopConfirm)) return;
+
+        // Delete trial data on server
+        if (siteId) {
+            try {
+                await fetch(API + "/api/trial/stop/" + siteId, { method: "DELETE" });
+            } catch (e) {
+                // ignore — we'll navigate away anyway
+            }
+        }
+
+        // Reset local state
+        siteId = null;
+        document.getElementById("t-url").value = "";
+        document.getElementById("t-pdfs").value = "";
+        document.getElementById("t-file-list").textContent = "";
+        document.getElementById("t-start-btn").disabled = false;
+        document.getElementById("c-body").querySelectorAll(".msg:not(.sys)").forEach(m => m.remove());
+
+        // Go back to landing
+        goLanding();
     };
 
     // ── Helpers ──

@@ -101,3 +101,13 @@ alter table sites add column if not exists expires_at timestamptz;
 create index if not exists idx_sites_trial_expiry
     on sites(is_trial, expires_at)
     where is_trial = true;
+
+-- User registrations for trial/purchase flow
+create table if not exists registrations (
+    id          bigint generated always as identity primary key,
+    name        text not null,
+    email       text not null unique,
+    company     text,
+    token       text not null unique,
+    created_at  timestamptz default now()
+);

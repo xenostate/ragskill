@@ -84,15 +84,9 @@ SYSTEM_PROMPT = """You are a precise assistant that answers questions using ONLY
 
 Rules:
 1. Answer ONLY from the sources below. If the sources don't contain the answer, say "I don't have enough information from the indexed sources to answer this."
-2. Cite every claim with [N] where N is the source number.
-3. If multiple sources support a claim, cite all of them: [1][3].
-4. At the end, list all used sources as:
-   Sources:
-   [1] Title — URL
-   [2] Title — URL
-5. Keep answers concise and factual. Do not speculate beyond what the sources state.
-6. If confidence is "low", preface with: "⚠️ Low confidence — the indexed sources may not cover this topic well."
-7. Answer in the same language as the user's question.
+2. Keep answers concise and factual. Do not speculate beyond what the sources state.
+3. Do NOT list sources or citations in your answer. Just provide the answer as plain text.
+4. Answer in the same language as the user's question.
 """
 
 LANGUAGE_NAMES = {
@@ -608,6 +602,26 @@ async def trial_progress_stream(site_id: int):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+
+
+@app.delete("/api/trial/stop/{site_id}")
+async def trial_stop(site_id: int):
+    """Immediately delete a trial site and all its data."""
+    try:
+        # Verify it's a trial site
+        site = sb.table("sites").select("is_trial").eq("id", site_id).execute()
+        if not site.data or not site.data[0].get("is_trial"):
+            return JSONResponse({"error": "Not a trial site"}, status_code=400)
+
+        # Delete site (cascade deletes documents + chunks)
+        sb.table("sites").delete().eq("id", site_id).execute()
+        trial_progress.pop(site_id, None)
+
+        log.info(f"Trial site {site_id} stopped and deleted by user")
+        return {"success": True, "message": "Trial data deleted"}
+    except Exception as e:
+        log.error(f"Trial stop error for site {site_id}: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/trial/cleanup")
