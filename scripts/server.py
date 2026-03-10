@@ -38,7 +38,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from pypdf import PdfReader
@@ -527,6 +527,11 @@ from scripts.indexer import (
     clean_html, chunk_text, extract_headings, extract_links,
     content_hash, StaticRenderer,
 )
+
+
+@app.get("/")
+async def root_redirect():
+    return RedirectResponse(url="/trial")
 
 
 @app.get("/trial")
