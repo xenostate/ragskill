@@ -541,15 +541,37 @@ async function loadSites() {
         else if (s.is_trial) badge = '<span class="badge badge-trial">Trial</span>';
         else badge = '<span class="badge badge-active">Active</span>';
 
+        const deleteBtn = s.is_landing
+            ? ''
+            : `<button class="btn btn-sm btn-danger" onclick="deleteSite(${s.id}, '${esc(s.domain)}')">Delete</button>`;
+
         return `
             <div class="site-row">
                 <div class="site-info">
                     <div class="site-domain">${esc(s.domain)} ${badge}</div>
                     <div class="site-meta">ID: ${s.id} · ${s.doc_count} doc(s) · Lang: ${s.language || 'auto'}</div>
                 </div>
+                ${deleteBtn}
             </div>
         `;
     }).join("");
+}
+
+async function deleteSite(siteId, domain) {
+    if (!confirm(`Delete site "${domain}" and ALL its documents/chunks? This cannot be undone.`)) return;
+
+    const resp = await fetch(API + `/api/admin/sites/${siteId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+    });
+
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+    if (data.success) {
+        loadSites();
+    } else {
+        alert(data.error || "Failed to delete site");
+    }
 }
 
 // ── Helpers ──

@@ -1040,6 +1040,36 @@ async def admin_list_sites(request: Request):
     return {"sites": result}
 
 
+@app.delete("/api/admin/sites/{site_id}")
+async def admin_delete_site(site_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Don't allow deleting the landing site from here
+    if site_id == landing_site_id:
+        return JSONResponse({"error": "Cannot delete the landing site"}, status_code=400)
+
+    # Verify site exists
+    site = sb.table("sites").select("id, domain").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    domain = site.data[0]["domain"]
+
+    # Delete chunks → documents → site
+    docs = sb.table("documents").select("id").eq("site_id", site_id).execute()
+    for doc in (docs.data or []):
+        sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+    sb.table("documents").delete().eq("site_id", site_id).execute()
+    sb.table("sites").delete().eq("id", site_id).execute()
+
+    # Clean up trial progress if any
+    trial_progress.pop(site_id, None)
+
+    log.info(f"Admin deleted site {site_id} ({domain})")
+    return {"success": True}
+
+
 # ── Registration & Activation ─────────────────────────────────────────────
 
 ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "211111")
