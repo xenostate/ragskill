@@ -1128,6 +1128,8 @@
             qaCode: "Код активации",
             qaCodePh: "Введите код",
             qaBtn: "Активировать",
+            qaHint: "Максимум 10 МБ на файл. Только текстовые PDF.",
+            qaStartBtn: "Запустить индексацию",
             qaDone: "Сайт активирован! Индексация запущена.",
             qaCopy: "Нажмите, чтобы скопировать",
             footerText: "Интеллектуальные решения для бизнеса",
@@ -1225,6 +1227,8 @@
             qaCode: "Activation code",
             qaCodePh: "Enter code",
             qaBtn: "Activate",
+            qaHint: "Max 10 MB per file. Text-based PDFs only.",
+            qaStartBtn: "Start indexing",
             qaDone: "Site activated! Indexing started.",
             qaCopy: "Click to copy",
             footerText: "Intelligent solutions for business",
@@ -1322,6 +1326,8 @@
             qaCode: "Белсендіру коды",
             qaCodePh: "Кодты енгізіңіз",
             qaBtn: "Белсендіру",
+            qaHint: "Файлға 10 МБ дейін. Тек мәтіндік PDF.",
+            qaStartBtn: "Индекстеуді бастау",
             qaDone: "Сайт белсендірілді! Индекстеу басталды.",
             qaCopy: "Көшіру үшін басыңыз",
             footerText: "Бизнеске арналған интеллектуалды шешімдер",
@@ -1917,6 +1923,7 @@
                     <input type="file" id="qa-pdfs" accept=".pdf" multiple>
                 </div>
                 <div class="file-list" id="qa-file-list"></div>
+                <div class="hint" data-i18n="qaHint"></div>
             </div>
 
             <div class="field-row">
@@ -1954,7 +1961,7 @@
             </div>
 
             <button class="btn btn-primary" id="qa-btn" onclick="quickActivate()">
-                <span data-i18n="qaBtn"></span>
+                <span data-i18n="qaStartBtn"></span>
             </button>
             <div class="err" id="qa-err"></div>
         </div>
