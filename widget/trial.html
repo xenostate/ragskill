@@ -1412,6 +1412,7 @@
 
     // Apply on load
     applyTranslations();
+    window.applyTranslations = applyTranslations;
 
     // ── Logo click confirmation ──
     document.getElementById("logo-link").addEventListener("click", function() {
@@ -1811,7 +1812,7 @@
                         successEl.style.display = "block";
                         document.getElementById("qa-widget-code").textContent = widgetCode;
                         document.getElementById("qa-chat-title").textContent = url.replace(/^https?:\/\//, "").replace(/\/.*/, "");
-                        applyI18n();
+                        if (window.applyTranslations) window.applyTranslations();
                     }
                 }
             };
@@ -2066,6 +2067,8 @@ function closeQaModal() {
     document.getElementById("qa-overlay").classList.remove("open");
     document.body.style.overflow = "";
 }
+// Re-apply translations now that modal DOM exists
+if (window.applyTranslations) window.applyTranslations();
 </script>
 </body>
 </html>
