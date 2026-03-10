@@ -297,6 +297,65 @@
             margin-bottom: 32px;
         }
 
+        .quick-activate {
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .quick-activate-label {
+            font-size: 14px;
+            color: var(--text2);
+            margin-bottom: 14px;
+        }
+
+        .quick-activate-row {
+            display: flex;
+            gap: 8px;
+            max-width: 700px;
+            margin: 0 auto;
+            align-items: center;
+        }
+
+        .qa-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--surface);
+            color: var(--text);
+            outline: none;
+        }
+
+        .qa-input:focus { border-color: var(--accent); }
+
+        .qa-code { max-width: 140px; }
+
+        .qa-select {
+            padding: 10px 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--surface);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .qa-btn {
+            white-space: nowrap;
+            padding: 10px 20px;
+        }
+
+        @media (max-width: 600px) {
+            .quick-activate-row {
+                flex-direction: column;
+            }
+            .qa-code { max-width: none; }
+        }
+
         /* ── App flow (steps) ── */
         .app { display: none; }
         .app.active { display: block; }
@@ -824,6 +883,31 @@
             <span data-i18n="ctaBtn"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
+
+        <div class="quick-activate">
+            <p class="quick-activate-label" data-i18n="qaTitle"></p>
+            <div class="quick-activate-row">
+                <input type="text" id="qa-url" data-i18n-ph="qaUrlPh" class="qa-input">
+                <select id="qa-pages" class="qa-select">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="150">150</option>
+                    <option value="200">200</option>
+                    <option value="300">300</option>
+                </select>
+                <input type="text" id="qa-code" data-i18n-ph="qaCodePh" class="qa-input qa-code">
+                <button class="btn btn-primary qa-btn" onclick="quickActivate()">
+                    <span data-i18n="qaBtn"></span>
+                </button>
+            </div>
+            <div class="err" id="qa-err" style="text-align:center;margin-top:8px;"></div>
+            <div id="qa-progress" style="display:none;text-align:center;margin-top:12px;font-size:13px;color:var(--text2);"></div>
+            <div id="qa-success" style="display:none;margin-top:16px;">
+                <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:8px;" data-i18n="qaDone"></p>
+                <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="max-width:600px;margin:0 auto;cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;"></div>
+                <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;" id="qa-copy-status"></p>
+            </div>
+        </div>
     </section>
 
     <div class="footer">
@@ -1057,6 +1141,11 @@
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
             ctaBtn: "Начать бесплатно",
+            qaTitle: "Уже приобрели? Введите код и URL сайта для полной версии",
+            qaUrlPh: "https://yoursite.com",
+            qaCodePh: "Код активации",
+            qaBtn: "Активировать",
+            qaDone: "Сайт активирован! Индексация запущена.",
             footerText: "Интеллектуальные решения для бизнеса",
             backToMain: "На главную",
             regTitle: "Регистрация",
@@ -1140,6 +1229,11 @@
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
             ctaBtn: "Start for free",
+            qaTitle: "Already purchased? Enter your code and website URL for the full version",
+            qaUrlPh: "https://yoursite.com",
+            qaCodePh: "Activation code",
+            qaBtn: "Activate",
+            qaDone: "Site activated! Indexing started.",
             footerText: "Intelligent solutions for business",
             backToMain: "Back to home",
             regTitle: "Register",
@@ -1223,6 +1317,11 @@
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
             ctaBtn: "Тегін бастау",
+            qaTitle: "Сатып алдыңыз ба? Толық нұсқа үшін кодты және сайт URL енгізіңіз",
+            qaUrlPh: "https://yoursite.com",
+            qaCodePh: "Белсендіру коды",
+            qaBtn: "Белсендіру",
+            qaDone: "Сайт белсендірілді! Индекстеу басталды.",
             footerText: "Бизнеске арналған интеллектуалды шешімдер",
             backToMain: "Басты бетке",
             regTitle: "Тіркелу",
@@ -1652,6 +1751,51 @@
         navigator.clipboard.writeText(text).then(() => {
             document.getElementById("copy-status").textContent = currentLang === "ru" ? "Скопировано!" : currentLang === "kk" ? "Көшірілді!" : "Copied!";
             setTimeout(() => document.getElementById("copy-status").textContent = "", 2000);
+        });
+    };
+
+    // ── Quick activate (from landing page) ──
+    window.quickActivate = async function() {
+        const t = T[currentLang];
+        const url = document.getElementById("qa-url").value.trim();
+        const code = document.getElementById("qa-code").value.trim();
+        const maxPages = parseInt(document.getElementById("qa-pages").value);
+        const err = document.getElementById("qa-err");
+        const progress = document.getElementById("qa-progress");
+        const success = document.getElementById("qa-success");
+
+        if (!url) { showErr(err, t.qaUrlPh); return; }
+        if (!code) { showErr(err, t.qaCodePh); return; }
+        hideErr(err);
+        success.style.display = "none";
+        progress.style.display = "block";
+        progress.textContent = "...";
+
+        try {
+            const resp = await fetch(API + "/api/quick-activate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, code, max_pages: maxPages }),
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) { showErr(err, data.error); progress.style.display = "none"; return; }
+
+            progress.style.display = "none";
+            success.style.display = "block";
+            document.getElementById("qa-widget-code").textContent = data.widget_code;
+        } catch (e) {
+            progress.style.display = "none";
+            showErr(err, "Network error");
+        }
+    };
+
+    window.copyQaCode = function() {
+        const text = document.getElementById("qa-widget-code").textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const s = document.getElementById("qa-copy-status");
+            s.textContent = currentLang === "ru" ? "Скопировано!" : currentLang === "kk" ? "Көшірілді!" : "Copied!";
+            setTimeout(() => s.textContent = "", 2000);
         });
     };
 

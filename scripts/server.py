@@ -1180,3 +1180,59 @@ async def activate(request: Request):
         "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://wrs.kz")}/widget.js" data-site-id="{site_id}"></script>',
         "source_url": source_url,
     }
+
+
+@app.post("/api/quick-activate")
+async def quick_activate(request: Request):
+    """Activate directly from landing page — no trial/registration needed."""
+    # Rate limit: 3 per hour per IP
+    blocked = rate_limit_check(request, "quick_activate", 3, 3600)
+    if blocked:
+        return blocked
+
+    body = await request.json()
+    code = body.get("code", "").strip()
+    url = body.get("url", "").strip()
+    max_pages = min(int(body.get("max_pages", 100)), 300)
+
+    if not code or not url:
+        return JSONResponse({"error": "Code and URL are required"}, status_code=400)
+
+    if code != ACTIVATION_CODE:
+        return JSONResponse({"error": "Invalid activation code"}, status_code=403)
+
+    # Validate URL
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        url = f"https://{url}"
+        parsed = urlparse(url)
+    if not parsed.netloc:
+        return JSONResponse({"error": "Invalid URL"}, status_code=400)
+
+    domain = parsed.netloc
+
+    # Create permanent site
+    site_resp = sb.table("sites").insert({
+        "domain": domain,
+        "language": None,
+        "is_trial": False,
+        "settings": {"source_url": url},
+    }).execute()
+    site_id = site_resp.data[0]["id"]
+
+    # Start indexing in background
+    trial_progress[site_id] = {
+        "step": 0, "total": 0, "message": "Starting full indexing...",
+        "done": False, "error": None,
+    }
+    asyncio.get_event_loop().create_task(
+        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, [])
+    )
+
+    log.info(f"Quick-activate: site_id={site_id} domain={domain} max_pages={max_pages}")
+
+    return {
+        "success": True,
+        "site_id": site_id,
+        "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://wrs.kz")}/widget.js" data-site-id="{site_id}"></script>',
+    }
