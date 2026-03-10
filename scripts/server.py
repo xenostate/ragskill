@@ -78,6 +78,65 @@ trial_progress: dict[int, dict] = {}
 
 MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
 
+# Landing page chat site_id (set on startup or via /api/landing/setup)
+landing_site_id: int | None = None
+
+LANDING_DOMAIN = "landing.wrs.kz"
+
+LANDING_CONTENT = [
+    {
+        "title": "О WebRAG Systems",
+        "text": """WebRAG Systems — это AI-ассистент для сайтов. Наш продукт автоматически отвечает на вопросы ваших клиентов, основываясь на содержимом вашего сайта.
+
+WebRAG Systems is an AI assistant for websites. Our product automatically answers your customers' questions based on your website content.
+
+WebRAG Systems — сайттарға арналған AI-көмекші. Біздің өнім сайтыңыздың мазмұнына негізделіп тұтынушыларыңыздың сұрақтарына автоматты түрде жауап береді.""",
+    },
+    {
+        "title": "Как это работает / How it works",
+        "text": """Процесс работы WebRAG очень простой:
+1. Вы регистрируетесь и указываете URL вашего сайта.
+2. Наш AI сканирует и индексирует весь контент сайта, включая PDF-файлы.
+3. Вы тестируете ассистента в чате — задаёте вопросы и проверяете качество ответов.
+4. Копируете одну строчку кода и вставляете в HTML вашего сайта.
+После этого виджет-ассистент появится на вашем сайте и будет отвечать посетителям 24/7.
+
+The WebRAG process is very simple: register, paste your website URL, our AI crawls and indexes all content including PDFs, test the assistant in chat, then copy one line of code into your site HTML. The widget assistant will appear on your site and answer visitors 24/7.""",
+    },
+    {
+        "title": "Возможности и особенности / Features",
+        "text": """Ключевые возможности WebRAG:
+- Установка за 5 минут — одна строчка кода на сайт
+- Мультиязычность — русский, английский, казахский и другие языки
+- Поддержка PDF-файлов — загружайте документы для индексации
+- Работает 24/7 — ассистент всегда онлайн
+- Точные ответы — на основе реального контента вашего сайта, без выдумок
+- Автоматическое сканирование — AI сам находит и индексирует страницы сайта
+
+Key features: 5-minute setup with one line of code, multilingual support (Russian, English, Kazakh), PDF support, 24/7 availability, accurate answers based on real site content, automatic crawling.""",
+    },
+    {
+        "title": "Для кого подходит / Who it's for",
+        "text": """WebRAG идеально подходит для:
+- Интернет-магазинов — ответы на вопросы о товарах, наличии, доставке
+- Сервисных компаний — информация об услугах, ценах, графике работы
+- Образовательных платформ — ответы по учебным материалам
+- Корпоративных сайтов — помощь клиентам и сотрудникам
+- Любого бизнеса в Казахстане, который хочет автоматизировать поддержку клиентов
+
+Особенно актуально для бизнеса в Казахстане: поддержка казахского, русского и английского языков из коробки.""",
+    },
+    {
+        "title": "Контакты и пробная версия / Contact and trial",
+        "text": """Вы можете попробовать WebRAG бесплатно прямо на нашем сайте wrs.kz — нажмите кнопку 'Начать бесплатно' внизу страницы.
+
+Для связи: телефон +7 700 534 5949.
+Сайт: wrs.kz
+
+You can try WebRAG for free on our website wrs.kz. Contact us at +7 700 534 5949.""",
+    },
+]
+
 # ── RAG prompt ─────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are a precise assistant that answers questions using ONLY the provided source chunks.
@@ -168,6 +227,12 @@ async def lifespan(app: FastAPI):
     # Start trial cleanup background task
     cleanup_task = asyncio.create_task(cleanup_expired_trials())
     log.info("Trial cleanup task started (runs hourly)")
+
+    # Setup landing chat site
+    try:
+        setup_landing_site()
+    except Exception as e:
+        log.error(f"Landing site setup failed: {e}")
 
     yield
 
@@ -635,6 +700,78 @@ async def trigger_trial_cleanup():
         .execute()
     deleted = len(resp.data) if resp.data else 0
     return {"deleted": deleted}
+
+
+# ── Landing page chat ─────────────────────────────────────────────────────
+
+def setup_landing_site():
+    """Create (or find existing) landing chat site and index product content."""
+    global landing_site_id
+
+    # Check if landing site already exists
+    existing = sb.table("sites").select("id").eq("domain", LANDING_DOMAIN).execute()
+    if existing.data:
+        landing_site_id = existing.data[0]["id"]
+        log.info(f"Landing site already exists: site_id={landing_site_id}")
+        return landing_site_id
+
+    # Create new site
+    site_resp = sb.table("sites").insert({
+        "domain": LANDING_DOMAIN,
+        "language": "ru",
+        "is_trial": False,
+        "settings": {"landing": True},
+    }).execute()
+    landing_site_id = site_resp.data[0]["id"]
+    log.info(f"Created landing site: site_id={landing_site_id}")
+
+    # Index content
+    for item in LANDING_CONTENT:
+        c_hash = content_hash(item["text"])
+        ins = sb.table("documents").insert({
+            "site_id": landing_site_id,
+            "url": f"landing://{LANDING_DOMAIN}",
+            "title": item["title"],
+            "content_hash": c_hash,
+        }).execute()
+        doc_id = ins.data[0]["id"]
+
+        chunks = chunk_text(item["text"])
+        if not chunks:
+            continue
+
+        texts_to_embed = [f"passage: {c}" for c in chunks]
+        embeddings = embed_model.encode(
+            texts_to_embed, show_progress_bar=False, normalize_embeddings=True
+        )
+
+        rows = []
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            rows.append({
+                "document_id": doc_id,
+                "chunk_index": i,
+                "text": chunk,
+                "headings": [],
+                "embedding": emb.tolist(),
+            })
+
+        sb.table("chunks").insert(rows).execute()
+
+    log.info(f"Landing site {landing_site_id} indexed with {len(LANDING_CONTENT)} documents")
+    return landing_site_id
+
+
+@app.get("/api/landing/config")
+async def landing_config():
+    """Return landing chat site_id."""
+    return {"site_id": landing_site_id}
+
+
+@app.post("/api/landing/setup")
+async def landing_setup():
+    """Create landing site and index product content (idempotent)."""
+    sid = await asyncio.to_thread(setup_landing_site)
+    return {"site_id": sid, "message": "Landing site ready"}
 
 
 # ── Registration & Activation ─────────────────────────────────────────────
