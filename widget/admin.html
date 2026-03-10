@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRAG Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #f6f6f6;
+            --surface: #ffffff;
+            --border: #dcdce0;
+            --text: #47464d;
+            --text2: #7a7a85;
+            --accent: #fb742d;
+            --accent-hover: #fc8a4f;
+            --green: #22c55e;
+            --red: #ef4444;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Login ── */
+        .login-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            width: 360px;
+            text-align: center;
+        }
+
+        .login-card h1 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .login-card p {
+            color: var(--text2);
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text);
+            background: var(--surface);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .btn-primary:hover { background: var(--accent-hover); }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+
+        .btn-danger {
+            background: none;
+            color: var(--red);
+            border: 1px solid var(--red);
+        }
+
+        .btn-danger:hover {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .err {
+            color: var(--red);
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        /* ── Dashboard ── */
+        .dashboard { display: none; }
+
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .topbar h1 {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .topbar h1 span { color: var(--accent); }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: var(--text2);
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            color: var(--text2);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .logout-btn:hover { color: var(--text); border-color: var(--text2); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 3px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text2);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card h3 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .card-meta {
+            font-size: 12px;
+            color: var(--text2);
+            margin-bottom: 12px;
+        }
+
+        .card-text {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text);
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .card-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* ── Add form ── */
+        .add-form {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .add-form h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text2);
+        }
+
+        .status-msg {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .status-msg.success {
+            display: block;
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-msg.error {
+            display: block;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        /* ── Sites table ── */
+        .site-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .site-info { flex: 1; }
+
+        .site-domain {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .site-meta {
+            font-size: 12px;
+            color: var(--text2);
+            margin-top: 2px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-trial { background: #fef9c3; color: #854d0e; }
+        .badge-active { background: #dcfce7; color: #166534; }
+        .badge-landing { background: #e0e7ff; color: #3730a3; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text2);
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text2);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Login screen ── -->
+<div class="login-wrap" id="login-screen">
+    <div class="login-card">
+        <h1>Web<span style="color:var(--accent)">RAG</span> Admin</h1>
+        <p>Enter admin code to continue</p>
+        <input type="password" id="admin-code" placeholder="Admin code" onkeydown="if(event.key==='Enter')doLogin()">
+        <button class="btn btn-primary" onclick="doLogin()">Enter</button>
+        <div class="err" id="login-err"></div>
+    </div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div class="dashboard" id="dashboard">
+    <div class="topbar">
+        <h1>Web<span>RAG</span> Admin</h1>
+        <div class="topbar-right">
+            <span id="site-count"></span>
+            <button class="logout-btn" onclick="doLogout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('docs')">Landing Content</button>
+            <button class="tab-btn" onclick="switchTab('sites')">All Sites</button>
+        </div>
+
+        <!-- Tab: Landing content -->
+        <div class="tab-content active" id="tab-docs">
+            <div class="add-form">
+                <h3>Add new content</h3>
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="doc-title" placeholder="e.g. Pricing info">
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea id="doc-text" placeholder="Write the information text here. It will be chunked and embedded into the RAG."></textarea>
+                </div>
+                <button class="btn btn-primary btn-sm" style="width:auto" onclick="addDocument()">Add & Index</button>
+            </div>
+
+            <div class="status-msg" id="doc-status"></div>
+            <div id="doc-list"><div class="loading">Loading documents...</div></div>
+        </div>
+
+        <!-- Tab: Sites -->
+        <div class="tab-content" id="tab-sites">
+            <div id="sites-list"><div class="loading">Loading sites...</div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = window.location.origin;
+let adminToken = sessionStorage.getItem("wr_admin") || "";
+
+// ── Auth ──
+
+async function doLogin() {
+    const code = document.getElementById("admin-code").value.trim();
+    if (!code) return;
+
+    const resp = await fetch(API + "/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+        adminToken = data.token;
+        sessionStorage.setItem("wr_admin", adminToken);
+        showDashboard();
+    } else {
+        document.getElementById("login-err").textContent = data.error || "Invalid code";
+    }
+}
+
+function doLogout() {
+    adminToken = "";
+    sessionStorage.removeItem("wr_admin");
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("login-screen").style.display = "flex";
+}
+
+async function showDashboard() {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    loadDocuments();
+    loadSites();
+}
+
+function authHeaders() {
+    return {
+        "Content-Type": "application/json",
+        "X-Admin-Token": adminToken,
+    };
+}
+
+// ── Tabs ──
+
+function switchTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach((b, i) => {
+        b.classList.toggle("active", (tab === "docs" && i === 0) || (tab === "sites" && i === 1));
+    });
+    document.getElementById("tab-docs").classList.toggle("active", tab === "docs");
+    document.getElementById("tab-sites").classList.toggle("active", tab === "sites");
+}
+
+// ── Landing documents ──
+
+async function loadDocuments() {
+    const resp = await fetch(API + "/api/admin/documents", { headers: authHeaders() });
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+
+    const list = document.getElementById("doc-list");
+    if (!data.documents || data.documents.length === 0) {
+        list.innerHTML = '<div class="empty-state">No documents yet</div>';
+        return;
+    }
+
+    list.innerHTML = data.documents.map(doc => `
+        <div class="card">
+            <h3>${esc(doc.title)}</h3>
+            <div class="card-meta">ID: ${doc.id} · ${doc.chunk_count} chunk(s)</div>
+            <div class="card-text">${esc(doc.preview)}</div>
+            <div class="card-actions">
+                <button class="btn btn-sm btn-danger" onclick="deleteDocument(${doc.id}, '${esc(doc.title)}')">Delete</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+async function addDocument() {
+    const title = document.getElementById("doc-title").value.trim();
+    const text = document.getElementById("doc-text").value.trim();
+    const status = document.getElementById("doc-status");
+
+    if (!title || !text) {
+        status.className = "status-msg error";
+        status.textContent = "Title and content are required.";
+        return;
+    }
+
+    status.className = "status-msg";
+    status.style.display = "block";
+    status.style.background = "#f0f0f0";
+    status.style.color = "var(--text2)";
+    status.textContent = "Indexing...";
+
+    const resp = await fetch(API + "/api/admin/documents", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ title, text }),
+    });
+
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+
+    if (data.success) {
+        status.className = "status-msg success";
+        status.textContent = `Added "${title}" — ${data.chunks} chunk(s) indexed.`;
+        document.getElementById("doc-title").value = "";
+        document.getElementById("doc-text").value = "";
+        loadDocuments();
+    } else {
+        status.className = "status-msg error";
+        status.textContent = data.error || "Failed to add document.";
+    }
+}
+
+async function deleteDocument(docId, title) {
+    if (!confirm(`Delete "${title}"? This will remove it from the RAG.`)) return;
+
+    const resp = await fetch(API + `/api/admin/documents/${docId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+    });
+
+    if (resp.status === 401) { doLogout(); return; }
+    loadDocuments();
+}
+
+// ── Sites ──
+
+async function loadSites() {
+    const resp = await fetch(API + "/api/admin/sites", { headers: authHeaders() });
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+
+    document.getElementById("site-count").textContent = `${data.sites.length} site(s)`;
+
+    const list = document.getElementById("sites-list");
+    if (!data.sites || data.sites.length === 0) {
+        list.innerHTML = '<div class="empty-state">No sites yet</div>';
+        return;
+    }
+
+    list.innerHTML = data.sites.map(s => {
+        let badge = '';
+        if (s.is_landing) badge = '<span class="badge badge-landing">Landing</span>';
+        else if (s.is_trial) badge = '<span class="badge badge-trial">Trial</span>';
+        else badge = '<span class="badge badge-active">Active</span>';
+
+        return `
+            <div class="site-row">
+                <div class="site-info">
+                    <div class="site-domain">${esc(s.domain)} ${badge}</div>
+                    <div class="site-meta">ID: ${s.id} · ${s.doc_count} doc(s) · Lang: ${s.language || 'auto'}</div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+// ── Helpers ──
+
+function esc(str) {
+    if (!str) return "";
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── Init ──
+
+if (adminToken) {
+    // Verify token is still valid
+    fetch(API + "/api/admin/sites", { headers: authHeaders() })
+        .then(r => { if (r.ok) showDashboard(); else doLogout(); })
+        .catch(() => doLogout());
+}
+</script>
+</body>
+</html>

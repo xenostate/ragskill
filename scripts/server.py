@@ -874,6 +874,172 @@ async def landing_setup():
     return {"site_id": sid, "message": "Landing site ready"}
 
 
+# ── Admin Dashboard ──────────────────────────────────────────────────────
+
+ADMIN_CODE = os.environ.get("ADMIN_CODE", os.environ.get("ACTIVATION_CODE", "211111"))
+# Simple token store: { token: expiry_timestamp }
+admin_tokens: dict[str, float] = {}
+ADMIN_TOKEN_TTL = 3600 * 8  # 8 hours
+
+
+def verify_admin(request: Request) -> bool:
+    """Check X-Admin-Token header."""
+    token = request.headers.get("x-admin-token", "")
+    expiry = admin_tokens.get(token)
+    if not expiry or time.time() > expiry:
+        admin_tokens.pop(token, None)
+        return False
+    return True
+
+
+@app.get("/admin")
+async def serve_admin_page():
+    html_path = WIDGET_DIR / "admin.html"
+    if not html_path.exists():
+        return JSONResponse({"error": "admin.html not found"}, status_code=404)
+    return FileResponse(html_path, media_type="text/html")
+
+
+@app.post("/api/admin/auth")
+async def admin_auth(request: Request):
+    # Rate limit: 5 attempts per hour per IP
+    blocked = rate_limit_check(request, "admin_auth", 5, 3600)
+    if blocked:
+        return blocked
+
+    body = await request.json()
+    code = body.get("code", "").strip()
+
+    if code != ADMIN_CODE:
+        log.warning(f"Failed admin login from {get_client_ip(request)}")
+        return JSONResponse({"error": "Invalid code"}, status_code=403)
+
+    token = f"adm_{uuid.uuid4().hex}"
+    admin_tokens[token] = time.time() + ADMIN_TOKEN_TTL
+    log.info(f"Admin login from {get_client_ip(request)}")
+    return {"success": True, "token": token}
+
+
+@app.get("/api/admin/documents")
+async def admin_list_documents(request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if not landing_site_id:
+        return {"documents": []}
+
+    docs = sb.table("documents").select("id, title, url").eq("site_id", landing_site_id).execute()
+
+    result = []
+    for doc in (docs.data or []):
+        # Get chunk count and preview
+        chunks = sb.table("chunks").select("text").eq("document_id", doc["id"]).execute()
+        chunk_texts = [c["text"] for c in (chunks.data or [])]
+        preview = chunk_texts[0][:300] if chunk_texts else ""
+        result.append({
+            "id": doc["id"],
+            "title": doc["title"],
+            "chunk_count": len(chunk_texts),
+            "preview": preview,
+        })
+
+    return {"documents": result}
+
+
+@app.post("/api/admin/documents")
+async def admin_add_document(request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if not landing_site_id:
+        return JSONResponse({"error": "Landing site not initialized"}, status_code=500)
+
+    body = await request.json()
+    title = body.get("title", "").strip()
+    text = body.get("text", "").strip()
+
+    if not title or not text:
+        return JSONResponse({"error": "Title and text are required"}, status_code=400)
+
+    # Index the document (run in thread since embedding is CPU-bound)
+    def do_index():
+        c_hash = content_hash(text)
+        ins = sb.table("documents").insert({
+            "site_id": landing_site_id,
+            "url": f"admin://{LANDING_DOMAIN}",
+            "title": title,
+            "content_hash": c_hash,
+        }).execute()
+        doc_id = ins.data[0]["id"]
+
+        chunks = chunk_text(text)
+        if not chunks:
+            return 0
+
+        texts_to_embed = [f"passage: {c}" for c in chunks]
+        embeddings = embed_model.encode(
+            texts_to_embed, show_progress_bar=False, normalize_embeddings=True
+        )
+
+        rows = []
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            rows.append({
+                "document_id": doc_id,
+                "chunk_index": i,
+                "text": chunk,
+                "headings": [],
+                "embedding": emb.tolist(),
+            })
+
+        sb.table("chunks").insert(rows).execute()
+        return len(rows)
+
+    chunk_count = await asyncio.to_thread(do_index)
+    log.info(f"Admin added document '{title}' to landing site: {chunk_count} chunks")
+    return {"success": True, "chunks": chunk_count}
+
+
+@app.delete("/api/admin/documents/{doc_id}")
+async def admin_delete_document(doc_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Verify document belongs to landing site
+    doc = sb.table("documents").select("site_id").eq("id", doc_id).execute()
+    if not doc.data or doc.data[0]["site_id"] != landing_site_id:
+        return JSONResponse({"error": "Document not found"}, status_code=404)
+
+    # Delete chunks first, then document
+    sb.table("chunks").delete().eq("document_id", doc_id).execute()
+    sb.table("documents").delete().eq("id", doc_id).execute()
+
+    log.info(f"Admin deleted document {doc_id} from landing site")
+    return {"success": True}
+
+
+@app.get("/api/admin/sites")
+async def admin_list_sites(request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    sites = sb.table("sites").select("id, domain, language, is_trial, settings").execute()
+
+    result = []
+    for s in (sites.data or []):
+        settings = s.get("settings") or {}
+        doc_count = sb.table("documents").select("id", count="exact").eq("site_id", s["id"]).execute()
+        result.append({
+            "id": s["id"],
+            "domain": s["domain"],
+            "language": s.get("language"),
+            "is_trial": s.get("is_trial", False),
+            "is_landing": settings.get("landing", False),
+            "doc_count": doc_count.count if doc_count.count is not None else 0,
+        })
+
+    return {"sites": result}
+
+
 # ── Registration & Activation ─────────────────────────────────────────────
 
 ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "211111")
