@@ -1128,6 +1128,7 @@ async def activate(request: Request):
     code = body.get("code", "").strip()
     site_id = body.get("site_id")
     token = body.get("token", "").strip()
+    max_pages = min(int(body.get("max_pages", 100)), 300)
 
     if not code or not site_id or not token:
         return JSONResponse({"error": "Code, site_id, and token are required"}, status_code=400)
@@ -1155,7 +1156,23 @@ async def activate(request: Request):
         "expires_at": None,
     }).eq("id", site_id).execute()
 
-    log.info(f"Site {site_id} activated by {reg.data[0]['email']}")
+    # Re-index with more pages in background
+    if source_url and max_pages > 0:
+        trial_progress[site_id] = {
+            "step": 0, "total": 0, "message": "Re-indexing with full page count...",
+            "done": False, "error": None,
+        }
+        # Clear existing docs/chunks before re-indexing
+        def reindex():
+            docs = sb.table("documents").select("id").eq("site_id", site_id).execute()
+            for doc in (docs.data or []):
+                sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+            sb.table("documents").delete().eq("site_id", site_id).execute()
+            run_trial_indexing(site_id, source_url, max_pages, [])
+
+        asyncio.get_event_loop().create_task(asyncio.to_thread(reindex))
+
+    log.info(f"Site {site_id} activated by {reg.data[0]['email']} — re-indexing {max_pages} pages")
 
     return {
         "success": True,

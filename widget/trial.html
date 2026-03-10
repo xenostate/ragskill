@@ -990,6 +990,16 @@
                 <label data-i18n="actCode"></label>
                 <input type="text" id="a-code" data-i18n-ph="actCodePh">
             </div>
+            <div class="field">
+                <label data-i18n="actPages"></label>
+                <select id="a-pages">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="150">150</option>
+                    <option value="200">200</option>
+                    <option value="300">300</option>
+                </select>
+            </div>
             <button class="btn btn-primary" onclick="doActivate()">
                 <span data-i18n="actBtn"></span>
             </button>
@@ -1093,6 +1103,7 @@
             actSub: "Введите код активации, чтобы получить код для встраивания на сайт.",
             actCode: "Код активации",
             actCodePh: "Введите код",
+            actPages: "Количество страниц для индексации",
             actBtn: "Активировать",
             actErrEmpty: "Пожалуйста, введите код.",
             actErrNet: "Ошибка сети.",
@@ -1175,6 +1186,7 @@
             actSub: "Enter your activation code to get the embed snippet.",
             actCode: "Activation Code",
             actCodePh: "Enter code",
+            actPages: "Pages to index",
             actBtn: "Activate",
             actErrEmpty: "Please enter a code.",
             actErrNet: "Network error.",
@@ -1257,6 +1269,7 @@
             actSub: "Сайтқа ендіру кодын алу үшін белсендіру кодын енгізіңіз.",
             actCode: "Белсендіру коды",
             actCodePh: "Кодты енгізіңіз",
+            actPages: "Индекстеу беттерінің саны",
             actBtn: "Белсендіру",
             actErrEmpty: "Кодты енгізіңіз.",
             actErrNet: "Желі қатесі.",
@@ -1620,7 +1633,7 @@
             const resp = await fetch(API + "/api/activate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ code, site_id: siteId, token }),
+                body: JSON.stringify({ code, site_id: siteId, token, max_pages: parseInt(document.getElementById("a-pages").value) }),
             });
             const data = await resp.json();
 
