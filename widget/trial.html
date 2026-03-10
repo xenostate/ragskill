@@ -1748,143 +1748,7 @@
         });
     };
 
-    // ── Quick activate (from landing page) ──
-    document.getElementById("qa-pdfs").addEventListener("change", function() {
-        const names = Array.from(this.files).map(f => f.name);
-        document.getElementById("qa-file-list").textContent = names.length ? names.join(", ") : "";
-    });
-
-    let qaSiteId = null;
-
-    window.quickActivate = async function() {
-        const t = T[currentLang];
-        const url = document.getElementById("qa-url").value.trim();
-        const code = document.getElementById("qa-code").value.trim();
-        const err = document.getElementById("qa-err");
-        const btn = document.getElementById("qa-btn");
-        const progressEl = document.getElementById("qa-progress");
-        const successEl = document.getElementById("qa-success");
-
-        if (!url) { showErr(err, t.qaUrl || "URL required"); return; }
-        if (!code) { showErr(err, t.qaCode || "Code required"); return; }
-        hideErr(err);
-        btn.disabled = true;
-        successEl.style.display = "none";
-
-        const fd = new FormData();
-        fd.append("url", url);
-        fd.append("code", code);
-        fd.append("max_pages", document.getElementById("qa-pages").value);
-        fd.append("language", document.getElementById("qa-lang").value);
-        fd.append("use_playwright", document.getElementById("qa-playwright").checked ? "1" : "0");
-        for (const f of document.getElementById("qa-pdfs").files) fd.append("pdfs", f);
-
-        try {
-            const resp = await fetch(API + "/api/quick-activate", { method: "POST", body: fd });
-            const data = await resp.json();
-
-            if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }
-
-            document.getElementById("qa-form").style.display = "none";
-            progressEl.style.display = "block";
-            qaSiteId = data.site_id;
-            const widgetCode = data.widget_code;
-
-            const bar = document.getElementById("qa-bar");
-            bar.classList.remove("pulse");
-
-            const sse = new EventSource(API + "/api/trial/progress/" + qaSiteId);
-            sse.onmessage = function(ev) {
-                const p = JSON.parse(ev.data);
-                document.getElementById("qa-msg").textContent = p.message || "";
-                document.getElementById("qa-status").textContent = p.message || "";
-                if (p.total > 0) {
-                    bar.classList.remove("pulse");
-                    bar.style.width = Math.round((p.step / p.total) * 100) + "%";
-                }
-                if (p.done || p.error) {
-                    sse.close();
-                    if (p.error) {
-                        document.getElementById("qa-status").textContent = p.error;
-                        bar.style.background = "#ef4444";
-                    } else {
-                        progressEl.style.display = "none";
-                        successEl.style.display = "block";
-                        document.getElementById("qa-widget-code").textContent = widgetCode;
-                        document.getElementById("qa-chat-title").textContent = url.replace(/^https?:\/\//, "").replace(/\/.*/, "");
-                        if (window.applyTranslations) window.applyTranslations();
-                    }
-                }
-            };
-            sse.onerror = function() { sse.close(); };
-        } catch (e) {
-            showErr(err, "Network error");
-            btn.disabled = false;
-        }
-    };
-
-    window.sendQaMsg = async function() {
-        if (!qaSiteId) return;
-        const input = document.getElementById("qa-chat-input");
-        const query = input.value.trim();
-        if (!query) return;
-        input.value = "";
-
-        const body = document.getElementById("qa-chat-body");
-        const typing = document.getElementById("qa-chat-typing");
-
-        const userMsg = document.createElement("div");
-        userMsg.className = "msg user";
-        userMsg.textContent = query;
-        body.insertBefore(userMsg, typing);
-
-        typing.style.display = "flex";
-        body.scrollTop = body.scrollHeight;
-        document.getElementById("qa-chat-send").disabled = true;
-
-        try {
-            const resp = await fetch(API + "/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ site_id: qaSiteId, query: query, session_id: "qa_" + qaSiteId })
-            });
-            const data = await resp.json();
-
-            const botMsg = document.createElement("div");
-            botMsg.className = "msg bot";
-            botMsg.innerHTML = (data.answer || "No answer").replace(/\n/g, "<br>");
-            if (data.sources && data.sources.length) {
-                let src = '<div style="margin-top:6px;font-size:11px;color:var(--text2);">';
-                data.sources.forEach((s, i) => { src += '<a href="'+s.url+'" target="_blank" style="color:var(--accent);display:block;">['+(i+1)+'] '+s.title+'</a>'; });
-                src += '</div>';
-                botMsg.innerHTML += src;
-            }
-            body.insertBefore(botMsg, typing);
-        } catch(e) {
-            const errMsg = document.createElement("div");
-            errMsg.className = "msg sys";
-            errMsg.textContent = "Error sending message";
-            body.insertBefore(errMsg, typing);
-        } finally {
-            typing.style.display = "none";
-            document.getElementById("qa-chat-send").disabled = false;
-            body.scrollTop = body.scrollHeight;
-            input.focus();
-        }
-    };
-
-    document.getElementById("qa-chat-input").addEventListener("keydown", function(e) {
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQaMsg(); }
-    });
-
-    window.copyQaCode = function() {
-        const text = document.getElementById("qa-widget-code").textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            const s = document.getElementById("qa-copy-status");
-            s.textContent = currentLang === "ru" ? "Скопировано!" : currentLang === "kk" ? "Көшірілді!" : "Copied!";
-            setTimeout(() => s.textContent = "", 2000);
-        });
-    };
+    // Quick activate JS is in the second script block (after modal HTML)
 
     // ── Reset ──
     window.resetAll = function() {
@@ -1942,6 +1806,7 @@
     // ── Helpers ──
     function showErr(el, msg) { el.textContent = msg; el.classList.add("on"); }
     function hideErr(el) { el.textContent = ""; el.classList.remove("on"); }
+    window._wr = { T, getCurrentLang: () => currentLang, API, showErr, hideErr };
 
     // Enter keys
     document.getElementById("reg-name").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("reg-email").focus(); });
@@ -2059,16 +1924,165 @@
 </div>
 
 <script>
-function openQaModal() {
-    document.getElementById("qa-overlay").classList.add("open");
-    document.body.style.overflow = "hidden";
-}
-function closeQaModal() {
-    document.getElementById("qa-overlay").classList.remove("open");
-    document.body.style.overflow = "";
-}
-// Re-apply translations now that modal DOM exists
-if (window.applyTranslations) window.applyTranslations();
+(function() {
+    var wr = window._wr;
+    var T = wr.T, API = wr.API, showErr = wr.showErr, hideErr = wr.hideErr;
+
+    function openQaModal() {
+        document.getElementById("qa-overlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+    }
+    function closeQaModal() {
+        document.getElementById("qa-overlay").classList.remove("open");
+        document.body.style.overflow = "";
+    }
+    window.openQaModal = openQaModal;
+    window.closeQaModal = closeQaModal;
+
+    // File list display
+    document.getElementById("qa-pdfs").addEventListener("change", function() {
+        var names = Array.from(this.files).map(function(f) { return f.name; });
+        document.getElementById("qa-file-list").textContent = names.length ? names.join(", ") : "";
+    });
+
+    var qaSiteId = null;
+
+    window.quickActivate = async function() {
+        var currentLang = wr.getCurrentLang();
+        var t = T[currentLang];
+        var url = document.getElementById("qa-url").value.trim();
+        var code = document.getElementById("qa-code").value.trim();
+        var err = document.getElementById("qa-err");
+        var btn = document.getElementById("qa-btn");
+        var progressEl = document.getElementById("qa-progress");
+        var successEl = document.getElementById("qa-success");
+
+        if (!url) { showErr(err, t.qaUrl || "URL required"); return; }
+        if (!code) { showErr(err, t.qaCode || "Code required"); return; }
+        hideErr(err);
+        btn.disabled = true;
+        successEl.style.display = "none";
+
+        var fd = new FormData();
+        fd.append("url", url);
+        fd.append("code", code);
+        fd.append("max_pages", document.getElementById("qa-pages").value);
+        fd.append("language", document.getElementById("qa-lang").value);
+        fd.append("use_playwright", document.getElementById("qa-playwright").checked ? "1" : "0");
+        var files = document.getElementById("qa-pdfs").files;
+        for (var i = 0; i < files.length; i++) fd.append("pdfs", files[i]);
+
+        try {
+            var resp = await fetch(API + "/api/quick-activate", { method: "POST", body: fd });
+            var data = await resp.json();
+
+            if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }
+
+            document.getElementById("qa-form").style.display = "none";
+            progressEl.style.display = "block";
+            qaSiteId = data.site_id;
+            var widgetCode = data.widget_code;
+
+            var bar = document.getElementById("qa-bar");
+            bar.classList.remove("pulse");
+
+            var sse = new EventSource(API + "/api/trial/progress/" + qaSiteId);
+            sse.onmessage = function(ev) {
+                var p = JSON.parse(ev.data);
+                document.getElementById("qa-msg").textContent = p.message || "";
+                document.getElementById("qa-status").textContent = p.message || "";
+                if (p.total > 0) {
+                    bar.classList.remove("pulse");
+                    bar.style.width = Math.round((p.step / p.total) * 100) + "%";
+                }
+                if (p.done || p.error) {
+                    sse.close();
+                    if (p.error) {
+                        document.getElementById("qa-status").textContent = p.error;
+                        bar.style.background = "#ef4444";
+                    } else {
+                        progressEl.style.display = "none";
+                        successEl.style.display = "block";
+                        document.getElementById("qa-widget-code").textContent = widgetCode;
+                        document.getElementById("qa-chat-title").textContent = url.replace(/^https?:\/\//, "").replace(/\/.*/, "");
+                        if (window.applyTranslations) window.applyTranslations();
+                    }
+                }
+            };
+            sse.onerror = function() { sse.close(); };
+        } catch (e) {
+            showErr(err, "Network error");
+            btn.disabled = false;
+        }
+    };
+
+    window.sendQaMsg = async function() {
+        if (!qaSiteId) return;
+        var input = document.getElementById("qa-chat-input");
+        var query = input.value.trim();
+        if (!query) return;
+        input.value = "";
+
+        var body = document.getElementById("qa-chat-body");
+        var typing = document.getElementById("qa-chat-typing");
+
+        var userMsg = document.createElement("div");
+        userMsg.className = "msg user";
+        userMsg.textContent = query;
+        body.insertBefore(userMsg, typing);
+
+        typing.style.display = "flex";
+        body.scrollTop = body.scrollHeight;
+        document.getElementById("qa-chat-send").disabled = true;
+
+        try {
+            var resp = await fetch(API + "/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ site_id: qaSiteId, query: query, session_id: "qa_" + qaSiteId })
+            });
+            var data = await resp.json();
+
+            var botMsg = document.createElement("div");
+            botMsg.className = "msg bot";
+            botMsg.innerHTML = (data.answer || "No answer").replace(/\n/g, "<br>");
+            if (data.sources && data.sources.length) {
+                var src = '<div style="margin-top:6px;font-size:11px;color:var(--text2);">';
+                data.sources.forEach(function(s, i) { src += '<a href="'+s.url+'" target="_blank" style="color:var(--accent);display:block;">['+(i+1)+'] '+s.title+'</a>'; });
+                src += '</div>';
+                botMsg.innerHTML += src;
+            }
+            body.insertBefore(botMsg, typing);
+        } catch(e) {
+            var errMsg = document.createElement("div");
+            errMsg.className = "msg sys";
+            errMsg.textContent = "Error sending message";
+            body.insertBefore(errMsg, typing);
+        } finally {
+            typing.style.display = "none";
+            document.getElementById("qa-chat-send").disabled = false;
+            body.scrollTop = body.scrollHeight;
+            input.focus();
+        }
+    };
+
+    document.getElementById("qa-chat-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQaMsg(); }
+    });
+
+    window.copyQaCode = function() {
+        var text = document.getElementById("qa-widget-code").textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            var currentLang = wr.getCurrentLang();
+            var s = document.getElementById("qa-copy-status");
+            s.textContent = currentLang === "ru" ? "Скопировано!" : currentLang === "kk" ? "Көшірілді!" : "Copied!";
+            setTimeout(function() { s.textContent = ""; }, 2000);
+        });
+    };
+
+    // Re-apply translations now that modal DOM exists
+    if (window.applyTranslations) window.applyTranslations();
+})();
 </script>
 </body>
 </html>
