@@ -964,9 +964,10 @@ async def admin_add_document(request: Request):
     # Index the document (run in thread since embedding is CPU-bound)
     def do_index():
         c_hash = content_hash(text)
+        doc_uid = uuid.uuid4().hex[:8]
         ins = sb.table("documents").insert({
             "site_id": landing_site_id,
-            "url": f"admin://{LANDING_DOMAIN}",
+            "url": f"admin://{LANDING_DOMAIN}/{doc_uid}",
             "title": title,
             "content_hash": c_hash,
         }).execute()
