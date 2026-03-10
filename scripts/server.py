@@ -703,8 +703,8 @@ async def trial_start(
     if not parsed.netloc:
         return JSONResponse({"error": "Invalid URL"}, status_code=400)
 
-    # Cap max pages for trial (keeps CPU/time bounded)
-    max_pages = max(1, min(max_pages, 10))
+    # Cap max pages for trial
+    max_pages = max(1, min(max_pages, 50))
 
     domain = f"trial-{uuid.uuid4().hex[:8]}.demo"
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
