@@ -918,6 +918,13 @@
                 </div>
             </div>
 
+            <div class="field" style="margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+                    <input type="checkbox" id="t-playwright" style="width:auto;cursor:pointer;">
+                    Enable Playwright (for JavaScript-heavy sites)
+                </label>
+            </div>
+
             <button class="btn btn-primary" id="t-start-btn" onclick="startTrial()">
                 <span data-i18n="trialBtn"></span>
             </button>
@@ -1466,6 +1473,7 @@
         fd.append("url", url);
         fd.append("max_pages", document.getElementById("t-pages").value);
         fd.append("language", document.getElementById("t-lang").value);
+        fd.append("use_playwright", document.getElementById("t-playwright").checked ? "1" : "0");
         for (const f of document.getElementById("t-pdfs").files) fd.append("pdfs", f);
 
         try {

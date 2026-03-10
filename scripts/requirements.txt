@@ -11,3 +11,4 @@ openai>=1.0
 python-telegram-bot>=21.0
 pypdf>=4.0
 python-multipart>=0.0.9
+playwright>=1.40

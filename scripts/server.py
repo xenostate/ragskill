@@ -525,7 +525,7 @@ async def set_telegram_webhook(request: Request):
 # Import reusable functions from indexer
 from scripts.indexer import (
     clean_html, chunk_text, extract_headings, extract_links,
-    content_hash, StaticRenderer,
+    content_hash, StaticRenderer, PlaywrightRenderer,
 )
 
 
@@ -542,7 +542,7 @@ async def serve_trial_page():
     return FileResponse(html_path, media_type="text/html")
 
 
-def run_trial_indexing(site_id: int, url: str, max_pages: int, pdf_data: list[dict]):
+def run_trial_indexing(site_id: int, url: str, max_pages: int, pdf_data: list[dict], use_playwright: bool = False):
     """Synchronous trial indexing — runs in asyncio.to_thread."""
     progress = trial_progress[site_id]
 
@@ -551,7 +551,11 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int, pdf_data: list[di
 
         # ── Phase 1: Crawl the URL ──
         progress["message"] = f"Crawling {url}..."
-        renderer = StaticRenderer()
+        if use_playwright:
+            log.info(f"Trial {site_id}: using Playwright renderer")
+            renderer = PlaywrightRenderer()
+        else:
+            renderer = StaticRenderer()
 
         try:
             queue = deque([url])
@@ -683,6 +687,7 @@ async def trial_start(
     url: str = Form(...),
     max_pages: int = Form(default=5),
     language: str = Form(default="en"),
+    use_playwright: str = Form(default="0"),
     pdfs: list[UploadFile] = File(default=[]),
 ):
     # Rate limit: 3 trials per hour per IP
@@ -732,11 +737,12 @@ async def trial_start(
     }
 
     # Launch indexing in background thread
+    pw = use_playwright == "1"
     asyncio.get_event_loop().create_task(
-        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data)
+        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
     )
 
-    log.info(f"Trial started: site_id={site_id} url={url} pdfs={len(pdf_data)} max_pages={max_pages}")
+    log.info(f"Trial started: site_id={site_id} url={url} pdfs={len(pdf_data)} max_pages={max_pages} playwright={pw}")
     return {"site_id": site_id, "message": "Indexing started", "expires_at": expires_at}
 
 
