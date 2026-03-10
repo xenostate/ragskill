@@ -328,7 +328,7 @@
             border-radius: var(--radius);
             padding: 32px;
             width: 100%;
-            max-width: 500px;
+            max-width: 540px;
             max-height: 90vh;
             overflow-y: auto;
             position: relative;
@@ -1120,17 +1120,12 @@
             qaModalTitle: "Активация полной версии",
             qaModalSub: "Укажите URL сайта, загрузите файлы и введите код активации",
             qaUrl: "URL сайта",
-            qaPdf: "PDF-файлы (необязательно)",
             qaDrop: "Нажмите или перетащите PDF",
             qaPages: "Страниц для индексации",
-            qaLang: "Язык ассистента",
-            qaLangAuto: "Авто",
             qaCode: "Код активации",
             qaCodePh: "Введите код",
             qaBtn: "Активировать",
-            qaHint: "Максимум 10 МБ на файл. Только текстовые PDF.",
-            qaStartBtn: "Запустить индексацию",
-            qaDone: "Сайт активирован! Индексация запущена.",
+            qaDone: "Ваш код для вставки на сайт:",
             qaCopy: "Нажмите, чтобы скопировать",
             footerText: "Интеллектуальные решения для бизнеса",
             backToMain: "На главную",
@@ -1219,17 +1214,12 @@
             qaModalTitle: "Full version activation",
             qaModalSub: "Enter your website URL, upload files, and enter the activation code",
             qaUrl: "Website URL",
-            qaPdf: "PDF files (optional)",
             qaDrop: "Click or drag PDFs here",
             qaPages: "Pages to index",
-            qaLang: "Assistant language",
-            qaLangAuto: "Auto",
             qaCode: "Activation code",
             qaCodePh: "Enter code",
             qaBtn: "Activate",
-            qaHint: "Max 10 MB per file. Text-based PDFs only.",
-            qaStartBtn: "Start indexing",
-            qaDone: "Site activated! Indexing started.",
+            qaDone: "Your embed code:",
             qaCopy: "Click to copy",
             footerText: "Intelligent solutions for business",
             backToMain: "Back to home",
@@ -1318,17 +1308,12 @@
             qaModalTitle: "Толық нұсқаны белсендіру",
             qaModalSub: "Сайт URL енгізіңіз, файлдарды жүктеңіз және белсендіру кодын енгізіңіз",
             qaUrl: "Сайт URL",
-            qaPdf: "PDF файлдар (міндетті емес)",
             qaDrop: "PDF файлдарды осында басыңыз немесе сүйреңіз",
             qaPages: "Индекстеу беттерінің саны",
-            qaLang: "Көмекші тілі",
-            qaLangAuto: "Авто",
             qaCode: "Белсендіру коды",
             qaCodePh: "Кодты енгізіңіз",
             qaBtn: "Белсендіру",
-            qaHint: "Файлға 10 МБ дейін. Тек мәтіндік PDF.",
-            qaStartBtn: "Индекстеуді бастау",
-            qaDone: "Сайт белсендірілді! Индекстеу басталды.",
+            qaDone: "Сайтқа енгізу коды:",
             qaCopy: "Көшіру үшін басыңыз",
             footerText: "Бизнеске арналған интеллектуалды шешімдер",
             backToMain: "Басты бетке",
@@ -1768,6 +1753,8 @@
         document.getElementById("qa-file-list").textContent = names.length ? names.join(", ") : "";
     });
 
+    let qaSiteId = null;
+
     window.quickActivate = async function() {
         const t = T[currentLang];
         const url = document.getElementById("qa-url").value.trim();
@@ -1797,27 +1784,34 @@
 
             if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }
 
-            // Show progress and poll
             document.getElementById("qa-form").style.display = "none";
             progressEl.style.display = "block";
-            const qaSiteId = data.site_id;
+            qaSiteId = data.site_id;
             const widgetCode = data.widget_code;
+
+            const bar = document.getElementById("qa-bar");
+            bar.classList.remove("pulse");
 
             const sse = new EventSource(API + "/api/trial/progress/" + qaSiteId);
             sse.onmessage = function(ev) {
                 const p = JSON.parse(ev.data);
                 document.getElementById("qa-msg").textContent = p.message || "";
+                document.getElementById("qa-status").textContent = p.message || "";
                 if (p.total > 0) {
-                    document.getElementById("qa-bar").style.width = Math.round((p.step / p.total) * 100) + "%";
+                    bar.classList.remove("pulse");
+                    bar.style.width = Math.round((p.step / p.total) * 100) + "%";
                 }
                 if (p.done || p.error) {
                     sse.close();
-                    progressEl.style.display = "none";
-                    successEl.style.display = "block";
-                    document.getElementById("qa-widget-code").textContent = widgetCode;
                     if (p.error) {
-                        document.getElementById("qa-msg").textContent = p.error;
-                        progressEl.style.display = "block";
+                        document.getElementById("qa-status").textContent = p.error;
+                        bar.style.background = "#ef4444";
+                    } else {
+                        progressEl.style.display = "none";
+                        successEl.style.display = "block";
+                        document.getElementById("qa-widget-code").textContent = widgetCode;
+                        document.getElementById("qa-chat-title").textContent = url.replace(/^https?:\/\//, "").replace(/\/.*/, "");
+                        applyI18n();
                     }
                 }
             };
@@ -1827,6 +1821,60 @@
             btn.disabled = false;
         }
     };
+
+    window.sendQaMsg = async function() {
+        if (!qaSiteId) return;
+        const input = document.getElementById("qa-chat-input");
+        const query = input.value.trim();
+        if (!query) return;
+        input.value = "";
+
+        const body = document.getElementById("qa-chat-body");
+        const typing = document.getElementById("qa-chat-typing");
+
+        const userMsg = document.createElement("div");
+        userMsg.className = "msg user";
+        userMsg.textContent = query;
+        body.insertBefore(userMsg, typing);
+
+        typing.style.display = "flex";
+        body.scrollTop = body.scrollHeight;
+        document.getElementById("qa-chat-send").disabled = true;
+
+        try {
+            const resp = await fetch(API + "/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ site_id: qaSiteId, query: query, session_id: "qa_" + qaSiteId })
+            });
+            const data = await resp.json();
+
+            const botMsg = document.createElement("div");
+            botMsg.className = "msg bot";
+            botMsg.innerHTML = (data.answer || "No answer").replace(/\n/g, "<br>");
+            if (data.sources && data.sources.length) {
+                let src = '<div style="margin-top:6px;font-size:11px;color:var(--text2);">';
+                data.sources.forEach((s, i) => { src += '<a href="'+s.url+'" target="_blank" style="color:var(--accent);display:block;">['+(i+1)+'] '+s.title+'</a>'; });
+                src += '</div>';
+                botMsg.innerHTML += src;
+            }
+            body.insertBefore(botMsg, typing);
+        } catch(e) {
+            const errMsg = document.createElement("div");
+            errMsg.className = "msg sys";
+            errMsg.textContent = "Error sending message";
+            body.insertBefore(errMsg, typing);
+        } finally {
+            typing.style.display = "none";
+            document.getElementById("qa-chat-send").disabled = false;
+            body.scrollTop = body.scrollHeight;
+            input.focus();
+        }
+    };
+
+    document.getElementById("qa-chat-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQaMsg(); }
+    });
 
     window.copyQaCode = function() {
         const text = document.getElementById("qa-widget-code").textContent;
@@ -1906,24 +1954,26 @@
 <div class="qa-overlay" id="qa-overlay" onclick="if(event.target===this)closeQaModal()">
     <div class="qa-modal">
         <button class="qa-modal-close" onclick="closeQaModal()">&times;</button>
-        <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="qaModalTitle"></h2>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:20px;" data-i18n="qaModalSub"></p>
 
+        <!-- ═══ QA Step 1: Form ═══ -->
         <div id="qa-form">
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="qaModalTitle"></h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:20px;" data-i18n="qaModalSub"></p>
+
             <div class="field">
                 <label data-i18n="qaUrl"></label>
                 <input type="url" id="qa-url" placeholder="https://yoursite.com">
             </div>
 
             <div class="field">
-                <label data-i18n="qaPdf"></label>
+                <label data-i18n="trialPdf"></label>
                 <div class="file-drop">
                     <div class="file-drop-icon">+</div>
                     <div class="file-drop-text" data-i18n="qaDrop"></div>
                     <input type="file" id="qa-pdfs" accept=".pdf" multiple>
                 </div>
                 <div class="file-list" id="qa-file-list"></div>
-                <div class="hint" data-i18n="qaHint"></div>
+                <div class="hint" data-i18n="trialHint"></div>
             </div>
 
             <div class="field-row">
@@ -1938,7 +1988,7 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label data-i18n="qaLang"></label>
+                    <label data-i18n="trialLang"></label>
                     <select id="qa-lang">
                         <option value="" selected>Auto</option>
                         <option value="ru">Русский</option>
@@ -1961,21 +2011,45 @@
             </div>
 
             <button class="btn btn-primary" id="qa-btn" onclick="quickActivate()">
-                <span data-i18n="qaStartBtn"></span>
+                <span data-i18n="trialBtn"></span>
             </button>
             <div class="err" id="qa-err"></div>
         </div>
 
+        <!-- ═══ QA Step 2: Progress ═══ -->
         <div id="qa-progress" style="display:none;text-align:center;">
-            <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:8px;">
-                <div id="qa-bar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width 0.3s;"></div>
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="progTitle"></h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;" data-i18n="progSub"></p>
+            <div class="progress-status" id="qa-status" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;" data-i18n="progLoading"></div>
+            <div class="progress-bar-track">
+                <div class="progress-bar-val pulse" id="qa-bar"></div>
             </div>
-            <p id="qa-msg" style="font-size:13px;color:var(--text2);"></p>
+            <div class="progress-status" id="qa-msg" data-i18n="progStart"></div>
         </div>
 
+        <!-- ═══ QA Step 3: Chat + Widget Code ═══ -->
         <div id="qa-success" style="display:none;">
-            <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin-bottom:12px;" data-i18n="qaDone"></p>
-            <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="cursor:pointer;font-size:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;word-break:break-all;">
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="chatTitle"></h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;" data-i18n="chatSub"></p>
+
+            <div class="chat-box" style="height:300px;">
+                <div class="chat-bar">
+                    <span id="qa-chat-title">Assistant</span>
+                </div>
+                <div class="chat-body" id="qa-chat-body">
+                    <div class="msg sys" data-i18n="chatReady"></div>
+                    <div class="typing" id="qa-chat-typing"><span></span><span></span><span></span></div>
+                </div>
+                <div class="chat-foot">
+                    <input id="qa-chat-input" data-i18n-ph="chatPh">
+                    <button id="qa-chat-send" onclick="sendQaMsg()">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <p style="text-align:center;color:var(--accent);font-weight:600;font-size:15px;margin:16px 0 8px;" data-i18n="qaDone"></p>
+            <div class="code-box" id="qa-widget-code" onclick="copyQaCode()" style="cursor:pointer;">
                 <span class="copy-hint" data-i18n="qaCopy"></span>
             </div>
             <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;" id="qa-copy-status"></p>
