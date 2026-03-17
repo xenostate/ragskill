@@ -211,21 +211,72 @@ def extract_headings(html: str) -> list[str]:
 # ── Chunking ───────────────────────────────────────────────────────────────
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    """Split text into overlapping word-based chunks."""
-    words = text.split()
-    if not words:
+    """Split text into overlapping chunks respecting paragraph and sentence boundaries."""
+    if not text.strip():
         return []
 
+    # Split into paragraphs (double-newline separated)
+    paragraphs = re.split(r'\n\s*\n', text)
+
+    # Break large paragraphs into sentence-level segments
+    segments = []
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        para_words = para.split()
+        if len(para_words) <= chunk_size:
+            segments.append(para)
+        else:
+            # Paragraph exceeds chunk_size — split by sentences
+            sentences = re.split(r'(?<=[.!?])\s+', para)
+            current = []
+            current_len = 0
+            for sent in sentences:
+                sent_words = sent.split()
+                if current and current_len + len(sent_words) > chunk_size:
+                    segments.append(" ".join(current))
+                    current = []
+                    current_len = 0
+                current.extend(sent_words)
+                current_len += len(sent_words)
+            if current:
+                segments.append(" ".join(current))
+
+    if not segments:
+        return []
+
+    # Greedily merge segments into chunks up to chunk_size words,
+    # with overlap by carrying last segment(s) from previous chunk
     chunks = []
-    start = 0
-    while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end])
-        if chunk.strip():
-            chunks.append(chunk)
-        if end >= len(words):
-            break
-        start = end - overlap
+    current_words = []
+    current_segs = []
+
+    for seg in segments:
+        seg_words = seg.split()
+
+        if current_words and len(current_words) + len(seg_words) > chunk_size:
+            # Emit current chunk
+            chunks.append(" ".join(current_words))
+
+            # Overlap: carry last segment(s) fitting within overlap word count
+            overlap_words = []
+            overlap_segs = []
+            for prev_seg in reversed(current_segs):
+                pw = prev_seg.split()
+                if len(overlap_words) + len(pw) <= overlap:
+                    overlap_words = pw + overlap_words
+                    overlap_segs.insert(0, prev_seg)
+                else:
+                    break
+            current_words = overlap_words
+            current_segs = overlap_segs
+
+        current_words.extend(seg_words)
+        current_segs.append(seg)
+
+    if current_words:
+        chunks.append(" ".join(current_words))
 
     return chunks
 

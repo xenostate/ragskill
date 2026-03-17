@@ -36,7 +36,7 @@ create table if not exists chunks (
     language        text,
     headings        text[],
     embedding       vector(768),  -- matches multilingual-e5-base output dim
-    tsv             tsvector generated always as (to_tsvector('russian', text)) stored,
+    tsv             tsvector generated always as (to_tsvector('simple', text)) stored,
     created_at      timestamptz default now()
 );
 
@@ -73,10 +73,11 @@ begin
         d.url,
         d.title,
         c.headings,
-        -- Hybrid score: 0.7 * vector similarity + 0.3 * text rank
+        -- Hybrid score: 0.7 * vector similarity + 0.3 * keyword rank
+        -- ts_rank flag 32 normalizes to [0,1) range so both components are comparable
         (
             0.7 * (1 - (c.embedding <=> p_query_embedding)) +
-            0.3 * coalesce(ts_rank(c.tsv, plainto_tsquery('russian', p_query_text)), 0)
+            0.3 * coalesce(ts_rank(c.tsv, plainto_tsquery('simple', p_query_text), 32), 0)
         ) as score
     from chunks c
     join documents d on d.id = c.document_id

@@ -47,7 +47,7 @@ from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
 
-from scripts.telegram_handler import TelegramHandler
+# from scripts.telegram_handler import TelegramHandler  # DISABLED
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ RAG_MODEL = os.environ.get("RAG_MODEL", "gpt-4o-mini")
 RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+# TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")  # DISABLED
 
 WIDGET_DIR = Path(__file__).resolve().parent.parent / "widget"
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -71,7 +71,6 @@ log = logging.getLogger("rag-server")
 embed_model: SentenceTransformer | None = None
 sb = None
 openai_client: OpenAI | None = None
-tg_handler: TelegramHandler | None = None
 start_time = 0.0
 
 # Trial indexing progress: { site_id: { step, total, message, done, error } }
@@ -83,6 +82,19 @@ MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
 landing_site_id: int | None = None
 
 LANDING_DOMAIN = "landing.wrs.kz"
+
+# ── Session history (conversation context) ────────────────────────────────
+
+_session_history: dict[str, list[dict]] = {}   # session_id -> [{role, content}, ...]
+_session_last_access: dict[str, float] = {}     # session_id -> timestamp
+_session_lock = threading.Lock()
+SESSION_HISTORY_LIMIT = 5   # max exchanges (10 messages) per session
+SESSION_TTL = 3600          # evict sessions idle for 1 hour
+
+# ── Site language cache ───────────────────────────────────────────────────
+
+_site_lang_cache: dict[int, tuple[str | None, float]] = {}  # site_id -> (lang, timestamp)
+LANG_CACHE_TTL = 300  # 5 minutes
 
 
 # ── Rate Limiter ──────────────────────────────────────────────────────────
@@ -205,6 +217,7 @@ Rules:
 2. Keep answers concise and factual. Do not speculate beyond what the sources state.
 3. Do NOT list sources or citations in your answer. Just provide the answer as plain text.
 4. Answer in the same language as the user's question.
+5. If the user's question is a follow-up referencing a previous message, use the conversation history to understand their intent, but still answer only from the provided source chunks.
 """
 
 LANGUAGE_NAMES = {
@@ -226,17 +239,7 @@ def get_system_prompt(language: str | None = None) -> str:
 
 # ── Lifespan (model loading) ──────────────────────────────────────────────
 
-def rag_fn(site_id: int, query: str) -> dict:
-    """RAG function passed to TelegramHandler — uses warm model."""
-    retrieval = retrieve_chunks(site_id, query)
-    context = build_context(retrieval["results"])
-    language = get_site_language(site_id)
-    answer = generate_answer(query, context, retrieval["confidence"], language)
-    sources = [
-        {"title": r["title"], "url": r["url"], "score": r["score"]}
-        for r in retrieval["results"]
-    ]
-    return {"answer": answer, "sources": sources, "confidence": retrieval["confidence"]}
+# rag_fn removed — Telegram handler is disabled
 
 
 async def cleanup_expired_trials():
@@ -259,10 +262,23 @@ async def cleanup_expired_trials():
         except Exception as e:
             log.error(f"Trial cleanup error: {e}")
 
+        # Clean stale session histories
+        try:
+            now = time.time()
+            with _session_lock:
+                stale = [sid for sid, t in _session_last_access.items() if now - t > SESSION_TTL]
+                for sid in stale:
+                    _session_history.pop(sid, None)
+                    _session_last_access.pop(sid, None)
+            if stale:
+                log.info(f"Cleaned up {len(stale)} stale session(s)")
+        except Exception as e:
+            log.error(f"Session cleanup error: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global embed_model, sb, openai_client, tg_handler, start_time
+    global embed_model, sb, openai_client, start_time
     start_time = time.time()
 
     log.info(f"Loading embedding model: {EMBED_MODEL}")
@@ -277,12 +293,6 @@ async def lifespan(app: FastAPI):
         log.info("OpenAI client initialized")
     else:
         log.warning("No OPENAI_API_KEY — LLM answers disabled, retrieval-only mode")
-
-    if TELEGRAM_BOT_TOKEN:
-        tg_handler = TelegramHandler(TELEGRAM_BOT_TOKEN, sb, rag_fn)
-        log.info("Telegram handler initialized")
-    else:
-        log.warning("No TELEGRAM_BOT_TOKEN — Telegram bot disabled")
 
     # Start trial cleanup background task
     cleanup_task = asyncio.create_task(cleanup_expired_trials())
@@ -408,6 +418,87 @@ def generate_answer(query: str, context: str, confidence: str, language: str | N
     return resp.choices[0].message.content
 
 
+def get_site_language_cached(site_id: int) -> str | None:
+    """Cached version of get_site_language (TTL = 5 min)."""
+    now = time.time()
+    cached = _site_lang_cache.get(site_id)
+    if cached and now - cached[1] < LANG_CACHE_TTL:
+        return cached[0]
+    lang = get_site_language(site_id)
+    _site_lang_cache[site_id] = (lang, now)
+    return lang
+
+
+def _do_rag_sync(site_id: int, query: str, top_k: int,
+                 session_id: str | None = None,
+                 language: str | None = None) -> dict:
+    """Full RAG pipeline (synchronous) — meant to run in asyncio.to_thread.
+
+    Handles retrieval, conversation context, and LLM generation.
+    """
+    # Expand short follow-up queries using conversation history
+    retrieval_query = query
+    if session_id:
+        with _session_lock:
+            history = _session_history.get(session_id, [])
+        if history and len(query.split()) < 6:
+            last_user = next(
+                (m["content"] for m in reversed(history) if m["role"] == "user"),
+                None,
+            )
+            if last_user:
+                retrieval_query = f"{last_user} {query}"
+
+    # 1. Retrieve
+    retrieval = retrieve_chunks(site_id, retrieval_query, top_k)
+    context = build_context(retrieval["results"])
+
+    # 2. Build messages with conversation history
+    system = get_system_prompt(language)
+    messages = [{"role": "system", "content": system}]
+
+    if session_id:
+        with _session_lock:
+            history = _session_history.get(session_id, [])
+        for msg in history[-(SESSION_HISTORY_LIMIT * 2):]:
+            messages.append(msg)
+
+    messages.append({
+        "role": "user",
+        "content": f"Source chunks:\n{context}\n\nQuestion: {query}",
+    })
+
+    # 3. Generate
+    if openai_client is None:
+        answer = "LLM not configured. Set OPENAI_API_KEY in .env to enable answers."
+    else:
+        resp = openai_client.chat.completions.create(
+            model=RAG_MODEL,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=2000,
+        )
+        answer = resp.choices[0].message.content
+
+    # 4. Store in session history
+    if session_id:
+        with _session_lock:
+            if session_id not in _session_history:
+                _session_history[session_id] = []
+            _session_history[session_id].append({"role": "user", "content": query})
+            _session_history[session_id].append({"role": "assistant", "content": answer})
+            # Trim to limit
+            if len(_session_history[session_id]) > SESSION_HISTORY_LIMIT * 2:
+                _session_history[session_id] = _session_history[session_id][-(SESSION_HISTORY_LIMIT * 2):]
+            _session_last_access[session_id] = time.time()
+
+    sources = [
+        {"title": r["title"], "url": r["url"], "score": r["score"]}
+        for r in retrieval["results"]
+    ]
+    return {"answer": answer, "sources": sources, "confidence": retrieval["confidence"]}
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -443,32 +534,20 @@ async def chat(req: ChatRequest, request: Request):
                     return JSONResponse({"error": "Widget not authorized for this domain"}, status_code=403)
 
     t0 = time.time()
+    language = get_site_language_cached(req.site_id)
 
-    # 1. Retrieve
-    retrieval = retrieve_chunks(req.site_id, req.query, req.top_k)
-    context = build_context(retrieval["results"])
-
-    # 2. Generate answer (with language enforcement)
-    language = get_site_language(req.site_id)
-    answer = generate_answer(req.query, context, retrieval["confidence"], language)
-
-    # 3. Build source list (slim version for response)
-    sources = [
-        {"title": r["title"], "url": r["url"], "score": r["score"]}
-        for r in retrieval["results"]
-    ]
+    # Run the full RAG pipeline in a thread to avoid blocking the event loop
+    result = await asyncio.to_thread(
+        _do_rag_sync, req.site_id, req.query, req.top_k, req.session_id, language
+    )
 
     log.info(
         f"chat site={req.site_id} q=\"{req.query[:50]}\" "
-        f"confidence={retrieval['confidence']} chunks={len(retrieval['results'])} "
+        f"confidence={result['confidence']} chunks={len(result['sources'])} "
         f"time={time.time()-t0:.2f}s"
     )
 
-    return ChatResponse(
-        answer=answer,
-        sources=sources,
-        confidence=retrieval["confidence"],
-    )
+    return ChatResponse(**result)
 
 
 @app.get("/widget.js")
@@ -479,45 +558,16 @@ async def serve_widget():
     return FileResponse(js_path, media_type="application/javascript")
 
 
-# ── Telegram webhook ───────────────────────────────────────────────────────
+# ── Telegram webhook (DISABLED) ───────────────────────────────────────────
 
 @app.post("/api/telegram")
 async def telegram_webhook(request: Request):
-    if tg_handler is None:
-        return JSONResponse({"error": "Telegram not configured"}, status_code=503)
+    return JSONResponse({"error": "Telegram handler is disabled"}, status_code=503)
 
-    body = await request.json()
-    log.info(f"Telegram update: {json.dumps(body)[:200]}")
-
-    # Process in background-ish (synchronous but fast return isn't critical here)
-    try:
-        tg_handler.handle_update(body)
-    except Exception as e:
-        log.error(f"Telegram handler error: {e}")
-
-    return {"ok": True}
-
-
-# ── Telegram webhook registration helper ──────────────────────────────────
 
 @app.post("/api/telegram/set-webhook")
 async def set_telegram_webhook(request: Request):
-    """Call this once to register the webhook URL with Telegram."""
-    if not TELEGRAM_BOT_TOKEN:
-        return JSONResponse({"error": "No TELEGRAM_BOT_TOKEN"}, status_code=503)
-
-    body = await request.json()
-    webhook_url = body.get("url")
-    if not webhook_url:
-        return JSONResponse({"error": "Provide {\"url\": \"https://your-domain/api/telegram\"}"}, status_code=400)
-
-    import requests as http_req
-    resp = http_req.post(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook",
-        json={"url": webhook_url},
-        timeout=10,
-    )
-    return resp.json()
+    return JSONResponse({"error": "Telegram handler is disabled"}, status_code=503)
 
 
 # ── Trial / Demo ──────────────────────────────────────────────────────────
