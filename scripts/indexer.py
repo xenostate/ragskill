@@ -128,6 +128,15 @@ def get_renderer(name: str):
 
 STRIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "form", "noscript", "svg", "iframe"}
 
+# CSS classes / IDs that indicate junk sections (references, navboxes, sidebars, etc.)
+JUNK_CLASSES = re.compile(
+    r"reflist|references|ref-list|mw-references|citation|navbox|sidebar|"
+    r"infobox|mw-editsection|catlinks|printfooter|mw-jump-link|"
+    r"noprint|metadata|hatnote|ambox|dmbox|tmbox|fmbox|ombox|"
+    r"external[_-]links|see-also|authority-control|portal-bar",
+    re.IGNORECASE,
+)
+
 
 def clean_html(html: str) -> tuple[str, str]:
     """Extract title and clean body text from raw HTML."""
@@ -144,6 +153,40 @@ def clean_html(html: str) -> tuple[str, str]:
     # Remove HTML comments
     for comment in soup.find_all(string=lambda t: isinstance(t, Comment)):
         comment.extract()
+
+    # Remove citation markers [1], [2], etc.
+    for sup in soup.find_all("sup", class_="reference"):
+        sup.decompose()
+
+    # Remove junk sections: references, navboxes, sidebars, infoboxes, etc.
+    for tag in list(soup.find_all(True)):
+        if not tag.parent:
+            continue
+        classes = " ".join(tag.get("class") or [])
+        tag_id = tag.get("id") or ""
+        if JUNK_CLASSES.search(classes) or JUNK_CLASSES.search(tag_id):
+            tag.decompose()
+
+    # Convert tables to readable text (preserve header→value context)
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        headers = []
+        text_lines = []
+        for row in rows:
+            cells = row.find_all(["th", "td"])
+            cell_texts = [c.get_text(strip=True) for c in cells]
+            # Detect header row
+            if row.find("th") and not row.find("td"):
+                headers = cell_texts
+            elif headers and len(cell_texts) == len(headers):
+                pairs = [f"{h}: {v}" for h, v in zip(headers, cell_texts) if v]
+                if pairs:
+                    text_lines.append(" | ".join(pairs))
+            else:
+                line = " | ".join(c for c in cell_texts if c)
+                if line:
+                    text_lines.append(line)
+        table.replace_with(BeautifulSoup("\n".join(text_lines) + "\n", "lxml"))
 
     # Extract text, collapse whitespace
     text = soup.get_text(separator="\n")
