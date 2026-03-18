@@ -48,6 +48,7 @@ from sentence_transformers import SentenceTransformer
 from supabase import create_client
 
 # from scripts.telegram_handler import TelegramHandler  # DISABLED
+# WhatsApp handler — imported conditionally in lifespan if enabled
 
 # ── Config ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,11 @@ RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
 # TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")  # DISABLED
 
+# WhatsApp Business (dormant — set WHATSAPP_ENABLED=true to activate)
+WHATSAPP_ENABLED = os.environ.get("WHATSAPP_ENABLED", "").lower() in ("true", "1", "yes")
+WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
+WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "")
+
 WIDGET_DIR = Path(__file__).resolve().parent.parent / "widget"
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
@@ -71,6 +77,7 @@ log = logging.getLogger("rag-server")
 embed_model: SentenceTransformer | None = None
 sb = None
 openai_client: OpenAI | None = None
+whatsapp_handler = None  # initialized in lifespan if WHATSAPP_ENABLED
 start_time = 0.0
 
 # Trial indexing progress: { site_id: { step, total, message, done, error } }
@@ -278,7 +285,7 @@ async def cleanup_expired_trials():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global embed_model, sb, openai_client, start_time
+    global embed_model, sb, openai_client, whatsapp_handler, start_time
     start_time = time.time()
 
     log.info(f"Loading embedding model: {EMBED_MODEL}")
@@ -293,6 +300,16 @@ async def lifespan(app: FastAPI):
         log.info("OpenAI client initialized")
     else:
         log.warning("No OPENAI_API_KEY — LLM answers disabled, retrieval-only mode")
+
+    # WhatsApp handler (dormant unless WHATSAPP_ENABLED=true)
+    if WHATSAPP_ENABLED:
+        from scripts.whatsapp_handler import WhatsAppHandler
+        def _wa_rag_fn(site_id, query, top_k=RAG_TOP_K, session_id=None, language=None):
+            return _do_rag_sync(site_id, query, top_k, session_id, language)
+        whatsapp_handler = WhatsAppHandler(sb, _wa_rag_fn, WHATSAPP_VERIFY_TOKEN)
+        log.info("WhatsApp handler initialized")
+    else:
+        log.info("WhatsApp handler disabled (set WHATSAPP_ENABLED=true to activate)")
 
     # Start trial cleanup background task
     cleanup_task = asyncio.create_task(cleanup_expired_trials())
@@ -568,6 +585,97 @@ async def telegram_webhook(request: Request):
 @app.post("/api/telegram/set-webhook")
 async def set_telegram_webhook(request: Request):
     return JSONResponse({"error": "Telegram handler is disabled"}, status_code=503)
+
+
+# ── WhatsApp webhook ─────────────────────────────────────────────────────
+
+@app.get("/api/whatsapp/webhook")
+async def whatsapp_verify(request: Request):
+    """Meta webhook verification (challenge-response handshake)."""
+    if not WHATSAPP_ENABLED or whatsapp_handler is None:
+        return JSONResponse({"error": "WhatsApp handler is disabled"}, status_code=503)
+
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+
+    result = whatsapp_handler.verify_webhook(mode, token, challenge)
+    if result is not None:
+        # Meta expects the challenge echoed back as a plain integer
+        return JSONResponse(content=int(result))
+    return JSONResponse({"error": "Verification failed"}, status_code=403)
+
+
+@app.post("/api/whatsapp/webhook")
+async def whatsapp_incoming(request: Request):
+    """Receive inbound WhatsApp messages from BSP."""
+    if not WHATSAPP_ENABLED or whatsapp_handler is None:
+        return JSONResponse({"error": "WhatsApp handler is disabled"}, status_code=503)
+
+    # Rate limit the webhook endpoint (BSP server IPs)
+    blocked = rate_limit_check(request, "whatsapp", 100, 60)
+    if blocked:
+        return blocked
+
+    # Read raw body for signature verification
+    body = await request.body()
+
+    # Verify HMAC signature if app secret is configured
+    if WHATSAPP_APP_SECRET:
+        from scripts.whatsapp_handler import WhatsAppHandler
+        signature = request.headers.get("x-hub-signature-256", "")
+        if not WhatsAppHandler.verify_signature(body, signature, WHATSAPP_APP_SECRET):
+            log.warning("WhatsApp webhook signature verification failed")
+            return JSONResponse({"error": "Invalid signature"}, status_code=403)
+
+    payload = json.loads(body)
+
+    # Process in background thread — Meta requires 200 response within 5 seconds
+    asyncio.get_event_loop().create_task(
+        asyncio.to_thread(
+            whatsapp_handler.handle_webhook,
+            payload,
+            _session_history,
+            _session_lock,
+            get_site_language_cached,
+        )
+    )
+
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/whatsapp/register")
+async def whatsapp_register(request: Request):
+    """Admin endpoint: register a WhatsApp business number for a site."""
+    if not WHATSAPP_ENABLED or whatsapp_handler is None:
+        return JSONResponse({"error": "WhatsApp handler is disabled"}, status_code=503)
+
+    # Verify admin token
+    admin_token = request.headers.get("x-admin-token", "")
+    if not verify_admin_token(admin_token):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    data = await request.json()
+    site_id = data.get("site_id")
+    phone_number = data.get("phone_number")
+    display_name = data.get("display_name", "")
+    api_token = data.get("api_token")
+    provider = data.get("provider", "360dialog")
+
+    if not all([site_id, phone_number, api_token]):
+        return JSONResponse(
+            {"error": "Required fields: site_id, phone_number, api_token"},
+            status_code=400,
+        )
+
+    try:
+        account = whatsapp_handler.register_account(
+            site_id, phone_number, display_name, api_token, provider,
+        )
+        return JSONResponse({"ok": True, "account": account})
+    except Exception as e:
+        log.error(f"WhatsApp register error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ── Trial / Demo ──────────────────────────────────────────────────────────
