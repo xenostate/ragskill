@@ -217,14 +217,17 @@ You can try WebRAG for free on our website wrs.kz. Contact us at +7 700 534 5949
 
 # ── RAG prompt ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a precise assistant that answers questions using ONLY the provided source chunks.
+SYSTEM_PROMPT = """You are a helpful assistant for a website. You answer visitors' questions using the provided source chunks from that website.
 
 Rules:
-1. Answer ONLY from the sources below. If the sources don't contain the answer, say "I don't have enough information from the indexed sources to answer this."
-2. Keep answers concise and factual. Do not speculate beyond what the sources state.
-3. Do NOT list sources or citations in your answer. Just provide the answer as plain text.
-4. Answer in the same language as the user's question.
-5. If the user's question is a follow-up referencing a previous message, use the conversation history to understand their intent, but still answer only from the provided source chunks.
+1. Base your answers ONLY on the provided source chunks. Do not invent information that isn't in the sources.
+2. For broad questions like "what is this website about?", "tell me about this site", or "what do you do?" — synthesize an overview from whatever source chunks are available. Summarize the main topics, services, or content you can see in the sources.
+3. Only say "I don't have enough information to answer this" if the sources are truly empty or completely irrelevant to the question.
+4. Keep answers concise and factual. Do not speculate beyond what the sources state.
+5. Do NOT list sources or citations in your answer. Just provide the answer as plain text.
+6. Answer in the same language as the user's question.
+7. If the user's question is a follow-up referencing a previous message, use the conversation history to understand their intent, but still answer only from the provided source chunks.
+8. Be conversational and helpful. If the sources partially cover the topic, answer what you can and note what you couldn't find.
 """
 
 LANGUAGE_NAMES = {
@@ -468,6 +471,15 @@ def _do_rag_sync(site_id: int, query: str, top_k: int,
 
     Handles retrieval, conversation context, and LLM generation.
     """
+    # Detect broad/generic queries that need wider context
+    _BROAD_PATTERNS = re.compile(
+        r'\b(what is this|tell me about|about the (website|site|company|page)|'
+        r'what do you do|what (can|does) (this|the) (site|website|company)|'
+        r'who are you|what are you|overview|summary|introduce)\b',
+        re.IGNORECASE,
+    )
+    is_broad = bool(_BROAD_PATTERNS.search(query))
+
     # Expand short follow-up queries using conversation history
     retrieval_query = query
     if session_id:
@@ -481,8 +493,9 @@ def _do_rag_sync(site_id: int, query: str, top_k: int,
             if last_user:
                 retrieval_query = f"{last_user} {query}"
 
-    # 1. Retrieve
-    retrieval = retrieve_chunks(site_id, retrieval_query, top_k)
+    # 1. Retrieve — fetch more chunks for broad questions to give LLM wider context
+    effective_top_k = min(top_k * 2, 15) if is_broad else top_k
+    retrieval = retrieve_chunks(site_id, retrieval_query, effective_top_k)
     context = build_context(retrieval["results"])
 
     # 2. Build messages with conversation history
