@@ -1286,6 +1286,177 @@ async def admin_delete_site(site_id: int, request: Request):
     return {"success": True}
 
 
+@app.get("/api/admin/sites/{site_id}/documents")
+async def admin_site_documents(site_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Get site info
+    site = sb.table("sites").select("id, domain, language, settings").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    # Get all documents for this site
+    docs = sb.table("documents").select("id, title, url, content_hash, last_crawled").eq("site_id", site_id).execute()
+
+    if not docs.data:
+        return {"site": site.data[0], "documents": []}
+
+    doc_ids = [doc["id"] for doc in docs.data]
+    all_chunks = sb.table("chunks").select("id, document_id, chunk_index, text").in_("document_id", doc_ids).execute()
+
+    chunks_by_doc = {}
+    for c in (all_chunks.data or []):
+        chunks_by_doc.setdefault(c["document_id"], []).append({
+            "id": c["id"],
+            "chunk_index": c["chunk_index"],
+            "preview": c["text"][:200],
+        })
+
+    result = []
+    for doc in docs.data:
+        doc_chunks = chunks_by_doc.get(doc["id"], [])
+        doc_chunks.sort(key=lambda x: x["chunk_index"])
+        result.append({
+            "id": doc["id"],
+            "title": doc["title"],
+            "url": doc["url"],
+            "last_crawled": doc.get("last_crawled"),
+            "chunk_count": len(doc_chunks),
+            "chunks": doc_chunks,
+        })
+
+    return {"site": site.data[0], "documents": result}
+
+
+@app.delete("/api/admin/sites/{site_id}/chunks/{chunk_id}")
+async def admin_delete_chunk(site_id: int, chunk_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Verify chunk belongs to this site
+    chunk = sb.table("chunks").select("id, document_id").eq("id", chunk_id).execute()
+    if not chunk.data:
+        return JSONResponse({"error": "Chunk not found"}, status_code=404)
+
+    doc_id = chunk.data[0]["document_id"]
+    doc = sb.table("documents").select("site_id").eq("id", doc_id).execute()
+    if not doc.data or doc.data[0]["site_id"] != site_id:
+        return JSONResponse({"error": "Chunk does not belong to this site"}, status_code=403)
+
+    sb.table("chunks").delete().eq("id", chunk_id).execute()
+    log.info(f"Admin deleted chunk {chunk_id} from site {site_id}")
+    return {"success": True}
+
+
+@app.post("/api/admin/sites/{site_id}/upload-pdf")
+async def admin_upload_pdf(site_id: int, request: Request, pdf: UploadFile = File(...)):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    # Verify site exists
+    site = sb.table("sites").select("id, domain").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    content = await pdf.read()
+    if len(content) > MAX_PDF_SIZE:
+        return JSONResponse({"error": f"PDF exceeds {MAX_PDF_SIZE // (1024*1024)}MB limit"}, status_code=400)
+
+    def do_pdf_index():
+        from pypdf import PdfReader as _PdfReader
+        reader = _PdfReader(io.BytesIO(content))
+        pdf_text = ""
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                pdf_text += page_text + "\n\n"
+
+        if not pdf_text.strip():
+            return {"error": "No text could be extracted from this PDF (possibly scanned/image PDF)"}
+
+        safe_filename = re.sub(r'[^\w\s\-.]', '_', pdf.filename or "upload.pdf")
+        c_hash = content_hash(pdf_text.strip())
+
+        ins = sb.table("documents").insert({
+            "site_id": site_id,
+            "url": f"pdf://{safe_filename}",
+            "title": pdf.filename or "Uploaded PDF",
+            "content_hash": c_hash,
+        }).execute()
+        doc_id = ins.data[0]["id"]
+
+        chunks = chunk_text(pdf_text.strip())
+        if not chunks:
+            return {"success": True, "doc_id": doc_id, "chunks": 0}
+
+        texts_to_embed = [f"passage: {c}" for c in chunks]
+        embeddings = embed_model.encode(texts_to_embed, show_progress_bar=False, normalize_embeddings=True)
+
+        rows = []
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            rows.append({
+                "document_id": doc_id,
+                "chunk_index": i,
+                "text": chunk,
+                "headings": [],
+                "embedding": emb.tolist(),
+            })
+
+        sb.table("chunks").insert(rows).execute()
+        return {"success": True, "doc_id": doc_id, "chunks": len(rows), "filename": pdf.filename}
+
+    result = await asyncio.to_thread(do_pdf_index)
+    if "error" in result:
+        return JSONResponse({"error": result["error"]}, status_code=400)
+
+    log.info(f"Admin uploaded PDF '{pdf.filename}' to site {site_id}: {result['chunks']} chunks")
+    return result
+
+
+@app.post("/api/admin/sites/{site_id}/recrawl")
+async def admin_recrawl_site(site_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    body = await request.json()
+    max_pages = min(int(body.get("max_pages", 100)), 300)
+    use_playwright = body.get("use_playwright", False)
+
+    # Get site and source URL
+    site = sb.table("sites").select("id, domain, settings").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    settings = site.data[0].get("settings") or {}
+    source_url = body.get("url") or settings.get("source_url") or f"https://{site.data[0]['domain']}"
+
+    # Update source_url in settings if provided
+    if body.get("url"):
+        settings["source_url"] = body["url"]
+        sb.table("sites").update({"settings": settings}).eq("id", site_id).execute()
+
+    # Initialize progress
+    trial_progress[site_id] = {
+        "step": 0, "total": 0, "message": "Starting re-crawl...",
+        "done": False, "error": None,
+    }
+
+    def do_recrawl():
+        # Delete existing documents and chunks
+        docs = sb.table("documents").select("id").eq("site_id", site_id).execute()
+        for doc in (docs.data or []):
+            sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+        sb.table("documents").delete().eq("site_id", site_id).execute()
+        # Re-index
+        run_trial_indexing(site_id, source_url, max_pages, [], use_playwright)
+
+    asyncio.get_event_loop().create_task(asyncio.to_thread(do_recrawl))
+
+    log.info(f"Admin triggered re-crawl for site {site_id}: url={source_url} max_pages={max_pages}")
+    return {"success": True, "site_id": site_id, "source_url": source_url, "message": "Re-crawl started"}
+
+
 # ── Registration & Activation ─────────────────────────────────────────────
 
 ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "")
