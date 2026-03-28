@@ -12,6 +12,8 @@ Used by server.py — not run standalone.
 import hashlib
 import hmac
 import logging
+import os
+import re
 import time
 
 import requests as http_requests
@@ -25,6 +27,7 @@ BSP_ENDPOINTS = {
     "meta_cloud": "https://graph.facebook.com/{api_version}/{phone_number_id}/messages",
 }
 
+PHONE_HASH_SALT = os.environ.get("PHONE_HASH_SALT", "webrag-v1")
 WHATSAPP_MAX_LENGTH = 4096
 CONVERSATION_LIMIT = 5  # exchanges (10 messages) to load from DB
 
@@ -81,8 +84,8 @@ class WhatsAppHandler:
 
     @staticmethod
     def _hash_phone(phone: str) -> str:
-        """One-way SHA-256 hash for customer phone privacy."""
-        return hashlib.sha256(phone.encode()).hexdigest()
+        """Salted SHA-256 hash for customer phone privacy."""
+        return hashlib.sha256(f"{PHONE_HASH_SALT}:{phone}".encode()).hexdigest()
 
     # ── Account resolution ────────────────────────────────────────────
 
@@ -92,10 +95,10 @@ class WhatsAppHandler:
         Returns full row dict or None.
         """
         try:
-            # Normalize: strip spaces, ensure + prefix
-            phone = business_phone.strip().replace(" ", "")
-            if not phone.startswith("+"):
-                phone = f"+{phone}"
+            # Normalize: strip all non-digit chars except leading +
+            phone = re.sub(r'[^\d+]', '', business_phone.strip())
+            if not phone.startswith('+'):
+                phone = f'+{phone}'
 
             resp = (
                 self.sb.table("whatsapp_accounts")
@@ -132,7 +135,7 @@ class WhatsAppHandler:
                 # Reverse to chronological order (query returns newest first)
                 return list(reversed(resp.data))
         except Exception as e:
-            log.error(f"Failed to load conversation: {e}")
+            log.error(f"Failed to load conversation: account={account_id} phone_hash={phone_hash[:8]}... {e}")
         return []
 
     def _save_messages(self, account_id: int, phone_hash: str,
@@ -192,7 +195,7 @@ class WhatsAppHandler:
             except Exception as e:
                 log.error(f"BSP reply error (attempt {attempt + 1}): {e}")
             if attempt == 0:
-                time.sleep(2)
+                time.sleep(0.5)
 
     def _send_error_reply(self, api_token: str, to_phone: str,
                           provider: str = "360dialog"):
@@ -222,7 +225,11 @@ class WhatsAppHandler:
         account_id = account["id"]
         site_id = account["site_id"]
         api_token = account["api_token"]
+        VALID_PROVIDERS = ("360dialog", "meta_cloud")
         provider = account.get("provider", "360dialog")
+        if provider not in VALID_PROVIDERS:
+            log.warning(f"Unknown provider '{provider}' for account {account_id}, defaulting to 360dialog")
+            provider = "360dialog"
 
         try:
             # 1. Load persistent conversation history from DB
@@ -354,10 +361,10 @@ class WhatsAppHandler:
 
         Returns the upserted row.
         """
-        # Normalize phone
-        phone = phone_number.strip().replace(" ", "")
-        if not phone.startswith("+"):
-            phone = f"+{phone}"
+        # Normalize: strip all non-digit chars except leading +
+        phone = re.sub(r'[^\d+]', '', phone_number.strip())
+        if not phone.startswith('+'):
+            phone = f'+{phone}'
 
         resp = self.sb.table("whatsapp_accounts").upsert(
             {

@@ -30,6 +30,17 @@ create table if not exists whatsapp_conversations (
 create index if not exists idx_wa_conv_lookup
     on whatsapp_conversations(account_id, customer_phone, created_at desc);
 
--- Optional: scheduled cleanup of old conversations (30+ days)
--- Run manually or via Supabase cron:
---   DELETE FROM whatsapp_conversations WHERE created_at < now() - interval '30 days';
+-- Cleanup function for old WhatsApp conversations (call via pg_cron or Supabase scheduled function)
+create or replace function cleanup_old_conversations(days_old int default 30)
+returns int
+language plpgsql
+as $$
+declare
+    deleted_count int;
+begin
+    delete from whatsapp_conversations
+    where created_at < now() - make_interval(days => days_old);
+    get diagnostics deleted_count = row_count;
+    return deleted_count;
+end;
+$$;

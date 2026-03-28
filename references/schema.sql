@@ -26,6 +26,7 @@ create table if not exists documents (
 );
 
 create index if not exists idx_documents_site on documents(site_id);
+create index if not exists idx_documents_content_hash on documents(site_id, content_hash);
 
 -- Chunks table with embedding vector and optional tsvector
 create table if not exists chunks (
@@ -43,6 +44,7 @@ create table if not exists chunks (
 create index if not exists idx_chunks_doc on chunks(document_id);
 create index if not exists idx_chunks_embedding on chunks using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 create index if not exists idx_chunks_tsv on chunks using gin(tsv);
+create index if not exists idx_chunks_language on chunks(language) where language is not null;
 
 -- Hybrid retrieval function: vector similarity + keyword matching
 create or replace function match_chunks(

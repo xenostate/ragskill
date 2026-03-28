@@ -101,7 +101,7 @@ SESSION_TTL = 3600          # evict sessions idle for 1 hour
 # ── Site language cache ───────────────────────────────────────────────────
 
 _site_lang_cache: dict[int, tuple[str | None, float]] = {}  # site_id -> (lang, timestamp)
-LANG_CACHE_TTL = 300  # 5 minutes
+LANG_CACHE_TTL = 3600  # 1 hour
 
 
 # ── Rate Limiter ──────────────────────────────────────────────────────────
@@ -308,6 +308,9 @@ async def lifespan(app: FastAPI):
             return _do_rag_sync(site_id, query, top_k, session_id, language)
         whatsapp_handler = WhatsAppHandler(sb, _wa_rag_fn, WHATSAPP_VERIFY_TOKEN)
         log.info("WhatsApp handler initialized")
+        if not WHATSAPP_APP_SECRET:
+            log.warning("WHATSAPP_APP_SECRET not set — webhook signature verification is DISABLED. "
+                        "This is insecure for production use.")
     else:
         log.info("WhatsApp handler disabled (set WHATSAPP_ENABLED=true to activate)")
 
@@ -386,12 +389,24 @@ def retrieve_chunks(site_id: int, query: str, top_k: int = 5) -> dict:
 
     if not results:
         confidence = "low"
-    elif results[0]["score"] >= 0.75:
-        confidence = "high"
-    elif results[0]["score"] >= 0.5:
-        confidence = "medium"
     else:
-        confidence = "low"
+        top_score = results[0]["score"]
+        # Check if top result is significantly better than others (isolated match)
+        if len(results) > 1:
+            avg_rest = sum(r["score"] for r in results[1:]) / len(results[1:])
+            score_gap = top_score - avg_rest
+        else:
+            score_gap = 0
+
+        if top_score >= 0.75 and score_gap < 0.4:
+            confidence = "high"
+        elif top_score >= 0.75 and score_gap >= 0.4:
+            # High top score but nothing else matches — thin evidence
+            confidence = "medium"
+        elif top_score >= 0.5:
+            confidence = "medium"
+        else:
+            confidence = "low"
 
     return {"confidence": confidence, "results": results}
 
@@ -767,8 +782,9 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int, pdf_data: list[di
                         pdf_text += page_text + "\n\n"
 
                 if pdf_text.strip():
+                    safe_filename = re.sub(r'[^\w\s\-.]', '_', pdf_item['filename'])
                     all_docs.append((
-                        f"pdf://{pdf_item['filename']}",
+                        f"pdf://{safe_filename}",
                         pdf_item["filename"],
                         pdf_text.strip(),
                         None,
@@ -1040,7 +1056,7 @@ async def landing_setup():
 
 # ── Admin Dashboard ──────────────────────────────────────────────────────
 
-ADMIN_CODE = os.environ.get("ADMIN_CODE", os.environ.get("ACTIVATION_CODE", "211111"))
+ADMIN_CODE = os.environ.get("ADMIN_CODE", os.environ.get("ACTIVATION_CODE", ""))
 # Simple token store: { token: expiry_timestamp }
 admin_tokens: dict[str, float] = {}
 ADMIN_TOKEN_TTL = 3600 * 8  # 8 hours
@@ -1049,6 +1065,15 @@ ADMIN_TOKEN_TTL = 3600 * 8  # 8 hours
 def verify_admin(request: Request) -> bool:
     """Check X-Admin-Token header."""
     token = request.headers.get("x-admin-token", "")
+    expiry = admin_tokens.get(token)
+    if not expiry or time.time() > expiry:
+        admin_tokens.pop(token, None)
+        return False
+    return True
+
+
+def verify_admin_token(token: str) -> bool:
+    """Check a raw admin token string."""
     expiry = admin_tokens.get(token)
     if not expiry or time.time() > expiry:
         admin_tokens.pop(token, None)
@@ -1070,6 +1095,9 @@ async def admin_auth(request: Request):
     blocked = rate_limit_check(request, "admin_auth", 5, 3600)
     if blocked:
         return blocked
+
+    if not ADMIN_CODE:
+        return JSONResponse({"error": "Admin access not configured"}, status_code=503)
 
     body = await request.json()
     code = body.get("code", "").strip()
@@ -1094,11 +1122,21 @@ async def admin_list_documents(request: Request):
 
     docs = sb.table("documents").select("id, title, url").eq("site_id", landing_site_id).execute()
 
+    if not docs.data:
+        return {"documents": []}
+
+    doc_ids = [doc["id"] for doc in docs.data]
+    # Batch fetch all chunks for these documents
+    all_chunks = sb.table("chunks").select("document_id, text").in_("document_id", doc_ids).execute()
+
+    # Group chunks by document_id
+    chunks_by_doc = {}
+    for c in (all_chunks.data or []):
+        chunks_by_doc.setdefault(c["document_id"], []).append(c["text"])
+
     result = []
-    for doc in (docs.data or []):
-        # Get chunk count and preview
-        chunks = sb.table("chunks").select("text").eq("document_id", doc["id"]).execute()
-        chunk_texts = [c["text"] for c in (chunks.data or [])]
+    for doc in docs.data:
+        chunk_texts = chunks_by_doc.get(doc["id"], [])
         preview = chunk_texts[0][:300] if chunk_texts else ""
         result.append({
             "id": doc["id"],
@@ -1237,7 +1275,7 @@ async def admin_delete_site(site_id: int, request: Request):
 
 # ── Registration & Activation ─────────────────────────────────────────────
 
-ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "211111")
+ACTIVATION_CODE = os.environ.get("ACTIVATION_CODE", "")
 
 
 @app.post("/api/register")
@@ -1297,6 +1335,9 @@ async def activate(request: Request):
         return JSONResponse({"error": "Invalid session"}, status_code=401)
 
     # Verify code
+    if not ACTIVATION_CODE:
+        return JSONResponse({"error": "Activation not configured"}, status_code=503)
+
     if code != ACTIVATION_CODE:
         return JSONResponse({"error": "Invalid activation code"}, status_code=403)
 
@@ -1362,6 +1403,9 @@ async def quick_activate(
 
     if not code or not url:
         return JSONResponse({"error": "Code and URL are required"}, status_code=400)
+
+    if not ACTIVATION_CODE:
+        return JSONResponse({"error": "Activation not configured"}, status_code=503)
 
     if code != ACTIVATION_CODE:
         return JSONResponse({"error": "Invalid activation code"}, status_code=403)

@@ -18,6 +18,7 @@ import re
 import sys
 import time
 from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -208,6 +209,44 @@ def extract_headings(html: str) -> list[str]:
     return headings
 
 
+# ── Sentence splitting ─────────────────────────────────────────────────────
+
+# Common abbreviations that end with a period but aren't sentence endings
+_ABBREVIATIONS = {'mr', 'mrs', 'ms', 'dr', 'prof', 'sr', 'jr', 'vs', 'etc',
+                  'inc', 'ltd', 'co', 'corp', 'st', 'ave', 'fig', 'no', 'vol',
+                  'dept', 'univ', 'approx', 'e.g', 'i.e', 'u.s', 'u.k'}
+
+def _split_sentences(text: str) -> list[str]:
+    """Split text into sentences, respecting abbreviations and decimal numbers."""
+    # Use a regex that finds potential sentence boundaries
+    parts = re.split(r'(?<=[.!?])\s+', text)
+
+    sentences = []
+    buffer = ""
+    for part in parts:
+        if buffer:
+            buffer += " " + part
+        else:
+            buffer = part
+
+        # Check if buffer ends with an abbreviation or decimal number
+        last_word = buffer.rstrip('.!?').rsplit(None, 1)[-1].lower() if buffer.rstrip('.!?') else ""
+        ends_with_abbrev = last_word in _ABBREVIATIONS
+        ends_with_number = bool(re.search(r'\d\.\d*$', buffer.rstrip()))
+
+        if not ends_with_abbrev and not ends_with_number:
+            sentences.append(buffer)
+            buffer = ""
+
+    if buffer:
+        if sentences:
+            sentences[-1] += " " + buffer
+        else:
+            sentences.append(buffer)
+
+    return [s for s in sentences if s.strip()]
+
+
 # ── Chunking ───────────────────────────────────────────────────────────────
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -229,7 +268,7 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
             segments.append(para)
         else:
             # Paragraph exceeds chunk_size — split by sentences
-            sentences = re.split(r'(?<=[.!?])\s+', para)
+            sentences = _split_sentences(para)
             current = []
             current_len = 0
             for sent in sentences:
@@ -295,7 +334,11 @@ def extract_links(html: str, base_url: str, allowed_domain: str) -> list[str]:
         if parsed.netloc == allowed_domain and not parsed.fragment:
             skip_ext = (".pdf", ".zip", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".mp4", ".mp3")
             if not parsed.path.lower().endswith(skip_ext):
-                clean = parsed._replace(fragment="", query="").geturl()
+                # Normalize: remove trailing slash for consistency
+                clean_path = parsed.path.rstrip('/')
+                if not clean_path:
+                    clean_path = '/'
+                clean = parsed._replace(fragment="", query="", path=clean_path).geturl()
                 links.append(clean)
     return links
 
@@ -393,7 +436,7 @@ def index_site(site_id: int, max_pages: int, start_url: str | None = None, rende
                 sb.table("documents").update({
                     "title": title or url,
                     "content_hash": c_hash,
-                    "last_crawled": "now()",
+                    "last_crawled": datetime.now(timezone.utc).isoformat(),
                 }).eq("id", doc_id).execute()
             else:
                 # New document

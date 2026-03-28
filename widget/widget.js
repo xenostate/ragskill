@@ -18,6 +18,17 @@
     localStorage.setItem(SESSION_KEY, sessionId);
   }
 
+  const SESSION_TS_KEY = `wr_session_ts_${SITE_ID}`;
+  const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+  const storedTs = parseInt(localStorage.getItem(SESSION_TS_KEY) || '0', 10);
+  if (Date.now() - storedTs > SESSION_MAX_AGE) {
+    sessionId = 's_' + Math.random().toString(36).slice(2, 12);
+    localStorage.setItem(SESSION_KEY, sessionId);
+    localStorage.setItem(SESSION_TS_KEY, String(Date.now()));
+  } else if (!localStorage.getItem(SESSION_TS_KEY)) {
+    localStorage.setItem(SESSION_TS_KEY, String(Date.now()));
+  }
+
   // ── Create shadow DOM container ────────────────────────────────────────
   const host = document.createElement("div");
   host.id = "web-rag-widget";
@@ -270,13 +281,22 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+          try {
+            const u = new URL(url, window.location.origin);
+            if (u.protocol === 'http:' || u.protocol === 'https:') {
+              return `<a href="${u.href}" target="_blank" rel="noopener">${text}</a>`;
+            }
+          } catch {}
+          return text;
+        })
         .replace(/\n/g, "<br>");
 
       if (sources && sources.length > 0) {
         html += `<div class="wr-sources"><strong>Sources:</strong>`;
         sources.forEach((s, i) => {
-          html += `<a href="${s.url}" target="_blank">[${i + 1}] ${s.title}</a>`;
+          const safeUrl = (() => { try { const u = new URL(s.url, window.location.origin); return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '#'; } catch { return '#'; } })();
+          html += `<a href="${safeUrl}" target="_blank" rel="noopener">[${i + 1}] ${s.title}</a>`;
         });
         html += `</div>`;
       }
