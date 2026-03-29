@@ -114,3 +114,19 @@ create table if not exists registrations (
     token       text not null unique,
     created_at  timestamptz default now()
 );
+
+-- Internal assistants (self-service knowledge bases for businesses)
+create table if not exists internal_assistants (
+    id              bigint generated always as identity primary key,
+    slug            text not null unique,              -- URL-safe identifier, e.g. "acme-corp"
+    name            text not null,                     -- Display name
+    site_id         bigint not null references sites(id) on delete cascade,
+    admin_password  text not null,                     -- bcrypt hash
+    user_password   text not null,                     -- bcrypt hash
+    created_by      text,                              -- email or identifier
+    settings        jsonb default '{}',                -- custom settings (welcome message, language, etc.)
+    created_at      timestamptz default now()
+);
+
+create index if not exists idx_internal_assistants_slug on internal_assistants(slug);
+create index if not exists idx_internal_assistants_site on internal_assistants(site_id);

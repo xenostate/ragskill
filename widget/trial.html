@@ -883,6 +883,14 @@
                 <span data-i18n="qaBtn"></span>
             </button>
         </div>
+
+        <div class="quick-activate" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
+            <h2 data-i18n="iaTitle"></h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:12px;" data-i18n="iaSub"></p>
+            <button class="hero-cta" onclick="openIaModal()" style="background:var(--blue);">
+                <span data-i18n="iaBtn"></span>
+            </button>
+        </div>
     </section>
 
     <div class="footer">
@@ -1116,6 +1124,24 @@
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
             ctaBtn: "Начать бесплатно",
+            iaTitle: "Внутренний ассистент",
+            iaSub: "Создайте собственную базу знаний для вашей команды — с отдельным чатом и панелью управления",
+            iaBtn: "Создать ассистента",
+            iaModalTitle: "Создание внутреннего ассистента",
+            iaModalSub: "Заполните данные и введите код для создания ассистента",
+            iaName: "Название ассистента",
+            iaNamePh: "Например: База знаний HR",
+            iaSlug: "URL-идентификатор (латиница)",
+            iaSlugPh: "например: hr-knowledge",
+            iaAdminPw: "Пароль администратора",
+            iaUserPw: "Пароль пользователя",
+            iaEmail: "Email (необязательно)",
+            iaEmailPh: "admin@company.kz",
+            iaCode: "Код активации",
+            iaCodePh: "Введите код",
+            iaCreate: "Создать",
+            iaDone: "Ассистент создан!",
+            iaDoneUrl: "Ваша ссылка:",
             qaTitle: "Уже приобрели?",
             qaModalTitle: "Активация полной версии",
             qaModalSub: "Укажите URL сайта, загрузите файлы и введите код активации",
@@ -1210,6 +1236,24 @@
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
             ctaBtn: "Start for free",
+            iaTitle: "Internal Assistant",
+            iaSub: "Create a private knowledge base for your team — with its own chat and admin panel",
+            iaBtn: "Create Assistant",
+            iaModalTitle: "Create Internal Assistant",
+            iaModalSub: "Fill in the details and enter your setup code",
+            iaName: "Assistant name",
+            iaNamePh: "e.g. HR Knowledge Base",
+            iaSlug: "URL identifier (lowercase)",
+            iaSlugPh: "e.g. hr-knowledge",
+            iaAdminPw: "Admin password",
+            iaUserPw: "User password",
+            iaEmail: "Email (optional)",
+            iaEmailPh: "admin@company.com",
+            iaCode: "Setup code",
+            iaCodePh: "Enter code",
+            iaCreate: "Create",
+            iaDone: "Assistant created!",
+            iaDoneUrl: "Your link:",
             qaTitle: "Already purchased?",
             qaModalTitle: "Full version activation",
             qaModalSub: "Enter your website URL, upload files, and enter the activation code",
@@ -1304,6 +1348,24 @@
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
             ctaBtn: "Тегін бастау",
+            iaTitle: "Ішкі көмекші",
+            iaSub: "Командаңыз үшін жеке білім базасын жасаңыз — өз чаты мен басқару панелімен",
+            iaBtn: "Көмекші жасау",
+            iaModalTitle: "Ішкі көмекші жасау",
+            iaModalSub: "Мәліметтерді толтырыңыз және орнату кодын енгізіңіз",
+            iaName: "Көмекші атауы",
+            iaNamePh: "мысалы: HR білім базасы",
+            iaSlug: "URL идентификаторы (латын)",
+            iaSlugPh: "мысалы: hr-knowledge",
+            iaAdminPw: "Әкімші құпиясөзі",
+            iaUserPw: "Пайдаланушы құпиясөзі",
+            iaEmail: "Email (міндетті емес)",
+            iaEmailPh: "admin@company.kz",
+            iaCode: "Орнату коды",
+            iaCodePh: "Кодты енгізіңіз",
+            iaCreate: "Жасау",
+            iaDone: "Көмекші жасалды!",
+            iaDoneUrl: "Сіздің сілтемеңіз:",
             qaTitle: "Сатып алдыңыз ба?",
             qaModalTitle: "Толық нұсқаны белсендіру",
             qaModalSub: "Сайт URL енгізіңіз, файлдарды жүктеңіз және белсендіру кодын енгізіңіз",
@@ -2081,6 +2143,180 @@
     };
 
     // Re-apply translations now that modal DOM exists
+    if (window.applyTranslations) window.applyTranslations();
+})();
+</script>
+
+<!-- ── Internal Assistant setup modal ── -->
+<div class="qa-overlay" id="ia-overlay" onclick="if(event.target===this)closeIaModal()">
+    <div class="qa-modal">
+        <button class="qa-modal-close" onclick="closeIaModal()">&times;</button>
+
+        <!-- ═══ IA Step 1: Form ═══ -->
+        <div id="ia-form">
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;" data-i18n="iaModalTitle"></h2>
+            <p style="font-size:13px;color:var(--text2);margin-bottom:20px;" data-i18n="iaModalSub"></p>
+
+            <div class="field">
+                <label data-i18n="iaName"></label>
+                <input type="text" id="ia-name" data-i18n-ph="iaNamePh">
+            </div>
+
+            <div class="field">
+                <label data-i18n="iaSlug"></label>
+                <input type="text" id="ia-slug" data-i18n-ph="iaSlugPh" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9\-]/g,'')">
+                <div class="hint" style="font-size:11px;color:var(--text2);margin-top:4px;">
+                    URL: <span id="ia-slug-preview" style="color:var(--accent);">/assistant/...</span>
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label data-i18n="iaAdminPw"></label>
+                    <input type="password" id="ia-admin-pw" placeholder="min 4 chars">
+                </div>
+                <div class="field">
+                    <label data-i18n="iaUserPw"></label>
+                    <input type="password" id="ia-user-pw" placeholder="min 4 chars">
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label data-i18n="iaEmail"></label>
+                    <input type="email" id="ia-email" data-i18n-ph="iaEmailPh">
+                </div>
+                <div class="field">
+                    <label data-i18n="trialLang"></label>
+                    <select id="ia-lang">
+                        <option value="en" selected>English</option>
+                        <option value="ru">Русский</option>
+                        <option value="kk">Қазақша</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field">
+                <label data-i18n="iaCode"></label>
+                <input type="text" id="ia-code" data-i18n-ph="iaCodePh">
+            </div>
+
+            <button class="btn btn-primary" id="ia-btn" onclick="createAssistant()" style="background:var(--blue);">
+                <span data-i18n="iaCreate"></span>
+            </button>
+            <div class="err" id="ia-err"></div>
+        </div>
+
+        <!-- ═══ IA Step 2: Success ═══ -->
+        <div id="ia-success" style="display:none;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">&#10003;</div>
+            <h2 style="font-size:18px;font-weight:700;margin-bottom:8px;" data-i18n="iaDone"></h2>
+            <p style="font-size:14px;color:var(--text2);margin-bottom:16px;" data-i18n="iaDoneUrl"></p>
+            <div class="code-box" id="ia-url-box" onclick="copyIaUrl()" style="cursor:pointer;font-size:14px;word-break:break-all;">
+                <span class="copy-hint" data-i18n="qaCopy"></span>
+            </div>
+            <p style="color:var(--text2);font-size:12px;margin-top:8px;" id="ia-copy-status"></p>
+            <p style="font-size:13px;color:var(--text2);margin-top:16px;line-height:1.6;">
+                Admin password &rarr; manage content<br>
+                User password &rarr; chat only
+            </p>
+            <a id="ia-open-link" href="#" target="_blank" class="btn btn-primary" style="display:inline-block;width:auto;margin-top:16px;text-decoration:none;background:var(--blue);">
+                Open Assistant &rarr;
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var wr = window._wr;
+    var T = wr.T, API = wr.API, showErr = wr.showErr, hideErr = wr.hideErr;
+
+    function openIaModal() {
+        document.getElementById("ia-overlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+    }
+    function closeIaModal() {
+        document.getElementById("ia-overlay").classList.remove("open");
+        document.body.style.overflow = "";
+    }
+    window.openIaModal = openIaModal;
+    window.closeIaModal = closeIaModal;
+
+    // Live slug preview
+    document.getElementById("ia-slug").addEventListener("input", function() {
+        var val = this.value || "...";
+        document.getElementById("ia-slug-preview").textContent = "/assistant/" + val;
+    });
+
+    // Auto-generate slug from name
+    document.getElementById("ia-name").addEventListener("input", function() {
+        var slug = this.value.toLowerCase().replace(/[^a-z0-9\s\-]/g, "").replace(/\s+/g, "-").replace(/^-|-$/g, "").substring(0, 50);
+        var slugInput = document.getElementById("ia-slug");
+        if (!slugInput._userEdited) {
+            slugInput.value = slug;
+            document.getElementById("ia-slug-preview").textContent = "/assistant/" + (slug || "...");
+        }
+    });
+    document.getElementById("ia-slug").addEventListener("focus", function() { this._userEdited = true; });
+
+    var iaUrl = "";
+
+    window.createAssistant = async function() {
+        var err = document.getElementById("ia-err");
+        var btn = document.getElementById("ia-btn");
+
+        var name = document.getElementById("ia-name").value.trim();
+        var slug = document.getElementById("ia-slug").value.trim();
+        var adminPw = document.getElementById("ia-admin-pw").value;
+        var userPw = document.getElementById("ia-user-pw").value;
+        var email = document.getElementById("ia-email").value.trim();
+        var language = document.getElementById("ia-lang").value;
+        var code = document.getElementById("ia-code").value.trim();
+
+        if (!name) { showErr(err, "Name is required"); return; }
+        if (!slug || slug.length < 3) { showErr(err, "Slug must be at least 3 characters"); return; }
+        if (!adminPw || adminPw.length < 4) { showErr(err, "Admin password must be at least 4 characters"); return; }
+        if (!userPw || userPw.length < 4) { showErr(err, "User password must be at least 4 characters"); return; }
+        if (adminPw === userPw) { showErr(err, "Admin and user passwords must be different"); return; }
+        if (!code) { showErr(err, "Setup code is required"); return; }
+
+        hideErr(err);
+        btn.disabled = true;
+
+        try {
+            var resp = await fetch(API + "/api/internal/setup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name, slug: slug, admin_password: adminPw, user_password: userPw, email: email, language: language, code: code }),
+            });
+            var data = await resp.json();
+
+            if (!resp.ok) {
+                showErr(err, data.error || "Failed to create assistant");
+                btn.disabled = false;
+                return;
+            }
+
+            iaUrl = data.url;
+            document.getElementById("ia-form").style.display = "none";
+            document.getElementById("ia-success").style.display = "block";
+            document.getElementById("ia-url-box").textContent = iaUrl;
+            document.getElementById("ia-open-link").href = iaUrl;
+        } catch (e) {
+            showErr(err, "Network error");
+            btn.disabled = false;
+        }
+    };
+
+    window.copyIaUrl = function() {
+        navigator.clipboard.writeText(iaUrl).then(function() {
+            var s = document.getElementById("ia-copy-status");
+            s.textContent = "Copied!";
+            setTimeout(function() { s.textContent = ""; }, 2000);
+        });
+    };
+
     if (window.applyTranslations) window.applyTranslations();
 })();
 </script>

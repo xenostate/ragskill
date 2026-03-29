@@ -428,6 +428,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('docs')">Landing Content</button>
             <button class="tab-btn" onclick="switchTab('sites')">All Sites</button>
+            <button class="tab-btn" onclick="switchTab('assistants')">Internal Assistants</button>
         </div>
 
         <!-- Tab: Landing content -->
@@ -456,6 +457,11 @@
 
         <!-- Tab: Site detail (hidden initially) -->
         <div class="tab-content" id="tab-site-detail"></div>
+
+        <!-- Tab: Internal Assistants -->
+        <div class="tab-content" id="tab-assistants">
+            <div id="assistants-list"><div class="loading">Loading assistants...</div></div>
+        </div>
     </div>
 </div>
 
@@ -518,6 +524,10 @@ function switchTab(tab) {
     } else if (tab === "site-detail") {
         // No tab button highlighted — detail is a sub-view of sites
         document.getElementById("tab-site-detail").classList.add("active");
+    } else if (tab === "assistants") {
+        document.querySelectorAll(".tab-btn")[2].classList.add("active");
+        document.getElementById("tab-assistants").classList.add("active");
+        loadAssistants();
     }
 }
 
@@ -962,6 +972,67 @@ async function sendTestChat() {
         sendBtn.disabled = false;
         input.focus();
         messages.scrollTop = messages.scrollHeight;
+    }
+}
+
+// ── Internal Assistants ──
+
+async function loadAssistants() {
+    const list = document.getElementById("assistants-list");
+    list.innerHTML = '<div class="loading">Loading assistants...</div>';
+
+    const resp = await fetch(API + "/api/admin/internal-assistants", { headers: authHeaders() });
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+    const assistants = data.assistants || [];
+
+    if (assistants.length === 0) {
+        list.innerHTML = '<div class="empty-state">No internal assistants yet. Customers can create them from the main website.</div>';
+        return;
+    }
+
+    const publicUrl = window.location.origin;
+
+    list.innerHTML = assistants.map(a => `
+        <div class="site-row" style="cursor:default">
+            <div class="site-info">
+                <div class="site-domain">
+                    ${esc(a.name)}
+                    <span class="badge badge-active" style="margin-left:6px">Active</span>
+                </div>
+                <div class="site-meta">
+                    Slug: ${esc(a.slug)} &middot;
+                    Site ID: ${a.site_id} &middot;
+                    ${a.doc_count} doc(s) &middot; ${a.chunk_count} chunk(s)
+                    ${a.created_by ? '&middot; By: ' + esc(a.created_by) : ''}
+                    &middot; Created: ${new Date(a.created_at).toLocaleDateString()}
+                </div>
+                <div class="site-meta" style="margin-top:4px">
+                    URL: <a href="${publicUrl}/assistant/${esc(a.slug)}" target="_blank" style="color:var(--accent)">${publicUrl}/assistant/${esc(a.slug)}</a>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+                <a href="${publicUrl}/assistant/${esc(a.slug)}" target="_blank" class="btn btn-sm btn-outline" style="text-decoration:none">Open</a>
+                <button class="btn btn-sm btn-danger" onclick="deleteAssistant(${a.id}, '${esc(a.name)}')">Delete</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+async function deleteAssistant(assistantId, name) {
+    if (!confirm(`Delete internal assistant "${name}"? This will remove ALL its data and cannot be undone.`)) return;
+
+    const resp = await fetch(API + `/api/admin/internal-assistants/${assistantId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+    });
+    if (resp.status === 401) { doLogout(); return; }
+    const data = await resp.json();
+    if (data.success) {
+        loadAssistants();
+        loadSites(); // refresh site count
+    } else {
+        alert(data.error || "Failed to delete assistant");
     }
 }
 
