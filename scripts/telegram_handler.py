@@ -10,6 +10,8 @@ Multi-tenant routing:
 Used by server.py — not run standalone.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 

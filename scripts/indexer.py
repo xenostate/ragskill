@@ -10,6 +10,8 @@ Usage:
     python3 indexer.py --site-id 1 --max-pages 50 --renderer playwright
 """
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
@@ -82,31 +84,39 @@ class StaticRenderer:
 
 
 class PlaywrightRenderer:
-    """Fetch pages with headless Chromium (handles JS-rendered SPAs)."""
+    """Fetch pages with headless Chromium (handles JS-rendered SPAs).
+
+    Each fetch() creates a fresh page to avoid state leaking between navigations
+    and to be safe if multiple crawls run concurrently in separate threads.
+    """
 
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
-        self._context = self._browser.new_context(
-            user_agent=USER_AGENT,
-            ignore_https_errors=True,
-        )
-        self._page = self._context.new_page()
 
     def fetch(self, url: str) -> tuple[str, int] | None:
-        """Navigate, wait for network idle, return rendered HTML."""
+        """Navigate in a fresh context/page, wait for network idle, return rendered HTML."""
+        context = None
         try:
-            resp = self._page.goto(url, wait_until="networkidle", timeout=30000)
+            context = self._browser.new_context(user_agent=USER_AGENT)
+            page = context.new_page()
+            resp = page.goto(url, wait_until="networkidle", timeout=30000)
             if resp is None:
                 return None
             # Wait a bit more for lazy-loaded content
-            self._page.wait_for_timeout(1000)
-            html = self._page.content()
+            page.wait_for_timeout(1000)
+            html = page.content()
             return html, resp.status
         except Exception as e:
             print(f"  skip  {url} ({e})")
             return None
+        finally:
+            if context:
+                try:
+                    context.close()
+                except Exception:
+                    pass
 
     def close(self):
         try:

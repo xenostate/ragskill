@@ -24,3 +24,6 @@ build/
 
 # Playwright browsers
 .playwright/
+
+# Persisted auth tokens
+.tokens.json

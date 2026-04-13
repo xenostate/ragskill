@@ -9,6 +9,8 @@ Multi-tenant routing via BSP (360dialog by default):
 Used by server.py — not run standalone.
 """
 
+from __future__ import annotations
+
 import hashlib
 import hmac
 import logging
