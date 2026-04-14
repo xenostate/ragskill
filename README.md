@@ -2,7 +2,7 @@
 
 Multi-tenant website assistant that crawls sites, embeds content, and answers questions using RAG (Retrieval-Augmented Generation) with citations.
 
-Works as an **embeddable chat widget** on any website and as a **Telegram bot** — both powered by the same backend.
+Works as an **embeddable chat widget** on any website, a **private knowledge base** for businesses (Internal Assistants), and as a **Telegram bot** — all powered by the same backend.
 
 ## Architecture
 
@@ -17,10 +17,12 @@ Works as an **embeddable chat widget** on any website and as a **Telegram bot** 
   │ (crawl)  │    │  Server     │    │ (Shadow DOM) │
   └──────────┘    └──────┬──────┘    └──────────────┘
                          │
-                  ┌──────┴──────┐
-                  │  Telegram   │
-                  │  Webhook    │
-                  └─────────────┘
+              ┌──────────┼──────────┐
+              │          │          │
+       ┌──────┴──┐ ┌────┴─────┐ ┌──┴──────┐
+       │Internal │ │ Telegram │ │WhatsApp │
+       │Assistant│ │ Webhook  │ │ Webhook │
+       └─────────┘ └──────────┘ └─────────┘
 ```
 
 **Pipeline:** Crawl → Clean HTML → Chunk (500 words, overlapping) → Embed (`intfloat/multilingual-e5-base`, 768-dim) → Store in Supabase → Hybrid retrieval (70% cosine + 30% tsvector) → LLM answer with citations
@@ -30,7 +32,7 @@ Works as an **embeddable chat widget** on any website and as a **Telegram bot** 
 - **Python 3.11+**
 - **Supabase** account (free tier works) — [supabase.com](https://supabase.com)
 - **OpenAI API key** — for LLM answer generation (uses `gpt-4o-mini`, ~$0.001/query)
-- **Telegram Bot Token** (optional) — from [@BotFather](https://t.me/BotFather)
+- **Telegram Bot Token** (optional, currently disabled) — from [@BotFather](https://t.me/BotFather)
 
 ## Quick Start
 
@@ -178,6 +180,58 @@ curl -X POST http://localhost:8090/api/telegram/set-webhook \
 - `/site <ID>` — switch to a different site
 - `/help` — show help
 
+### Internal Assistant (Private Knowledge Base)
+
+Internal Assistants let businesses create password-protected knowledge bases. Employees or clients access them via a dedicated URL — no widget embedding needed.
+
+**How it works:**
+
+1. An admin creates the assistant by providing a setup code, name, URL slug, and two passwords (admin + user)
+2. The assistant gets its own page at `https://YOUR-SERVER/assistant/{slug}`
+3. **Admin role** — can add knowledge (text, PDFs, crawl URLs), manage documents and chunks
+4. **User role** — can only chat with the assistant
+
+**Setup (via API):**
+
+```bash
+curl -X POST https://YOUR-SERVER/api/internal/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "YOUR_INTERNAL_SETUP_CODE",
+    "name": "Company KB",
+    "slug": "company-kb",
+    "admin_password": "admin-pass-here",
+    "user_password": "user-pass-here",
+    "language": "en",
+    "email": "admin@company.com"
+  }'
+```
+
+Returns the assistant URL (e.g. `https://YOUR-SERVER/assistant/company-kb`).
+
+**Adding knowledge (admin only):**
+
+```bash
+# Add plain text
+curl -X POST https://YOUR-SERVER/api/internal/company-kb/add-text \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Token: YOUR_TOKEN" \
+  -d '{"title": "Onboarding Guide", "text": "Full text content here..."}'
+
+# Upload a PDF
+curl -X POST https://YOUR-SERVER/api/internal/company-kb/upload-pdf \
+  -H "X-Internal-Token: YOUR_TOKEN" \
+  -F "pdf=@handbook.pdf"
+
+# Crawl a website
+curl -X POST https://YOUR-SERVER/api/internal/company-kb/crawl \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Token: YOUR_TOKEN" \
+  -d '{"url": "https://docs.company.com", "max_pages": 50}'
+```
+
+**Environment variable:** Set `INTERNAL_SETUP_CODE` in `.env` to enable assistant creation.
+
 ### Embed Widget on Any Website
 
 ```html
@@ -204,29 +258,46 @@ curl -X POST http://localhost:8090/api/telegram/set-webhook \
 .
 ├── .env.example             # Template for environment variables
 ├── start.sh                 # One-command server launcher
-├── SKILL.md                 # ZeptoClaw skill definition
 ├── scripts/
 │   ├── requirements.txt     # Python dependencies
+│   ├── server.py            # FastAPI entry point (lifespan, middleware)
+│   ├── config.py            # Shared config, constants, mutable globals
+│   ├── utils.py             # Rate limiter, auth, SSRF protection, helpers
+│   ├── rag_core.py          # Retrieval, context building, answer generation
 │   ├── indexer.py           # Crawl → clean → chunk → embed → store
 │   ├── retriever.py         # Semantic search (vector + keyword hybrid)
-│   ├── rag.py               # RAG answerer (retrieve + LLM with citations)
-│   ├── server.py            # FastAPI server (chat API, Telegram webhook, widget)
-│   └── telegram_handler.py  # Telegram bot multi-tenant routing
+│   ├── rag.py               # CLI RAG answerer (retrieve + LLM)
+│   ├── whatsapp_handler.py  # WhatsApp Business webhook handler
+│   ├── telegram_handler.py  # Telegram bot multi-tenant routing
+│   └── routes/
+│       ├── chat.py          # /api/chat, /health, /widget.js
+│       ├── trial.py         # /trial, /api/trial/* (free trial flow)
+│       ├── admin.py         # /admin, /api/admin/* (site management)
+│       ├── auth.py          # /api/admin/auth, /api/quick-activate
+│       ├── internal.py      # /assistant/*, /api/internal/* (private KBs)
+│       └── whatsapp.py      # /api/whatsapp/* (webhook endpoints)
+├── tests/
+│   ├── conftest.py          # Test config (mocks heavy deps)
+│   ├── test_utils.py        # 39 tests: rate limiter, auth, SSRF, IP
+│   └── test_indexer.py      # 27 tests: HTML cleaning, chunking, links
 ├── widget/
 │   ├── widget.js            # Embeddable chat widget (Shadow DOM)
-│   └── widget.html          # Local test page for the widget
+│   ├── widget.html          # Local test page for the widget
+│   ├── trial.html           # Free trial page
+│   ├── admin.html           # Admin dashboard
+│   └── assistant.html       # Internal assistant page
 └── references/
     └── schema.sql           # Supabase database schema (run once)
 ```
 
 ## Multi-Tenant Architecture
 
-One server instance serves multiple websites:
+One server instance serves multiple websites and assistants:
 
-1. Each website is a row in the `sites` table with a unique `site_id`
+1. Each website/assistant is a row in the `sites` table with a unique `site_id`
 2. The indexer crawls and stores chunks per `site_id`
 3. The widget passes `data-site-id` with every request
-4. The Telegram bot routes via deep links (`t.me/bot?start=site_N`)
+4. Internal assistants get their own `site_id` on creation — knowledge is fully isolated
 5. All retrieval and RAG is scoped to the bound `site_id`
 
 **Adding a new site:**
@@ -275,6 +346,14 @@ docker build -t web-rag .
 docker run -d --env-file .env -p 8090:8090 web-rag
 ```
 
+### Running Tests
+
+```bash
+python3 -m pytest tests/ -v
+```
+
+66 tests covering rate limiting, auth, SSRF protection, HTML cleaning, chunking, and link extraction.
+
 ### Quick Tunnel (Development)
 
 For temporary public access from your machine:
@@ -296,6 +375,11 @@ cloudflared tunnel --url http://localhost:8090
 | `REQUEST_DELAY` | `0.5` | Seconds between HTTP requests when crawling |
 | `THRESHOLD_HIGH` | `0.75` | Score threshold for "high" confidence |
 | `THRESHOLD_MEDIUM` | `0.5` | Score threshold for "medium" confidence |
+| `SUPABASE_ANON_KEY` | *(none)* | Supabase anon key for public endpoints (enables RLS) |
+| `INTERNAL_SETUP_CODE` | `ACTIVATION_CODE` | Code required to create internal assistants |
+| `TRUSTED_PROXIES` | `127.0.0.1,::1` | Trusted reverse proxy IPs/CIDRs for X-Forwarded-For |
+| `THREAD_POOL_SIZE` | `4` | Max concurrent embedding/PDF threads |
+| `WHATSAPP_ENABLED` | `false` | Enable WhatsApp Business webhook |
 
 ## Cost
 
