@@ -78,6 +78,12 @@ async def activate(request: Request):
         return JSONResponse({"error": "Site not found"}, status_code=404)
 
     site_data = site.data[0]
+
+    # Only trial sites can be activated — prevents re-activation or
+    # activating a site the caller doesn't own.
+    if not site_data.get("is_trial"):
+        return JSONResponse({"error": "Site is already activated"}, status_code=400)
+
     source_url = site_data.get("settings", {}).get("source_url", "")
 
     cfg.sb.table("sites").update({"is_trial": False, "expires_at": None}).eq("id", site_id).execute()
@@ -161,6 +167,12 @@ async def quick_activate(
     if existing.data:
         site_id = existing.data[0]["id"]
         cfg.sb.table("sites").update({"is_trial": False, "expires_at": None, "language": language or "en"}).eq("id", site_id).execute()
+        # Clear existing documents/chunks so run_trial_indexing can
+        # insert fresh ones without hitting unique(site_id, url).
+        old_docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
+        for doc in (old_docs.data or []):
+            cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+        cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
     else:
         site_resp = cfg.sb.table("sites").insert({
             "domain": domain, "language": language or "en", "is_trial": False,

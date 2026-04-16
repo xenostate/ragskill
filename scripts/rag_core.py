@@ -158,17 +158,23 @@ _BROAD_PATTERNS = re.compile(
 )
 
 
+def _session_key(site_id: int, session_id: str) -> str:
+    """Composite key so session history is isolated per site."""
+    return f"{site_id}:{session_id}"
+
+
 def do_rag_sync(site_id: int, query: str, top_k: int,
                 session_id: str | None = None,
                 language: str | None = None) -> dict:
     """Full RAG pipeline (synchronous) — meant to run in asyncio.to_thread."""
     is_broad = bool(_BROAD_PATTERNS.search(query))
+    s_key = _session_key(site_id, session_id) if session_id else None
 
     # Expand short follow-up queries using conversation history
     retrieval_query = query
-    if session_id:
+    if s_key:
         with cfg._session_lock:
-            history = cfg._session_history.get(session_id, [])
+            history = cfg._session_history.get(s_key, [])
         if history and len(query.split()) < 6:
             last_user = next(
                 (m["content"] for m in reversed(history) if m["role"] == "user"),
@@ -186,9 +192,9 @@ def do_rag_sync(site_id: int, query: str, top_k: int,
     system = get_system_prompt(language)
     messages = [{"role": "system", "content": system}]
 
-    if session_id:
+    if s_key:
         with cfg._session_lock:
-            history = cfg._session_history.get(session_id, [])
+            history = cfg._session_history.get(s_key, [])
         if history:
             messages.extend(history[-cfg.SESSION_HISTORY_LIMIT * 2:])
 
@@ -207,16 +213,16 @@ def do_rag_sync(site_id: int, query: str, top_k: int,
         )
         answer = resp.choices[0].message.content
 
-    # 4. Update session history
-    if session_id:
+    # 4. Update session history (keyed by site_id:session_id for isolation)
+    if s_key:
         with cfg._session_lock:
-            if session_id not in cfg._session_history:
-                cfg._session_history[session_id] = []
-            cfg._session_history[session_id].append({"role": "user", "content": query})
-            cfg._session_history[session_id].append({"role": "assistant", "content": answer})
-            if len(cfg._session_history[session_id]) > cfg.SESSION_HISTORY_LIMIT * 2:
-                cfg._session_history[session_id] = cfg._session_history[session_id][-(cfg.SESSION_HISTORY_LIMIT * 2):]
-            cfg._session_last_access[session_id] = time.time()
+            if s_key not in cfg._session_history:
+                cfg._session_history[s_key] = []
+            cfg._session_history[s_key].append({"role": "user", "content": query})
+            cfg._session_history[s_key].append({"role": "assistant", "content": answer})
+            if len(cfg._session_history[s_key]) > cfg.SESSION_HISTORY_LIMIT * 2:
+                cfg._session_history[s_key] = cfg._session_history[s_key][-(cfg.SESSION_HISTORY_LIMIT * 2):]
+            cfg._session_last_access[s_key] = time.time()
 
     sources = [
         {"title": r["title"], "url": r["url"], "score": r["score"]}
