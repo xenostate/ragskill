@@ -11,6 +11,8 @@ import os
 import re
 import uuid
 import time
+from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
@@ -425,6 +427,183 @@ async def admin_recrawl_site(site_id: int, request: Request):
 
     cfg.log.info(f"Admin triggered re-crawl for site {site_id}: url={source_url} max_pages={max_pages}")
     return {"success": True, "site_id": site_id, "source_url": source_url, "message": "Re-crawl started"}
+
+
+# ── Admin: Analytics ────────────────────────────────────────────────────────
+
+@router.get("/api/admin/analytics")
+async def admin_analytics(request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = today_start - timedelta(days=6)
+
+    # Fetch last 7 days of logs (source for most aggregations)
+    week_resp = cfg.sb.table("chat_logs") \
+        .select("site_id, confidence, response_time_ms, created_at") \
+        .gte("created_at", week_ago.isoformat()) \
+        .order("created_at", desc=False) \
+        .limit(5000) \
+        .execute()
+    week_logs = week_resp.data or []
+
+    # All-time total
+    total_resp = cfg.sb.table("chat_logs").select("id", count="exact").execute()
+    total_queries = total_resp.count or 0
+
+    # Today count
+    today_resp = cfg.sb.table("chat_logs") \
+        .select("id", count="exact") \
+        .gte("created_at", today_start.isoformat()) \
+        .execute()
+    today_count = today_resp.count or 0
+
+    # Aggregate from week_logs
+    week_count = len(week_logs)
+    ms_values = [l["response_time_ms"] for l in week_logs if l.get("response_time_ms")]
+    avg_ms = int(sum(ms_values) / len(ms_values)) if ms_values else 0
+
+    conf_dist: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
+    days_map: dict[str, int] = defaultdict(int)
+    site_counts: dict[int, int] = defaultdict(int)
+    for l in week_logs:
+        c = l.get("confidence") or "low"
+        conf_dist[c] = conf_dist.get(c, 0) + 1
+        day = (l.get("created_at") or "")[:10]
+        if day:
+            days_map[day] += 1
+        sid = l.get("site_id")
+        if sid:
+            site_counts[sid] += 1
+
+    # Per-day chart (last 7 days)
+    queries_by_day = []
+    for i in range(6, -1, -1):
+        d = (today_start - timedelta(days=i)).strftime("%Y-%m-%d")
+        queries_by_day.append({"date": d, "count": days_map.get(d, 0)})
+
+    # Sites — domain map + counts
+    sites_resp = cfg.sb.table("sites").select("id, domain, is_trial").execute()
+    sites_data = sites_resp.data or []
+    domain_map = {s["id"]: s["domain"] for s in sites_data}
+    total_sites = len(sites_data)
+    trial_sites = sum(1 for s in sites_data if s.get("is_trial"))
+
+    top_sites = sorted(
+        [{"site_id": k, "domain": domain_map.get(k, f"site {k}"), "queries": v}
+         for k, v in site_counts.items()],
+        key=lambda x: -x["queries"]
+    )[:10]
+
+    # Recent queries (with query text)
+    recent_resp = cfg.sb.table("chat_logs") \
+        .select("site_id, query, confidence, response_time_ms, created_at") \
+        .order("created_at", desc=True) \
+        .limit(25) \
+        .execute()
+    recent_queries = [
+        {**r, "domain": domain_map.get(r["site_id"], f"site {r['site_id']}")}
+        for r in (recent_resp.data or [])
+    ]
+
+    # Total chunks
+    chunks_resp = cfg.sb.table("chunks").select("id", count="exact").execute()
+    total_chunks = chunks_resp.count or 0
+
+    # ── Visitor analytics ──────────────────────────────────────────────────
+
+    # Last 7 days of visitor logs
+    visit_week_resp = cfg.sb.table("visitor_logs") \
+        .select("site_id, session_id, device_type, browser, os, referer, created_at") \
+        .gte("created_at", week_ago.isoformat()) \
+        .limit(10000) \
+        .execute()
+    visit_week = visit_week_resp.data or []
+
+    # All-time page-view count
+    total_visits_resp = cfg.sb.table("visitor_logs").select("id", count="exact").execute()
+    total_visits = total_visits_resp.count or 0
+
+    # Today page-views
+    today_visits_resp = cfg.sb.table("visitor_logs") \
+        .select("id", count="exact") \
+        .gte("created_at", today_start.isoformat()) \
+        .execute()
+    today_visits = today_visits_resp.count or 0
+
+    # Aggregate visitor data from the week window
+    visit_days: dict[str, set] = defaultdict(set)   # day → unique session_ids
+    visit_views: dict[str, int] = defaultdict(int)   # day → page-view count
+    device_counts: dict[str, int] = defaultdict(int)
+    browser_counts: dict[str, int] = defaultdict(int)
+    os_counts: dict[str, int] = defaultdict(int)
+    page_counts: dict[str, int] = defaultdict(int)
+
+    for v in visit_week:
+        day = (v.get("created_at") or "")[:10]
+        if day:
+            visit_days[day].add(v.get("session_id") or "")
+            visit_views[day] += 1
+        device_counts[v.get("device_type") or "other"] += 1
+        browser_counts[v.get("browser") or "other"] += 1
+        os_counts[v.get("os") or "other"] += 1
+        ref = v.get("referer") or ""
+        if ref:
+            try:
+                from urllib.parse import urlparse as _up
+                p = _up(ref)
+                page = (p.netloc + p.path).rstrip("/") or ref[:100]
+            except Exception:
+                page = ref[:100]
+            page_counts[page] += 1
+
+    visitors_by_day = []
+    for i in range(6, -1, -1):
+        d = (today_start - timedelta(days=i)).strftime("%Y-%m-%d")
+        visitors_by_day.append({
+            "date": d,
+            "views": visit_views.get(d, 0),
+            "unique": len(visit_days.get(d, set())),
+        })
+
+    top_pages = sorted(
+        [{"page": k, "views": v} for k, v in page_counts.items()],
+        key=lambda x: -x["views"],
+    )[:10]
+
+    week_unique = len(set(v.get("session_id") for v in visit_week if v.get("session_id")))
+
+    return {
+        "overview": {
+            "total_queries": total_queries,
+            "today": today_count,
+            "this_week": week_count,
+            "avg_response_ms": avg_ms,
+        },
+        "confidence": conf_dist,
+        "queries_by_day": queries_by_day,
+        "top_sites": top_sites,
+        "recent_queries": recent_queries,
+        "visitors": {
+            "total_views": total_visits,
+            "today_views": today_visits,
+            "week_views": len(visit_week),
+            "week_unique": week_unique,
+            "by_day": visitors_by_day,
+            "devices": dict(device_counts),
+            "browsers": dict(browser_counts),
+            "os": dict(os_counts),
+            "top_pages": top_pages,
+        },
+        "system": {
+            "total_sites": total_sites,
+            "trial_sites": trial_sites,
+            "total_chunks": total_chunks,
+            "uptime_seconds": int(time.time() - cfg.start_time),
+        },
+    }
 
 
 # ── Admin: Internal Assistants management ────────────────────────────────────

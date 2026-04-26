@@ -130,3 +130,35 @@ create table if not exists internal_assistants (
 
 create index if not exists idx_internal_assistants_slug on internal_assistants(slug);
 create index if not exists idx_internal_assistants_site on internal_assistants(site_id);
+
+-- Chat analytics log (lightweight — query text only, no answers stored)
+create table if not exists chat_logs (
+    id              bigint generated always as identity primary key,
+    site_id         bigint references sites(id) on delete cascade,
+    query           text not null,
+    confidence      text,           -- high / medium / low
+    response_time_ms int,
+    chunk_count     int,
+    created_at      timestamptz default now()
+);
+
+create index if not exists idx_chat_logs_site    on chat_logs(site_id);
+create index if not exists idx_chat_logs_created on chat_logs(created_at desc);
+
+-- Widget visitor page-view log (sent as a beacon from widget.js on every page load)
+create table if not exists visitor_logs (
+    id          bigint generated always as identity primary key,
+    site_id     bigint references sites(id) on delete cascade,
+    session_id  text,           -- anonymous session from widget localStorage
+    ip          text,           -- raw client IP (anonymise/hash for GDPR if needed)
+    user_agent  text,
+    device_type text,           -- desktop / mobile / tablet
+    browser     text,           -- Chrome / Firefox / Safari / Edge / Other
+    os          text,           -- Windows / macOS / iOS / Android / Linux / Other
+    referer     text,           -- full page URL where the widget was loaded
+    created_at  timestamptz default now()
+);
+
+create index if not exists idx_visitor_logs_site    on visitor_logs(site_id);
+create index if not exists idx_visitor_logs_created on visitor_logs(created_at desc);
+create index if not exists idx_visitor_logs_session on visitor_logs(session_id);

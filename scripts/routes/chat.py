@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 import scripts.config as cfg
-from scripts.utils import rate_limit_check
+from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent
 from scripts.rag_core import do_rag_sync, get_site_language_cached
 
 router = APIRouter()
@@ -24,7 +24,13 @@ class ChatRequest(BaseModel):
     query: str = Field(..., max_length=2000)
     session_id: str | None = None
     top_k: int = Field(default=cfg.RAG_TOP_K, le=20)
-    origin_domain: str | None = None
+    origin_domain: str | None = None  # kept for backwards compat, not trusted
+
+
+class TrackRequest(BaseModel):
+    site_id: int
+    session_id: str = Field(..., max_length=128)
+    referer: str | None = Field(default=None, max_length=2000)
 
 
 class ChatResponse(BaseModel):
@@ -80,9 +86,13 @@ async def chat(req: ChatRequest, request: Request):
                 except Exception:
                     pass
 
-        # Note: req.origin_domain is user-supplied and NOT used — only
-        # browser-set Origin / Referer headers are trusted.
-        if origin_domain and origin_domain not in ("wrs.kz", "localhost"):
+        # Fail closed: no trusted browser header → reject.
+        # req.origin_domain is user-supplied and NOT trusted.
+        if not origin_domain:
+            cfg.log.warning(f"No Origin/Referer header for site {req.site_id} — rejecting")
+            return JSONResponse({"error": "Origin header required"}, status_code=403)
+
+        if origin_domain not in ("wrs.kz", "localhost"):
             if origin_domain != site_domain and not origin_domain.endswith(f".{site_domain}"):
                 cfg.log.warning(f"Domain mismatch: site {req.site_id} domain={site_domain} origin={origin_domain}")
                 return JSONResponse({"error": "Widget not authorized for this domain"}, status_code=403)
@@ -94,13 +104,75 @@ async def chat(req: ChatRequest, request: Request):
         do_rag_sync, req.site_id, req.query, req.top_k, req.session_id, language
     )
 
+    elapsed_ms = int((time.time() - t0) * 1000)
     cfg.log.info(
         f"chat site={req.site_id} q=\"{req.query[:50]}\" "
         f"confidence={result['confidence']} chunks={len(result['sources'])} "
-        f"time={time.time()-t0:.2f}s"
+        f"time={elapsed_ms}ms"
     )
 
+    # Fire-and-forget analytics log (never blocks the response)
+    asyncio.create_task(_log_query(
+        req.site_id, req.query, result["confidence"], elapsed_ms, len(result["sources"])
+    ))
+
     return ChatResponse(**result)
+
+
+async def _log_query(site_id: int, query: str, confidence: str, response_ms: int, chunk_count: int) -> None:
+    try:
+        await asyncio.to_thread(
+            lambda: cfg.sb.table("chat_logs").insert({
+                "site_id": site_id,
+                "query": query[:500],
+                "confidence": confidence,
+                "response_time_ms": response_ms,
+                "chunk_count": chunk_count,
+            }).execute()
+        )
+    except Exception as e:
+        cfg.log.debug(f"chat_logs insert failed: {e}")
+
+
+# ── Visitor tracking ────────────────────────────────────────────────────────
+
+@router.post("/api/track")
+async def track_visitor(req: TrackRequest, request: Request):
+    """Lightweight page-view beacon called by widget.js on every load."""
+    # Rate-limit per session to prevent abuse (10 pings/min is plenty)
+    blocked = rate_limit_check(request, f"track:{req.session_id[:32]}", 10, 60)
+    if blocked:
+        return {}  # silent — never show errors to end-users
+
+    ua_str = request.headers.get("user-agent", "")
+    ip = get_client_ip(request)
+    ua = parse_user_agent(ua_str)
+
+    asyncio.create_task(_log_visitor(
+        req.site_id, req.session_id, ip, ua_str[:500],
+        ua["device"], ua["browser"], ua["os"],
+        (req.referer or "")[:1000],
+    ))
+    return {}
+
+
+async def _log_visitor(site_id: int, session_id: str, ip: str, user_agent: str,
+                       device: str, browser: str, os_name: str, referer: str) -> None:
+    try:
+        await asyncio.to_thread(
+            lambda: cfg.sb.table("visitor_logs").insert({
+                "site_id": site_id,
+                "session_id": session_id,
+                "ip": ip,
+                "user_agent": user_agent,
+                "device_type": device,
+                "browser": browser,
+                "os": os_name,
+                "referer": referer,
+            }).execute()
+        )
+    except Exception as e:
+        cfg.log.debug(f"visitor_logs insert failed: {e}")
 
 
 @router.get("/widget.js")

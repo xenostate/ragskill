@@ -29,6 +29,20 @@
     localStorage.setItem(SESSION_TS_KEY, String(Date.now()));
   }
 
+  // ── Page-view beacon (fire-and-forget, never blocks the widget) ───────
+  try {
+    fetch(`${API_URL}/api/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        site_id: parseInt(SITE_ID),
+        session_id: sessionId,
+        referer: window.location.href,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+
   // ── Create shadow DOM container ────────────────────────────────────────
   const host = document.createElement("div");
   host.id = "web-rag-widget";

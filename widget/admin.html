@@ -387,6 +387,75 @@
             transition: width 0.3s;
         }
 
+        /* ── Analytics dashboard ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-value { font-size: 30px; font-weight: 700; line-height: 1; }
+        .stat-label { font-size: 12px; color: var(--text2); margin-top: 6px; }
+        .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+        .analytics-row { display: grid; gap: 16px; margin-bottom: 20px; }
+        .analytics-row-2 { grid-template-columns: 2fr 1fr; }
+        .analytics-row-3 { grid-template-columns: 1fr 2fr; }
+
+        .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
+        .bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; height: 100%; justify-content: flex-end; }
+        .bar-col .bar-fill { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+        .bar-col .bar-count { font-size: 11px; color: var(--text2); order: -1; }
+        .bar-col .bar-label { font-size: 10px; color: var(--text2); white-space: nowrap; }
+
+        .conf-row { margin-bottom: 14px; }
+        .conf-row-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+        .conf-track { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+        .conf-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+        .analytics-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .analytics-table th { text-align: left; padding: 6px 8px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); }
+        .analytics-table td { padding: 8px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+        .analytics-table tr:last-child td { border-bottom: none; }
+
+        .query-text { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .conf-pill { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+        .conf-pill.high { background: #dcfce7; color: #166534; }
+        .conf-pill.medium { background: #fef9c3; color: #854d0e; }
+        .conf-pill.low { background: #fecaca; color: #991b1b; }
+
+        .sys-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .sys-card { background: #f9f9fb; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+        .sys-card .sys-val { font-size: 16px; font-weight: 700; }
+        .sys-card .sys-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+        /* ── Visitor breakdown bars ── */
+        .breakdown-row { margin-bottom: 10px; }
+        .breakdown-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+        .breakdown-track { height: 7px; background: #eee; border-radius: 4px; overflow: hidden; }
+        .breakdown-fill { height: 100%; border-radius: 4px; background: var(--blue); transition: width 0.5s; }
+
+        /* Dual bar chart (views + unique) */
+        .dual-bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 130px; }
+        .dual-bar-day { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; gap: 2px; }
+        .dual-bar-day .bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; }
+        .dual-bar-day .b-views { flex: 1; background: var(--blue); border-radius: 3px 3px 0 0; min-height: 2px; opacity: 0.7; }
+        .dual-bar-day .b-unique { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+        .dual-bar-day .bar-label { font-size: 10px; color: var(--text2); white-space: nowrap; }
+
+        @media (max-width: 768px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .analytics-row-2, .analytics-row-3 { grid-template-columns: 1fr; }
+            .sys-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         /* ── File input ── */
         .file-input-wrap {
             position: relative;
@@ -426,13 +495,101 @@
 
     <div class="container">
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('docs')">Landing Content</button>
-            <button class="tab-btn" onclick="switchTab('sites')">All Sites</button>
-            <button class="tab-btn" onclick="switchTab('assistants')">Internal Assistants</button>
+            <button class="tab-btn active" data-tab="analytics" onclick="switchTab('analytics')">Dashboard</button>
+            <button class="tab-btn" data-tab="docs" onclick="switchTab('docs')">Landing Content</button>
+            <button class="tab-btn" data-tab="sites" onclick="switchTab('sites')">All Sites</button>
+            <button class="tab-btn" data-tab="assistants" onclick="switchTab('assistants')">Assistants</button>
+        </div>
+
+        <!-- Tab: Dashboard / Analytics -->
+        <div class="tab-content active" id="tab-analytics">
+            <!-- Stat cards -->
+            <div class="stat-grid" id="analytics-stats">
+                <div class="stat-card"><div class="stat-value" style="color:var(--accent)">—</div><div class="stat-label">Total Queries</div></div>
+                <div class="stat-card"><div class="stat-value" style="color:var(--blue)">—</div><div class="stat-label">Today</div></div>
+                <div class="stat-card"><div class="stat-value" style="color:var(--green)">—</div><div class="stat-label">This Week</div></div>
+                <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Avg Response</div></div>
+            </div>
+
+            <!-- System info -->
+            <div class="sys-grid" id="analytics-sys">
+                <div class="sys-card"><div class="sys-val">—</div><div class="sys-lbl">Active Sites</div></div>
+                <div class="sys-card"><div class="sys-val">—</div><div class="sys-lbl">Trial Sites</div></div>
+                <div class="sys-card"><div class="sys-val">—</div><div class="sys-lbl">Total Chunks</div></div>
+                <div class="sys-card"><div class="sys-val">—</div><div class="sys-lbl">Uptime</div></div>
+            </div>
+
+            <!-- Chart + Confidence -->
+            <div class="analytics-row analytics-row-2">
+                <div class="card">
+                    <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Queries — Last 7 Days</h3>
+                    <div class="bar-chart" id="analytics-chart"><div class="loading" style="padding:20px 0;width:100%">Loading...</div></div>
+                </div>
+                <div class="card">
+                    <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Confidence (this week)</h3>
+                    <div id="analytics-confidence"><div class="loading" style="padding:20px 0">Loading...</div></div>
+                </div>
+            </div>
+
+            <!-- Top sites + Recent queries -->
+            <div class="analytics-row analytics-row-3">
+                <div class="card" style="overflow:hidden">
+                    <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Top Sites (7 days)</h3>
+                    <div id="analytics-top-sites"><div class="loading" style="padding:20px 0">Loading...</div></div>
+                </div>
+                <div class="card" style="overflow:hidden">
+                    <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Recent Queries</h3>
+                    <div id="analytics-recent"><div class="loading" style="padding:20px 0">Loading...</div></div>
+                </div>
+            </div>
+
+            <!-- Visitor analytics divider -->
+            <div style="display:flex;align-items:center;gap:12px;margin:8px 0 20px">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span style="font-size:13px;font-weight:600;color:var(--text2)">Visitor Analytics</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+
+            <!-- Visitor stat cards -->
+            <div class="stat-grid" id="visitor-stats">
+                <div class="stat-card"><div class="stat-value" style="color:var(--blue)">—</div><div class="stat-label">Total Page Views</div></div>
+                <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Views Today</div></div>
+                <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Views This Week</div></div>
+                <div class="stat-card"><div class="stat-value" style="color:var(--accent)">—</div><div class="stat-label">Unique Visitors (week)</div></div>
+            </div>
+
+            <!-- Visitor chart + Device/Browser/OS breakdown -->
+            <div class="analytics-row analytics-row-2">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <h3 style="font-size:14px;font-weight:600">Visitors — Last 7 Days</h3>
+                        <div style="display:flex;gap:12px;font-size:11px;color:var(--text2)">
+                            <span><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px"></span>Unique</span>
+                            <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px;opacity:0.7;margin-right:4px"></span>Views</span>
+                        </div>
+                    </div>
+                    <div class="dual-bar-chart" id="visitor-chart"><div class="loading" style="width:100%;padding:20px 0">Loading...</div></div>
+                </div>
+                <div class="card">
+                    <h3 style="font-size:14px;font-weight:600;margin-bottom:16px">Devices &amp; Browsers</h3>
+                    <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Device</div>
+                    <div id="visitor-devices"><div class="loading" style="padding:10px 0">Loading...</div></div>
+                    <div style="font-size:11px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px">Browser</div>
+                    <div id="visitor-browsers"></div>
+                    <div style="font-size:11px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px">OS</div>
+                    <div id="visitor-os"></div>
+                </div>
+            </div>
+
+            <!-- Top pages -->
+            <div class="card" style="overflow:hidden;margin-bottom:20px">
+                <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Top Pages (7 days)</h3>
+                <div id="visitor-pages"><div class="loading" style="padding:20px 0">Loading...</div></div>
+            </div>
         </div>
 
         <!-- Tab: Landing content -->
-        <div class="tab-content active" id="tab-docs">
+        <div class="tab-content" id="tab-docs">
             <div class="add-form">
                 <h3>Add new content</h3>
                 <div class="form-group">
@@ -455,7 +612,7 @@
             <div id="sites-list"><div class="loading">Loading sites...</div></div>
         </div>
 
-        <!-- Tab: Site detail (hidden initially) -->
+        <!-- Sub-view: Site detail (no tab button — opened from Sites list) -->
         <div class="tab-content" id="tab-site-detail"></div>
 
         <!-- Tab: Internal Assistants -->
@@ -501,8 +658,10 @@ function doLogout() {
 async function showDashboard() {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("dashboard").style.display = "block";
-    loadDocuments();
+    // Eagerly load data used by multiple tabs
     loadSites();
+    loadDocuments();
+    loadAnalytics();
 }
 
 function authHeaders() {
@@ -515,20 +674,17 @@ function switchTab(tab) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
 
-    if (tab === "docs") {
-        document.querySelectorAll(".tab-btn")[0].classList.add("active");
-        document.getElementById("tab-docs").classList.add("active");
-    } else if (tab === "sites") {
-        document.querySelectorAll(".tab-btn")[1].classList.add("active");
-        document.getElementById("tab-sites").classList.add("active");
-    } else if (tab === "site-detail") {
-        // No tab button highlighted — detail is a sub-view of sites
-        document.getElementById("tab-site-detail").classList.add("active");
-    } else if (tab === "assistants") {
-        document.querySelectorAll(".tab-btn")[2].classList.add("active");
-        document.getElementById("tab-assistants").classList.add("active");
-        loadAssistants();
-    }
+    // Activate the matching button (if any — site-detail has no button)
+    const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+    if (btn) btn.classList.add("active");
+
+    // Activate the matching content pane
+    const pane = document.getElementById("tab-" + tab);
+    if (pane) pane.classList.add("active");
+
+    // Tab-specific side effects
+    if (tab === "assistants") loadAssistants();
+    if (tab === "analytics") loadAnalytics();
 }
 
 // ── Landing documents ──
@@ -1034,6 +1190,204 @@ async function deleteAssistant(assistantId, name) {
     } else {
         alert(data.error || "Failed to delete assistant");
     }
+}
+
+// ── Analytics ──
+
+let analyticsLoaded = false;
+
+async function loadAnalytics() {
+    if (analyticsLoaded) return; // cached until page refresh
+    const resp = await fetch(API + "/api/admin/analytics", { headers: authHeaders() });
+    if (resp.status === 401) { doLogout(); return; }
+    if (!resp.ok) return;
+    const d = await resp.json();
+    analyticsLoaded = true;
+
+    const ov = d.overview;
+    const sys = d.system;
+
+    // Stat cards
+    document.getElementById("analytics-stats").innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value" style="color:var(--accent)">${ov.total_queries.toLocaleString()}</div>
+            <div class="stat-label">Total Queries</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:var(--blue)">${ov.today.toLocaleString()}</div>
+            <div class="stat-label">Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="color:var(--green)">${ov.this_week.toLocaleString()}</div>
+            <div class="stat-label">This Week</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${ov.avg_response_ms}<span style="font-size:14px;color:var(--text2)">ms</span></div>
+            <div class="stat-label">Avg Response Time</div>
+        </div>
+    `;
+
+    // System info
+    document.getElementById("analytics-sys").innerHTML = `
+        <div class="sys-card"><div class="sys-val">${sys.total_sites}</div><div class="sys-lbl">Active Sites</div></div>
+        <div class="sys-card"><div class="sys-val">${sys.trial_sites}</div><div class="sys-lbl">Trial Sites</div></div>
+        <div class="sys-card"><div class="sys-val">${sys.total_chunks.toLocaleString()}</div><div class="sys-lbl">Total Chunks</div></div>
+        <div class="sys-card"><div class="sys-val">${fmtUptime(sys.uptime_seconds)}</div><div class="sys-lbl">Uptime</div></div>
+    `;
+
+    // Bar chart
+    renderBarChart(d.queries_by_day, "analytics-chart");
+
+    // Confidence bars
+    renderConfidence(d.confidence, "analytics-confidence");
+
+    // Top sites
+    renderTopSites(d.top_sites, "analytics-top-sites");
+
+    // Recent queries
+    renderRecentQueries(d.recent_queries, "analytics-recent");
+
+    // ── Visitor section ──
+    const v = d.visitors || {};
+
+    document.getElementById("visitor-stats").innerHTML = `
+        <div class="stat-card"><div class="stat-value" style="color:var(--blue)">${(v.total_views||0).toLocaleString()}</div><div class="stat-label">Total Page Views</div></div>
+        <div class="stat-card"><div class="stat-value">${(v.today_views||0).toLocaleString()}</div><div class="stat-label">Views Today</div></div>
+        <div class="stat-card"><div class="stat-value">${(v.week_views||0).toLocaleString()}</div><div class="stat-label">Views This Week</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--accent)">${(v.week_unique||0).toLocaleString()}</div><div class="stat-label">Unique Visitors (week)</div></div>
+    `;
+
+    renderDualBarChart(v.by_day || [], "visitor-chart");
+    renderBreakdown(v.devices || {}, "visitor-devices");
+    renderBreakdown(v.browsers || {}, "visitor-browsers");
+    renderBreakdown(v.os || {}, "visitor-os");
+    renderTopPages(v.top_pages || [], "visitor-pages");
+}
+
+function renderBarChart(data, containerId) {
+    const el = document.getElementById(containerId);
+    if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px">No data yet</div>'; return; }
+    const maxVal = Math.max(...data.map(d => d.count), 1);
+    el.innerHTML = data.map(d => {
+        const heightPct = Math.max(2, Math.round((d.count / maxVal) * 100));
+        const label = d.date.slice(5); // MM-DD
+        return `<div class="bar-col">
+            <span class="bar-count">${d.count || ""}</span>
+            <div class="bar-fill" style="height:${heightPct}%"></div>
+            <span class="bar-label">${label}</span>
+        </div>`;
+    }).join("");
+}
+
+function renderConfidence(conf, containerId) {
+    const el = document.getElementById(containerId);
+    const total = (conf.high || 0) + (conf.medium || 0) + (conf.low || 0) || 1;
+    const rows = [
+        { label: "High", key: "high", color: "var(--green)" },
+        { label: "Medium", key: "medium", color: "#f59e0b" },
+        { label: "Low", key: "low", color: "var(--red)" },
+    ];
+    el.innerHTML = rows.map(r => {
+        const count = conf[r.key] || 0;
+        const pct = Math.round((count / total) * 100);
+        return `<div class="conf-row">
+            <div class="conf-row-top">
+                <span>${r.label}</span>
+                <span style="color:var(--text2)">${count.toLocaleString()} (${pct}%)</span>
+            </div>
+            <div class="conf-track">
+                <div class="conf-fill" style="width:${pct}%;background:${r.color}"></div>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function renderTopSites(sites, containerId) {
+    const el = document.getElementById(containerId);
+    if (!sites || sites.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px">No queries yet</div>'; return; }
+    const max = sites[0].queries || 1;
+    el.innerHTML = `<table class="analytics-table">
+        <thead><tr><th>Domain</th><th style="text-align:right">Queries</th></tr></thead>
+        <tbody>${sites.map(s => `
+            <tr>
+                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.domain)}</td>
+                <td style="text-align:right;font-weight:600;color:var(--accent)">${s.queries}</td>
+            </tr>
+        `).join("")}</tbody>
+    </table>`;
+}
+
+function renderRecentQueries(queries, containerId) {
+    const el = document.getElementById(containerId);
+    if (!queries || queries.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px">No recent queries</div>'; return; }
+    el.innerHTML = `<div style="overflow-y:auto;max-height:340px">
+        <table class="analytics-table">
+            <thead><tr><th>Query</th><th>Site</th><th>Conf</th><th>ms</th><th>Time</th></tr></thead>
+            <tbody>${queries.map(q => {
+                const t = new Date(q.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+                const conf = q.confidence || "low";
+                return `<tr>
+                    <td class="query-text" title="${esc(q.query)}">${esc(q.query)}</td>
+                    <td style="white-space:nowrap;color:var(--text2)">${esc(q.domain)}</td>
+                    <td><span class="conf-pill ${conf}">${conf}</span></td>
+                    <td style="white-space:nowrap;color:var(--text2)">${q.response_time_ms || 0}</td>
+                    <td style="white-space:nowrap;color:var(--text2)">${t}</td>
+                </tr>`;
+            }).join("")}</tbody>
+        </table>
+    </div>`;
+}
+
+function renderDualBarChart(data, containerId) {
+    const el = document.getElementById(containerId);
+    if (!data || data.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px">No data yet</div>'; return; }
+    const maxVal = Math.max(...data.map(d => d.views), 1);
+    el.innerHTML = data.map(d => {
+        const viewPct = Math.max(2, Math.round((d.views / maxVal) * 100));
+        const uniqPct = Math.max(2, Math.round((d.unique / maxVal) * 100));
+        return `<div class="dual-bar-day">
+            <div class="bars">
+                <div class="b-views" style="height:${viewPct}%" title="${d.views} views"></div>
+                <div class="b-unique" style="height:${uniqPct}%" title="${d.unique} unique"></div>
+            </div>
+            <span class="bar-label">${d.date.slice(5)}</span>
+        </div>`;
+    }).join("");
+}
+
+function renderBreakdown(counts, containerId) {
+    const el = document.getElementById(containerId);
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) { el.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:4px 0">No data</div>'; return; }
+    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+    el.innerHTML = entries.map(([label, count]) => {
+        const pct = Math.round((count / total) * 100);
+        return `<div class="breakdown-row">
+            <div class="breakdown-top"><span>${label}</span><span style="color:var(--text2)">${count} (${pct}%)</span></div>
+            <div class="breakdown-track"><div class="breakdown-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join("");
+}
+
+function renderTopPages(pages, containerId) {
+    const el = document.getElementById(containerId);
+    if (!pages || pages.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px">No page view data yet</div>'; return; }
+    el.innerHTML = `<table class="analytics-table">
+        <thead><tr><th>Page</th><th style="text-align:right">Views</th></tr></thead>
+        <tbody>${pages.map(p => `
+            <tr>
+                <td style="max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${esc(p.page)}">${esc(p.page)}</td>
+                <td style="text-align:right;font-weight:600;color:var(--blue);white-space:nowrap">${p.views}</td>
+            </tr>
+        `).join("")}</tbody>
+    </table>`;
+}
+
+function fmtUptime(s) {
+    if (s < 60) return s + "s";
+    if (s < 3600) return Math.floor(s / 60) + "m";
+    if (s < 86400) return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+    return Math.floor(s / 86400) + "d " + Math.floor((s % 86400) / 3600) + "h";
 }
 
 // ── Helpers ──

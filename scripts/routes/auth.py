@@ -79,12 +79,20 @@ async def activate(request: Request):
 
     site_data = site.data[0]
 
-    # Only trial sites can be activated — prevents re-activation or
-    # activating a site the caller doesn't own.
+    # Only trial sites can be activated — prevents re-activation.
     if not site_data.get("is_trial"):
         return JSONResponse({"error": "Site is already activated"}, status_code=400)
 
-    source_url = site_data.get("settings", {}).get("source_url", "")
+    # Verify the caller owns this trial site.  The registration token
+    # is stored in settings.owner_token when trial_start creates the
+    # site.  If it was set, the activating token must match.
+    site_settings = site_data.get("settings") or {}
+    owner_token = site_settings.get("owner_token")
+    if owner_token and owner_token != token:
+        cfg.log.warning(f"Activate denied: token mismatch for site {site_id}")
+        return JSONResponse({"error": "You are not the owner of this trial"}, status_code=403)
+
+    source_url = site_settings.get("source_url", "")
 
     cfg.sb.table("sites").update({"is_trial": False, "expires_at": None}).eq("id", site_id).execute()
 

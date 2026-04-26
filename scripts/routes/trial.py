@@ -190,6 +190,7 @@ async def trial_start(
     max_pages: int = Form(default=5),
     language: str = Form(default="en"),
     use_playwright: str = Form(default="0"),
+    token: str = Form(default=""),
     pdfs: list[UploadFile] = File(default=[]),
 ):
     blocked = rate_limit_check(request, "trial_start", 3, 3600)
@@ -213,12 +214,16 @@ async def trial_start(
     domain = f"trial-{uuid.uuid4().hex[:8]}.demo"
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
 
+    site_settings = {"source_url": url, "trial": True}
+    if token.strip():
+        site_settings["owner_token"] = token.strip()
+
     site_resp = cfg.sb.table("sites").insert({
         "domain": domain,
         "language": language,
         "is_trial": True,
         "expires_at": expires_at,
-        "settings": {"source_url": url, "trial": True},
+        "settings": site_settings,
     }).execute()
     site_id = site_resp.data[0]["id"]
 

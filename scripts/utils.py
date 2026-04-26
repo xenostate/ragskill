@@ -1,10 +1,12 @@
 """
-Utility functions: rate limiting, SSRF protection, IP resolution, PDF validation.
+Utility functions: rate limiting, SSRF protection, IP resolution, PDF validation,
+User-Agent parsing.
 """
 
 from __future__ import annotations
 
 import ipaddress
+import re
 import socket
 import time
 import threading
@@ -109,6 +111,55 @@ def is_url_safe(url: str) -> tuple[bool, str]:
         return True, ""
     except Exception as e:
         return False, f"URL validation error: {e}"
+
+
+# ── User-Agent Parsing ───────────────────────────────────────────────────
+
+def parse_user_agent(ua: str) -> dict[str, str]:
+    """Light-weight UA parser — no external library required."""
+    ua = ua or ""
+
+    # Device type (check tablet before mobile: iPad matches both patterns)
+    if re.search(r"Tablet|iPad|PlayBook|Silk", ua, re.I):
+        device = "tablet"
+    elif re.search(r"Mobile|iPhone|iPod|Android.*Mobile|BlackBerry|IEMobile|Opera Mini|webOS", ua, re.I):
+        device = "mobile"
+    else:
+        device = "desktop"
+
+    # Browser (order matters — Edge/OPR must come before Chrome/Safari)
+    if re.search(r"Edg/|EdgA/|Edge/", ua):
+        browser = "Edge"
+    elif re.search(r"OPR/|Opera", ua):
+        browser = "Opera"
+    elif re.search(r"SamsungBrowser", ua):
+        browser = "Samsung"
+    elif re.search(r"Chrome/", ua):
+        browser = "Chrome"
+    elif re.search(r"Firefox/", ua):
+        browser = "Firefox"
+    elif re.search(r"Safari/", ua) and re.search(r"Version/", ua):
+        browser = "Safari"
+    elif re.search(r"MSIE|Trident/", ua):
+        browser = "IE"
+    else:
+        browser = "Other"
+
+    # OS
+    if re.search(r"Windows", ua):
+        os_name = "Windows"
+    elif re.search(r"iPhone|iPad|iPod", ua):
+        os_name = "iOS"
+    elif re.search(r"Android", ua):
+        os_name = "Android"
+    elif re.search(r"Mac OS X|macOS", ua):
+        os_name = "macOS"
+    elif re.search(r"Linux", ua):
+        os_name = "Linux"
+    else:
+        os_name = "Other"
+
+    return {"device": device, "browser": browser, "os": os_name}
 
 
 # ── PDF Validation ───────────────────────────────────────────────────────

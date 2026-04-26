@@ -1642,6 +1642,7 @@
         fd.append("max_pages", document.getElementById("t-pages").value);
         fd.append("language", document.getElementById("t-lang").value);
         fd.append("use_playwright", document.getElementById("t-playwright").checked ? "1" : "0");
+        if (token) fd.append("token", token);
         for (const f of document.getElementById("t-pdfs").files) fd.append("pdfs", f);
 
         try {
