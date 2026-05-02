@@ -10,6 +10,7 @@
   const POSITION = scriptTag?.getAttribute("data-position") || "right";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
+  const DEBUG_PANEL = scriptTag?.getAttribute("data-debug-panel") === "true";
   const DEFAULT_PLACEHOLDER = "Type your question...";
   const titleLocked = Boolean(scriptTag?.hasAttribute("data-title"));
 
@@ -44,6 +45,57 @@
   let greetingRendered = false;
   let startersRendered = false;
   let isOpen = false;
+  let debugPanel = null;
+  let debugLines = null;
+
+  function setupDebugPanel() {
+    if (!DEBUG_PANEL || debugPanel) return;
+    debugPanel = document.createElement("div");
+    debugPanel.style.cssText = [
+      "position:fixed",
+      "top:12px",
+      "left:12px",
+      "width:min(360px, calc(100vw - 24px))",
+      "max-height:50vh",
+      "overflow:auto",
+      "padding:12px",
+      "border-radius:12px",
+      "background:rgba(17,24,39,0.94)",
+      "color:#e5e7eb",
+      "font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace",
+      "box-shadow:0 12px 32px rgba(0,0,0,0.28)",
+      "z-index:1000000",
+      "white-space:pre-wrap"
+    ].join(";");
+    const title = document.createElement("div");
+    title.textContent = "Widget Debug";
+    title.style.cssText = "font-weight:700;color:#fff;margin-bottom:8px;";
+    debugLines = document.createElement("div");
+    debugPanel.appendChild(title);
+    debugPanel.appendChild(debugLines);
+    document.body.appendChild(debugPanel);
+  }
+
+  function debugLog(message, data) {
+    if (!DEBUG_PANEL) return;
+    setupDebugPanel();
+    const line = document.createElement("div");
+    const stamp = new Date().toLocaleTimeString([], { hour12: false });
+    let text = `[${stamp}] ${message}`;
+    if (data !== undefined) {
+      try {
+        text += ` ${typeof data === "string" ? data : JSON.stringify(data)}`;
+      } catch (e) {
+        text += ` ${String(data)}`;
+      }
+    }
+    line.textContent = text;
+    debugLines.appendChild(line);
+    debugPanel.scrollTop = debugPanel.scrollHeight;
+    try {
+      window.parent.postMessage({ source: "wr-widget-debug", text }, "*");
+    } catch (e) {}
+  }
 
   function requestHeaders(includeJson) {
     const headers = {};
@@ -55,6 +107,13 @@
     }
     return headers;
   }
+
+  debugLog("widget bootstrap", {
+    siteId: SITE_ID,
+    apiUrl: API_URL,
+    preview: PREVIEW_OPEN,
+    debug: DEBUG_PANEL
+  });
 
   // ── Page-view beacon (fire-and-forget, never blocks the widget) ───────
   try {
@@ -505,17 +564,31 @@
 
   // ── Assistant config loading ───────────────────────────────────────────
   async function loadAssistantConfig() {
+    debugLog("config fetch start");
     try {
       const resp = await fetch(`${API_URL}/api/widget/config/${encodeURIComponent(SITE_ID)}`, {
         headers: requestHeaders(false),
       });
-      if (!resp.ok) return;
+      debugLog("config fetch response", { status: resp.status, ok: resp.ok });
+      if (!resp.ok) {
+        const text = await resp.text();
+        debugLog("config fetch failed body", text.slice(0, 500));
+        return;
+      }
       const data = await resp.json();
       if (data && data.assistant) {
         assistantConfig = data.assistant;
+        debugLog("config loaded", {
+          title: assistantConfig.display?.title || "",
+          greetingEnabled: !!assistantConfig.greeting?.enabled,
+          greetingLength: (assistantConfig.greeting?.message || "").length,
+          starters: (assistantConfig.starters || []).length,
+          forms: (assistantConfig.forms || []).length
+        });
       }
     } catch (e) {
       console.warn("web-rag widget config load failed:", e);
+      debugLog("config fetch exception", e.message || String(e));
     } finally {
       assistantConfigLoaded = true;
       applyDisplayConfig();
@@ -535,6 +608,12 @@
       } catch (e) {}
     }
     const alreadyShown = localStorage.getItem(storageKey) === "1";
+    debugLog("greeting check", {
+      enabled: !!greeting.enabled,
+      hasMessage: !!greeting.message,
+      alreadyShown,
+      greetingRendered
+    });
     if (!greeting.enabled || !greeting.message || greetingRendered) {
       return false;
     }
@@ -545,6 +624,7 @@
 
     addMessage(greeting.message, "bot");
     greetingRendered = true;
+    debugLog("greeting rendered");
     if (greeting.show_once) {
       localStorage.setItem(storageKey, "1");
     }
@@ -553,6 +633,10 @@
 
   function renderStartersIfNeeded() {
     const starters = assistantConfig.starters || [];
+    debugLog("starters check", {
+      count: starters.length,
+      startersRendered
+    });
     if (startersRendered || starters.length === 0) {
       return;
     }
@@ -588,9 +672,19 @@
     });
 
     startersRendered = true;
+    debugLog("starters rendered", starters.map((starter) => ({
+      id: starter.id,
+      action: starter.action,
+      form_id: starter.form_id || ""
+    })));
   }
 
   function scheduleInitialContent() {
+    debugLog("schedule initial content", {
+      isOpen,
+      initialContentScheduled,
+      assistantConfigLoaded
+    });
     if (!isOpen || initialContentScheduled || !assistantConfigLoaded) {
       return;
     }
@@ -603,6 +697,7 @@
 
     window.setTimeout(() => {
       if (!isOpen) return;
+      debugLog("initial content timer fired");
       renderGreetingIfNeeded();
       renderStartersIfNeeded();
     }, delay);
@@ -634,6 +729,10 @@
 
   function openForm(formId) {
     const formDef = getConfiguredForm(formId);
+    debugLog("open form", {
+      formId,
+      found: !!formDef
+    });
     if (!formDef) {
       addMessage("Sorry, this form is not available right now.", "bot");
       return;
@@ -704,6 +803,7 @@
         });
 
         try {
+          debugLog("form submit start", { formId: formDef.id, fields: Object.keys(values) });
           const resp = await fetch(`${API_URL}/api/widget/forms/submit`, {
             method: "POST",
             headers: requestHeaders(true),
@@ -716,6 +816,7 @@
             }),
           });
           const data = await resp.json();
+          debugLog("form submit response", { status: resp.status, ok: resp.ok, body: data });
           if (!resp.ok) {
             const errors = data.errors || {};
             Object.keys(errors).forEach((name) => {
@@ -733,6 +834,7 @@
         } catch (err) {
           status.textContent = "Sorry, something went wrong. Please try again.";
           console.error("web-rag form submit error:", err);
+          debugLog("form submit exception", err.message || String(err));
         } finally {
           submitBtn.disabled = false;
         }
@@ -746,6 +848,7 @@
   async function send(queryOverride, visibleText) {
     const query = String(queryOverride || input.value || "").trim();
     if (!query) return;
+    debugLog("chat send", { query, visibleText: visibleText || "" });
 
     input.value = "";
     input.disabled = true;
@@ -767,6 +870,7 @@
       });
 
       const data = await resp.json();
+      debugLog("chat response", { status: resp.status, ok: resp.ok, body: data });
       if (!resp.ok) {
         throw new Error(data.error || "Request failed");
       }
@@ -774,6 +878,7 @@
     } catch (err) {
       addMessage("Sorry, something went wrong. Please try again.", "bot");
       console.error("web-rag widget error:", err);
+      debugLog("chat exception", err.message || String(err));
     } finally {
       typing.classList.remove("active");
       sendBtn.disabled = false;
@@ -787,6 +892,7 @@
   function toggle() {
     isOpen = !isOpen;
     panel.classList.toggle("open", isOpen);
+    debugLog("toggle", { isOpen });
     if (isOpen) {
       scheduleInitialContent();
       input.focus();
