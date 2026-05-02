@@ -8,6 +8,8 @@
   const TITLE = scriptTag?.getAttribute("data-title") || "Ask a question";
   const COLOR = scriptTag?.getAttribute("data-color") || "#2563eb";
   const POSITION = scriptTag?.getAttribute("data-position") || "right";
+  const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
+  const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
   const DEFAULT_PLACEHOLDER = "Type your question...";
   const titleLocked = Boolean(scriptTag?.hasAttribute("data-title"));
 
@@ -514,6 +516,11 @@
   function renderGreetingIfNeeded() {
     const greeting = assistantConfig.greeting || {};
     const storageKey = getGreetingStorageKey();
+    if (PREVIEW_RESET_GREETING) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (e) {}
+    }
     const alreadyShown = localStorage.getItem(storageKey) === "1";
     if (!greeting.enabled || !greeting.message || greetingRendered) {
       return false;
@@ -785,4 +792,12 @@
   });
 
   loadAssistantConfig();
+
+  if (PREVIEW_OPEN) {
+    window.setTimeout(() => {
+      if (!isOpen) {
+        toggle();
+      }
+    }, 150);
+  }
 })();

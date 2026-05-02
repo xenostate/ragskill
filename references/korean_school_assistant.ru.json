@@ -1,0 +1,213 @@
+{
+  "display": {
+    "title": "Консультант школы корейского языка",
+    "input_placeholder": "Напишите ваш вопрос о курсах, расписании или уровне"
+  },
+  "greeting": {
+    "enabled": true,
+    "message": "Здравствуйте! Я онлайн-консультант школы корейского языка. Помогу с программами обучения, уровнями, стоимостью, расписанием и записью на консультацию.",
+    "show_once": true,
+    "delay_ms": 700
+  },
+  "starters": [
+    {
+      "id": "courses_info",
+      "label": "Какие есть курсы?",
+      "action": "send_message",
+      "message": "Расскажите, пожалуйста, какие курсы корейского языка у вас есть и кому они подходят."
+    },
+    {
+      "id": "pricing_schedule",
+      "label": "Стоимость и расписание",
+      "action": "send_message",
+      "message": "Расскажите, пожалуйста, о стоимости обучения, формате занятий и расписании."
+    },
+    {
+      "id": "level_request",
+      "label": "Оценить мой уровень",
+      "action": "open_form",
+      "form_id": "level_assessment_form"
+    },
+    {
+      "id": "contact_request",
+      "label": "Оставить заявку",
+      "action": "open_form",
+      "form_id": "contact_form"
+    }
+  ],
+  "forms": [
+    {
+      "id": "contact_form",
+      "title": "Заявка на консультацию",
+      "description": "Оставьте контакты, и менеджер школы свяжется с вами для подбора курса.",
+      "submit_label": "Отправить заявку",
+      "success_message": "Спасибо! Ваша заявка отправлена. С вами свяжутся в ближайшее время.",
+      "fields": [
+        {
+          "name": "name",
+          "label": "Имя",
+          "type": "text",
+          "required": true,
+          "placeholder": "Как к вам обращаться?"
+        },
+        {
+          "name": "phone",
+          "label": "Телефон",
+          "type": "tel",
+          "required": true,
+          "placeholder": "+82 10 1234 5678"
+        },
+        {
+          "name": "age",
+          "label": "Возраст",
+          "type": "number",
+          "required": false,
+          "placeholder": "Например, 24"
+        },
+        {
+          "name": "current_level",
+          "label": "Текущий уровень корейского",
+          "type": "select",
+          "required": false,
+          "options": [
+            "Никогда не изучал(а)",
+            "Начальный",
+            "Базовый",
+            "Средний",
+            "Выше среднего",
+            "Продвинутый"
+          ],
+          "placeholder": "Выберите ваш уровень"
+        },
+        {
+          "name": "goal",
+          "label": "Цель обучения",
+          "type": "select",
+          "required": false,
+          "options": [
+            "Для жизни в Корее",
+            "Для учебы",
+            "Для работы",
+            "Подготовка к TOPIK",
+            "Для путешествий",
+            "Для себя"
+          ],
+          "placeholder": "Выберите цель"
+        },
+        {
+          "name": "preferred_format",
+          "label": "Предпочтительный формат",
+          "type": "select",
+          "required": false,
+          "options": [
+            "Онлайн",
+            "Оффлайн",
+            "Без разницы"
+          ],
+          "placeholder": "Выберите формат"
+        },
+        {
+          "name": "notes",
+          "label": "Комментарий",
+          "type": "textarea",
+          "required": false,
+          "placeholder": "Например: удобное время, срочность, вопросы по программе"
+        }
+      ],
+      "destinations": {
+        "email": [],
+        "telegram_chat_ids": [],
+        "whatsapp_numbers": []
+      }
+    },
+    {
+      "id": "level_assessment_form",
+      "title": "Запрос на оценку уровня",
+      "description": "Заполните короткую форму, чтобы школа подобрала вам стартовый уровень и формат обучения.",
+      "submit_label": "Отправить на оценку",
+      "success_message": "Спасибо! Запрос на оценку уровня отправлен. С вами свяжутся для следующего шага.",
+      "fields": [
+        {
+          "name": "name",
+          "label": "Имя",
+          "type": "text",
+          "required": true,
+          "placeholder": "Ваше имя"
+        },
+        {
+          "name": "phone",
+          "label": "Телефон",
+          "type": "tel",
+          "required": true,
+          "placeholder": "+82 10 1234 5678"
+        },
+        {
+          "name": "experience",
+          "label": "Есть ли опыт изучения корейского?",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Нет, начинаю с нуля",
+            "Немного изучал(а)",
+            "Изучал(а) несколько месяцев",
+            "Изучал(а) больше года"
+          ],
+          "placeholder": "Выберите вариант"
+        },
+        {
+          "name": "can_read_hangul",
+          "label": "Умеете ли вы читать хангыль?",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Да, уверенно",
+            "Да, но медленно",
+            "Совсем нет"
+          ],
+          "placeholder": "Выберите вариант"
+        },
+        {
+          "name": "goal",
+          "label": "Для чего вам корейский язык?",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Поступление или учеба",
+            "Работа",
+            "Переезд",
+            "TOPIK",
+            "Путешествия",
+            "Личный интерес"
+          ],
+          "placeholder": "Выберите цель"
+        },
+        {
+          "name": "study_schedule",
+          "label": "Когда вам удобно заниматься?",
+          "type": "select",
+          "required": false,
+          "options": [
+            "Утром",
+            "Днем",
+            "Вечером",
+            "По выходным",
+            "Гибкий график"
+          ],
+          "placeholder": "Выберите время"
+        },
+        {
+          "name": "self_description",
+          "label": "Кратко опишите ваш текущий уровень",
+          "type": "textarea",
+          "required": false,
+          "placeholder": "Например: знаю алфавит, могу читать простые слова, понимаю базовые фразы"
+        }
+      ],
+      "destinations": {
+        "email": [],
+        "telegram_chat_ids": [],
+        "whatsapp_numbers": []
+      }
+    }
+  ]
+}

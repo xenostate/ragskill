@@ -328,6 +328,14 @@
         .chat-input-row input { flex: 1; }
         .chat-input-row button { width: auto; margin-top: 0; padding: 10px 16px; }
 
+        .widget-preview-frame {
+            width: 100%;
+            height: 640px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+        }
+
         /* ── Document/chunk list ── */
         .doc-section { margin-bottom: 16px; }
         .doc-header {
@@ -897,10 +905,24 @@ async function openSiteDetail(siteId) {
             <div class="status-msg" id="assistant-config-status" style="margin-top:12px"></div>
         </div>
 
-        <!-- Chatbot test -->
+        <!-- Live widget preview -->
         <div class="chat-test">
             <div class="chat-test-header">
-                <span>Test Chatbot</span>
+                <span>Live Widget Preview</span>
+                <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:4px 10px;font-size:11px" onclick="renderWidgetPreview(currentSiteId)">Refresh Preview</button>
+            </div>
+            <div style="padding:16px;background:linear-gradient(180deg,#f6f6f6 0%,#ececec 100%)">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+                    This preview uses the real widget runtime, including greeting, quick actions, and forms.
+                </div>
+                <iframe id="widget-preview-frame" class="widget-preview-frame" title="Widget preview"></iframe>
+            </div>
+        </div>
+
+        <!-- API chat test -->
+        <div class="chat-test">
+            <div class="chat-test-header">
+                <span>API Chat Test</span>
                 <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:4px 10px;font-size:11px" onclick="clearChat()">Clear</button>
             </div>
             <div class="chat-messages" id="chat-messages"></div>
@@ -919,6 +941,8 @@ async function openSiteDetail(siteId) {
             }
         </div>
     `;
+
+    renderWidgetPreview(site.id);
 }
 
 function renderDocSection(doc, siteId) {
@@ -1026,6 +1050,91 @@ function getAssistantConfigTemplate() {
 
 // ── Site actions ──
 
+function renderWidgetPreview(siteId) {
+    const iframe = document.getElementById("widget-preview-frame");
+    if (!iframe || !siteId) return;
+
+    const api = esc(API);
+    const scriptUrl = `${api}/widget.js?preview=${Date.now()}`;
+    iframe.srcdoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Preview</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+            background:
+                radial-gradient(circle at top right, rgba(251,116,45,0.22), transparent 28%),
+                linear-gradient(180deg, #fbfbfb 0%, #f1f1f1 100%);
+            color: #47464d;
+        }
+        .preview-shell {
+            min-height: 100vh;
+            padding: 28px;
+        }
+        .preview-card {
+            max-width: 760px;
+            background: rgba(255,255,255,0.88);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        }
+        .preview-eyebrow {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #fb742d;
+            margin-bottom: 12px;
+        }
+        .preview-title {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 10px;
+        }
+        .preview-copy {
+            font-size: 14px;
+            line-height: 1.7;
+            color: #6b7280;
+            max-width: 58ch;
+        }
+        .preview-note {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-shell">
+        <div class="preview-card">
+            <div class="preview-eyebrow">Admin Preview</div>
+            <div class="preview-title">Widget preview for site #${siteId}</div>
+            <div class="preview-copy">
+                This iframe runs the real embeddable widget. The assistant opens automatically here so you can test greeting, quick actions, forms, and normal RAG answers before deploying to a client site.
+            </div>
+            <div class="preview-note">
+                Preview mode resets the greeting display state on each refresh.
+            </div>
+        </div>
+    </div>
+    <script
+        src="${scriptUrl}"
+        data-site-id="${siteId}"
+        data-api="${api}"
+        data-preview-open="true"
+        data-preview-reset-greeting="true"></script>
+</body>
+</html>`;
+}
+
 function formatAssistantConfig() {
     const status = document.getElementById("assistant-config-status");
     const textarea = document.getElementById("assistant-config");
@@ -1085,6 +1194,7 @@ async function saveAssistantConfig() {
         textarea.value = JSON.stringify(data.assistant || parsed, null, 2);
         status.className = "status-msg success";
         status.textContent = "Assistant config saved. The widget will use this on the next load.";
+        renderWidgetPreview(currentSiteId);
     } catch (e) {
         status.className = "status-msg error";
         status.textContent = "Network error: " + e.message;
