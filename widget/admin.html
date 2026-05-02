@@ -1056,6 +1056,21 @@ function renderWidgetPreview(siteId) {
 
     const api = esc(API);
     const scriptUrl = `${api}/widget.js?preview=${Date.now()}`;
+    iframe.onload = function() {
+        try {
+            const doc = iframe.contentDocument;
+            if (!doc) return;
+            const script = doc.createElement("script");
+            script.src = scriptUrl;
+            script.setAttribute("data-site-id", String(siteId));
+            script.setAttribute("data-api", API);
+            script.setAttribute("data-preview-open", "true");
+            script.setAttribute("data-preview-reset-greeting", "true");
+            doc.body.appendChild(script);
+        } catch (e) {
+            console.error("Failed to attach widget preview script:", e);
+        }
+    };
     iframe.srcdoc = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1125,12 +1140,6 @@ function renderWidgetPreview(siteId) {
             </div>
         </div>
     </div>
-    <script
-        src="${scriptUrl}"
-        data-site-id="${siteId}"
-        data-api="${api}"
-        data-preview-open="true"
-        data-preview-reset-greeting="true"><\/script>
 </body>
 </html>`;
 }
