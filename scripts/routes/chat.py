@@ -79,6 +79,26 @@ def _extract_origin_domain(request: Request) -> str:
     return ""
 
 
+def _is_admin_preview_request(request: Request) -> bool:
+    """Allow the admin page to render a real widget preview for any site."""
+    if request.headers.get("x-widget-preview", "").lower() != "true":
+        return False
+
+    referer = request.headers.get("referer", "")
+    if not referer:
+        return False
+
+    try:
+        parsed = urlparse(referer)
+    except Exception:
+        return False
+
+    request_host = request.url.hostname or ""
+    referer_host = parsed.hostname or ""
+    referer_path = parsed.path or ""
+    return referer_host == request_host and referer_path.startswith("/admin")
+
+
 def _authorize_site_request(site_id: int, request: Request):
     """Load a site row and enforce origin checks for embedded widget traffic."""
     client = cfg.sb_public or cfg.sb
@@ -92,8 +112,9 @@ def _authorize_site_request(site_id: int, request: Request):
     is_landing = site_settings.get("landing", False)
     is_trial = "trial" in site_domain
     is_internal = site_settings.get("internal_assistant", False)
+    is_admin_preview = _is_admin_preview_request(request)
 
-    if not is_landing and not is_trial and not is_internal:
+    if not is_landing and not is_trial and not is_internal and not is_admin_preview:
         origin_domain = _extract_origin_domain(request)
         if not origin_domain:
             cfg.log.warning(f"No Origin/Referer header for site {site_id} — rejecting")

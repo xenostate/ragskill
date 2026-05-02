@@ -45,6 +45,17 @@
   let startersRendered = false;
   let isOpen = false;
 
+  function requestHeaders(includeJson) {
+    const headers = {};
+    if (includeJson) {
+      headers["Content-Type"] = "application/json";
+    }
+    if (PREVIEW_OPEN) {
+      headers["X-Widget-Preview"] = "true";
+    }
+    return headers;
+  }
+
   // ── Page-view beacon (fire-and-forget, never blocks the widget) ───────
   try {
     fetch(`${API_URL}/api/track`, {
@@ -495,7 +506,9 @@
   // ── Assistant config loading ───────────────────────────────────────────
   async function loadAssistantConfig() {
     try {
-      const resp = await fetch(`${API_URL}/api/widget/config/${encodeURIComponent(SITE_ID)}`);
+      const resp = await fetch(`${API_URL}/api/widget/config/${encodeURIComponent(SITE_ID)}`, {
+        headers: requestHeaders(false),
+      });
       if (!resp.ok) return;
       const data = await resp.json();
       if (data && data.assistant) {
@@ -693,7 +706,7 @@
         try {
           const resp = await fetch(`${API_URL}/api/widget/forms/submit`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: requestHeaders(true),
             body: JSON.stringify({
               site_id: parseInt(SITE_ID, 10),
               form_id: formDef.id,
@@ -744,7 +757,7 @@
     try {
       const resp = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: requestHeaders(true),
         body: JSON.stringify({
           site_id: parseInt(SITE_ID, 10),
           query,
