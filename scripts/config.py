@@ -29,6 +29,14 @@ RAG_MODEL = os.environ.get("RAG_MODEL", "gpt-4o-mini")
 RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "")
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
 
 # WhatsApp Business (dormant — set WHATSAPP_ENABLED=true to activate)
 WHATSAPP_ENABLED = os.environ.get("WHATSAPP_ENABLED", "").lower() in ("true", "1", "yes")

@@ -162,3 +162,24 @@ create table if not exists visitor_logs (
 create index if not exists idx_visitor_logs_site    on visitor_logs(site_id);
 create index if not exists idx_visitor_logs_created on visitor_logs(created_at desc);
 create index if not exists idx_visitor_logs_session on visitor_logs(session_id);
+
+-- Structured assistant form submissions (lead capture, assessments, etc.)
+create table if not exists assistant_form_submissions (
+    id              bigint generated always as identity primary key,
+    site_id         bigint references sites(id) on delete cascade,
+    session_id      text,
+    form_id         text not null,
+    form_title      text,
+    payload         jsonb not null default '{}'::jsonb,
+    page_url        text,
+    user_agent      text,
+    delivery_status jsonb not null default '{}'::jsonb,
+    created_at      timestamptz default now()
+);
+
+create index if not exists idx_assistant_form_submissions_site
+    on assistant_form_submissions(site_id);
+create index if not exists idx_assistant_form_submissions_created
+    on assistant_form_submissions(created_at desc);
+create index if not exists idx_assistant_form_submissions_form
+    on assistant_form_submissions(form_id);

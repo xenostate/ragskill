@@ -824,6 +824,7 @@ async function openSiteDetail(siteId) {
     const docs = data.documents || [];
     const settings = site.settings || {};
     const sourceUrl = settings.source_url || `https://${site.domain}`;
+    const assistantJson = esc(JSON.stringify(settings.assistant || getAssistantConfigTemplate(), null, 2));
 
     let badge = '';
     if (settings.landing) badge = '<span class="badge badge-landing">Landing</span>';
@@ -877,6 +878,24 @@ async function openSiteDetail(siteId) {
 
         <!-- Upload status -->
         <div class="status-msg" id="upload-status"></div>
+
+        <!-- Assistant configuration -->
+        <div class="add-form">
+            <h3>Assistant Configuration</h3>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+                Configure greeting, quick actions, and generic forms as JSON. This is stored per site and automatically used by future widgets for this tenant.
+            </p>
+            <div class="form-group">
+                <label>Assistant JSON</label>
+                <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-blue" onclick="saveAssistantConfig()">Save Config</button>
+                <button class="btn btn-sm btn-outline" onclick="formatAssistantConfig()">Format JSON</button>
+                <button class="btn btn-sm btn-outline" onclick="loadAssistantConfigTemplate()">Load Template</button>
+            </div>
+            <div class="status-msg" id="assistant-config-status" style="margin-top:12px"></div>
+        </div>
 
         <!-- Chatbot test -->
         <div class="chat-test">
@@ -939,7 +958,138 @@ function showRecrawlForm() {
     document.getElementById("recrawl-status").className = "status-msg";
 }
 
+function getAssistantConfigTemplate() {
+    return {
+        display: {
+            title: "",
+            input_placeholder: ""
+        },
+        greeting: {
+            enabled: false,
+            message: "",
+            show_once: true,
+            delay_ms: 0
+        },
+        starters: [
+            {
+                id: "example_info",
+                label: "Ask about the program",
+                action: "send_message",
+                message: "Can you tell me about your main program and how it works?"
+            },
+            {
+                id: "example_form",
+                label: "Leave my details",
+                action: "open_form",
+                form_id: "contact_form"
+            }
+        ],
+        forms: [
+            {
+                id: "contact_form",
+                title: "Contact request",
+                description: "Leave your details and our team can follow up.",
+                submit_label: "Send",
+                success_message: "Thanks. Your request has been sent.",
+                fields: [
+                    {
+                        name: "name",
+                        label: "Name",
+                        type: "text",
+                        required: true,
+                        placeholder: "Your name"
+                    },
+                    {
+                        name: "phone",
+                        label: "Phone",
+                        type: "tel",
+                        required: true,
+                        placeholder: "+82 10 1234 5678"
+                    },
+                    {
+                        name: "notes",
+                        label: "Notes",
+                        type: "textarea",
+                        required: false,
+                        placeholder: "What would you like help with?"
+                    }
+                ],
+                destinations: {
+                    email: [],
+                    telegram_chat_ids: [],
+                    whatsapp_numbers: []
+                }
+            }
+        ]
+    };
+}
+
 // ── Site actions ──
+
+function formatAssistantConfig() {
+    const status = document.getElementById("assistant-config-status");
+    const textarea = document.getElementById("assistant-config");
+    if (!textarea) return;
+    try {
+        const parsed = JSON.parse(textarea.value);
+        textarea.value = JSON.stringify(parsed, null, 2);
+        status.className = "status-msg success";
+        status.textContent = "JSON formatted.";
+    } catch (e) {
+        status.className = "status-msg error";
+        status.textContent = "Invalid JSON: " + e.message;
+    }
+}
+
+function loadAssistantConfigTemplate() {
+    const textarea = document.getElementById("assistant-config");
+    const status = document.getElementById("assistant-config-status");
+    if (!textarea) return;
+    if (textarea.value.trim() && !confirm("Replace the current assistant config with the starter template?")) return;
+    textarea.value = JSON.stringify(getAssistantConfigTemplate(), null, 2);
+    status.className = "status-msg info";
+    status.textContent = "Starter template loaded. Review it and click Save Config.";
+}
+
+async function saveAssistantConfig() {
+    const textarea = document.getElementById("assistant-config");
+    const status = document.getElementById("assistant-config-status");
+    if (!textarea || !currentSiteId) return;
+
+    let parsed;
+    try {
+        parsed = JSON.parse(textarea.value);
+    } catch (e) {
+        status.className = "status-msg error";
+        status.textContent = "Invalid JSON: " + e.message;
+        return;
+    }
+
+    status.className = "status-msg info";
+    status.textContent = "Saving assistant config...";
+
+    try {
+        const resp = await fetch(API + `/api/admin/sites/${currentSiteId}/assistant-config`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ assistant: parsed }),
+        });
+        if (resp.status === 401) { doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            status.className = "status-msg error";
+            status.textContent = data.error || "Failed to save assistant config";
+            return;
+        }
+
+        textarea.value = JSON.stringify(data.assistant || parsed, null, 2);
+        status.className = "status-msg success";
+        status.textContent = "Assistant config saved. The widget will use this on the next load.";
+    } catch (e) {
+        status.className = "status-msg error";
+        status.textContent = "Network error: " + e.message;
+    }
+}
 
 async function doRecrawl() {
     const url = document.getElementById("recrawl-url").value.trim();

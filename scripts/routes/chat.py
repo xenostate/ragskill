@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 import scripts.config as cfg
+from scripts.assistant_features import get_public_assistant_config, submit_assistant_form
 from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent
 from scripts.rag_core import do_rag_sync, get_site_language_cached
 
@@ -39,6 +40,18 @@ class ChatResponse(BaseModel):
     confidence: str
 
 
+class WidgetConfigResponse(BaseModel):
+    assistant: dict
+
+
+class FormSubmitRequest(BaseModel):
+    site_id: int
+    form_id: str = Field(..., max_length=128)
+    values: dict = Field(default_factory=dict)
+    session_id: str | None = Field(default=None, max_length=128)
+    page_url: str | None = Field(default=None, max_length=2000)
+
+
 @router.get("/health")
 async def health():
     return {
@@ -49,53 +62,59 @@ async def health():
     }
 
 
+def _extract_origin_domain(request: Request) -> str:
+    origin_header = request.headers.get("origin", "")
+    if origin_header:
+        try:
+            return urlparse(origin_header).hostname or ""
+        except Exception:
+            return ""
+
+    referer = request.headers.get("referer", "")
+    if referer:
+        try:
+            return urlparse(referer).hostname or ""
+        except Exception:
+            return ""
+    return ""
+
+
+def _authorize_site_request(site_id: int, request: Request):
+    """Load a site row and enforce origin checks for embedded widget traffic."""
+    client = cfg.sb_public or cfg.sb
+    site_row = client.table("sites").select("id, domain, settings").eq("id", site_id).execute()
+    if not site_row.data:
+        return None, JSONResponse({"error": "Site not found"}, status_code=404)
+
+    site = site_row.data[0]
+    site_domain = site.get("domain", "")
+    site_settings = site.get("settings") or {}
+    is_landing = site_settings.get("landing", False)
+    is_trial = "trial" in site_domain
+    is_internal = site_settings.get("internal_assistant", False)
+
+    if not is_landing and not is_trial and not is_internal:
+        origin_domain = _extract_origin_domain(request)
+        if not origin_domain:
+            cfg.log.warning(f"No Origin/Referer header for site {site_id} — rejecting")
+            return None, JSONResponse({"error": "Origin header required"}, status_code=403)
+        if origin_domain not in ("wrs.kz", "localhost"):
+            if origin_domain != site_domain and not origin_domain.endswith(f".{site_domain}"):
+                cfg.log.warning(f"Domain mismatch: site {site_id} domain={site_domain} origin={origin_domain}")
+                return None, JSONResponse({"error": "Widget not authorized for this domain"}, status_code=403)
+
+    return site, None
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, request: Request):
     blocked = rate_limit_check(request, "chat", 20, 60)
     if blocked:
         return blocked
 
-    # ── Domain verification ──────────────────────────────────────────────
-    # Always look up the site so we can reject unknown IDs and enforce
-    # origin checks even when the header is absent.
-    client = cfg.sb_public or cfg.sb
-    site_row = client.table("sites").select("domain, settings").eq("id", req.site_id).execute()
-    if not site_row.data:
-        return JSONResponse({"error": "Site not found"}, status_code=404)
-
-    site_domain = site_row.data[0].get("domain", "")
-    site_settings = site_row.data[0].get("settings") or {}
-    is_landing = site_settings.get("landing", False)
-    is_trial = "trial" in site_domain
-    is_internal = site_settings.get("internal_assistant", False)
-
-    if not is_landing and not is_trial and not is_internal:
-        # Extract origin from Origin header (preferred) or Referer (fallback)
-        origin_header = request.headers.get("origin", "")
-        origin_domain = ""
-        if origin_header:
-            try:
-                origin_domain = urlparse(origin_header).hostname or ""
-            except Exception:
-                pass
-        if not origin_domain:
-            referer = request.headers.get("referer", "")
-            if referer:
-                try:
-                    origin_domain = urlparse(referer).hostname or ""
-                except Exception:
-                    pass
-
-        # Fail closed: no trusted browser header → reject.
-        # req.origin_domain is user-supplied and NOT trusted.
-        if not origin_domain:
-            cfg.log.warning(f"No Origin/Referer header for site {req.site_id} — rejecting")
-            return JSONResponse({"error": "Origin header required"}, status_code=403)
-
-        if origin_domain not in ("wrs.kz", "localhost"):
-            if origin_domain != site_domain and not origin_domain.endswith(f".{site_domain}"):
-                cfg.log.warning(f"Domain mismatch: site {req.site_id} domain={site_domain} origin={origin_domain}")
-                return JSONResponse({"error": "Widget not authorized for this domain"}, status_code=403)
+    site, error = _authorize_site_request(req.site_id, request)
+    if error:
+        return error
 
     t0 = time.time()
     language = get_site_language_cached(req.site_id)
@@ -117,6 +136,50 @@ async def chat(req: ChatRequest, request: Request):
     ))
 
     return ChatResponse(**result)
+
+
+@router.get("/api/widget/config/{site_id}", response_model=WidgetConfigResponse)
+async def widget_config(site_id: int, request: Request):
+    blocked = rate_limit_check(request, "widget_config", 60, 60)
+    if blocked:
+        return blocked
+
+    site, error = _authorize_site_request(site_id, request)
+    if error:
+        return error
+
+    return WidgetConfigResponse(
+        assistant=get_public_assistant_config(site.get("settings") or {})
+    )
+
+
+@router.post("/api/widget/forms/submit")
+async def submit_widget_form(req: FormSubmitRequest, request: Request):
+    blocked = rate_limit_check(request, f"assistant_form:{req.form_id}", 10, 300)
+    if blocked:
+        return blocked
+
+    site, error = _authorize_site_request(req.site_id, request)
+    if error:
+        return error
+
+    result = await asyncio.to_thread(
+        submit_assistant_form,
+        req.site_id,
+        site.get("domain", ""),
+        site.get("settings") or {},
+        req.session_id,
+        req.form_id,
+        req.values or {},
+        req.page_url,
+        request.headers.get("user-agent", ""),
+    )
+    if result.get("error"):
+        return JSONResponse(
+            {"error": result["error"], "errors": result.get("errors", {})},
+            status_code=result.get("status_code", 400),
+        )
+    return result
 
 
 async def _log_query(site_id: int, query: str, confidence: str, response_ms: int, chunk_count: int) -> None:

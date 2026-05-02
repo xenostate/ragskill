@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pypdf import PdfReader
 
 import scripts.config as cfg
+from scripts.assistant_features import normalize_assistant_config
 from scripts.utils import rate_limit_check, get_client_ip, verify_admin, is_url_safe, is_valid_pdf
 from scripts.indexer import chunk_text, content_hash
 from scripts.routes.trial import run_trial_indexing
@@ -328,6 +329,27 @@ async def admin_site_documents(site_id: int, request: Request):
         doc_chunks.sort(key=lambda x: x["chunk_index"])
         result.append({"id": doc["id"], "title": doc["title"], "url": doc["url"], "last_crawled": doc.get("last_crawled"), "chunk_count": len(doc_chunks), "chunks": doc_chunks})
     return {"site": site.data[0], "documents": result}
+
+
+@router.post("/api/admin/sites/{site_id}/assistant-config")
+async def admin_update_assistant_config(site_id: int, request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    site = cfg.sb.table("sites").select("id, settings").eq("id", site_id).execute()
+    if not site.data:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+
+    body = await request.json()
+    assistant = body.get("assistant")
+    if not isinstance(assistant, dict):
+        return JSONResponse({"error": "assistant config must be a JSON object"}, status_code=400)
+
+    settings = site.data[0].get("settings") or {}
+    settings["assistant"] = normalize_assistant_config(assistant)
+    cfg.sb.table("sites").update({"settings": settings}).eq("id", site_id).execute()
+    cfg.log.info(f"Admin updated assistant config for site {site_id}")
+    return {"success": True, "assistant": settings["assistant"]}
 
 
 @router.delete("/api/admin/sites/{site_id}/chunks/{chunk_id}")
