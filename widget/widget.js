@@ -10,6 +10,7 @@
   const POSITION = scriptTag?.getAttribute("data-position") || "right";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
+  const PREVIEW_ADMIN_TOKEN = scriptTag?.getAttribute("data-preview-admin-token") || "";
   const DEBUG_PANEL = scriptTag?.getAttribute("data-debug-panel") === "true";
   const DEFAULT_PLACEHOLDER = "Type your question...";
   const titleLocked = Boolean(scriptTag?.hasAttribute("data-title"));
@@ -104,6 +105,9 @@
     }
     if (PREVIEW_OPEN) {
       headers["X-Widget-Preview"] = "true";
+      if (PREVIEW_ADMIN_TOKEN) {
+        headers["X-Admin-Token"] = PREVIEW_ADMIN_TOKEN;
+      }
     }
     return headers;
   }

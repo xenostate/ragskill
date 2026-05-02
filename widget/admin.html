@@ -1066,6 +1066,7 @@ function renderWidgetPreview(siteId) {
             script.setAttribute("data-api", API);
             script.setAttribute("data-preview-open", "true");
             script.setAttribute("data-preview-reset-greeting", "true");
+            script.setAttribute("data-preview-admin-token", adminToken);
             script.setAttribute("data-debug-panel", "true");
             doc.body.appendChild(script);
         } catch (e) {

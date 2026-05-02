@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 import scripts.config as cfg
 from scripts.assistant_features import get_public_assistant_config, submit_assistant_form
-from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent
+from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent, verify_admin_token
 from scripts.rag_core import do_rag_sync, get_site_language_cached
 
 router = APIRouter()
@@ -83,20 +83,8 @@ def _is_admin_preview_request(request: Request) -> bool:
     """Allow the admin page to render a real widget preview for any site."""
     if request.headers.get("x-widget-preview", "").lower() != "true":
         return False
-
-    referer = request.headers.get("referer", "")
-    if not referer:
-        return False
-
-    try:
-        parsed = urlparse(referer)
-    except Exception:
-        return False
-
-    request_host = request.url.hostname or ""
-    referer_host = parsed.hostname or ""
-    referer_path = parsed.path or ""
-    return referer_host == request_host and referer_path.startswith("/admin")
+    admin_token = request.headers.get("x-admin-token", "")
+    return verify_admin_token(admin_token)
 
 
 def _authorize_site_request(site_id: int, request: Request):
