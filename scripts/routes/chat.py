@@ -274,7 +274,15 @@ async def serve_widget():
     js_path = cfg.WIDGET_DIR / "widget.js"
     if not js_path.exists():
         return JSONResponse({"error": "widget.js not found"}, status_code=404)
-    return FileResponse(js_path, media_type="application/javascript")
+    return FileResponse(
+        js_path,
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 # ── Telegram webhook (DISABLED) ─────────────────────────────────────────
