@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     top_k: int = Field(default=cfg.RAG_TOP_K, le=20)
     origin_domain: str | None = None  # kept for backwards compat, not trusted
+    response_language: str | None = Field(default=None, max_length=12)
 
 
 class TrackRequest(BaseModel):
@@ -126,7 +127,7 @@ async def chat(req: ChatRequest, request: Request):
         return error
 
     t0 = time.time()
-    language = get_site_language_cached(req.site_id)
+    language = (req.response_language or "").strip().lower() or get_site_language_cached(req.site_id)
 
     result = await asyncio.to_thread(
         do_rag_sync, req.site_id, req.query, req.top_k, req.session_id, language

@@ -25,6 +25,14 @@ ASSISTANT_CONFIG_TEMPLATE = {
         "title": "",
         "input_placeholder": "",
     },
+    "language_switch": {
+        "enabled": False,
+        "default": "",
+        "options": [
+            {"code": "ru", "label": "RU"},
+            {"code": "en", "label": "EN"},
+        ],
+    },
     "greeting": {
         "enabled": False,
         "message": "",
@@ -112,17 +120,43 @@ def _coerce_options(options) -> list[str]:
     return cleaned[:20]
 
 
+def _normalize_language_options(options) -> list[dict]:
+    if not isinstance(options, list):
+        return []
+    normalized = []
+    seen = set()
+    for item in options:
+        if isinstance(item, dict):
+            code = _safe_id(item.get("code"), "")
+            label = _clean_str(item.get("label"), 12) or code.upper()
+        else:
+            code = _safe_id(item, "")
+            label = code.upper()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        normalized.append({"code": code, "label": label})
+    return normalized[:8]
+
+
 def normalize_assistant_config(raw: dict | None) -> dict:
     """Normalize tenant assistant config into a safe, predictable shape."""
     raw = raw or {}
     display = raw.get("display") if isinstance(raw.get("display"), dict) else {}
+    language_switch = raw.get("language_switch") if isinstance(raw.get("language_switch"), dict) else {}
     greeting = raw.get("greeting") if isinstance(raw.get("greeting"), dict) else {}
+    language_options = _normalize_language_options(language_switch.get("options"))
 
     config = {
         "version": 1,
         "display": {
             "title": _clean_str(display.get("title"), 80),
             "input_placeholder": _clean_str(display.get("input_placeholder"), 120),
+        },
+        "language_switch": {
+            "enabled": bool(language_switch.get("enabled", False)),
+            "default": _safe_id(language_switch.get("default"), ""),
+            "options": language_options,
         },
         "greeting": {
             "enabled": bool(greeting.get("enabled", False)),
@@ -133,6 +167,11 @@ def normalize_assistant_config(raw: dict | None) -> dict:
         "starters": [],
         "forms": [],
     }
+
+    if config["language_switch"]["default"]:
+        valid_codes = {item["code"] for item in config["language_switch"]["options"]}
+        if config["language_switch"]["default"] not in valid_codes:
+            config["language_switch"]["default"] = ""
 
     starters = raw.get("starters") if isinstance(raw.get("starters"), list) else []
     for idx, item in enumerate(starters):
@@ -216,6 +255,7 @@ def get_public_assistant_config(site_settings: dict | None) -> dict:
     return {
         "version": config["version"],
         "display": config["display"],
+        "language_switch": config["language_switch"],
         "greeting": config["greeting"],
         "starters": config["starters"],
         "forms": public_forms,

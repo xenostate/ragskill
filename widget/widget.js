@@ -17,6 +17,7 @@
 
   // ── Session ────────────────────────────────────────────────────────────
   const SESSION_KEY = `wr_session_${SITE_ID}`;
+  const LANGUAGE_KEY = `wr_lang_${SITE_ID}`;
   let sessionId = localStorage.getItem(SESSION_KEY);
   if (!sessionId) {
     sessionId = "s_" + Math.random().toString(36).slice(2, 12);
@@ -46,6 +47,7 @@
   let greetingRendered = false;
   let startersRendered = false;
   let isOpen = false;
+  let selectedLanguage = "";
   let debugPanel = null;
   let debugLines = null;
 
@@ -190,11 +192,42 @@
       padding: 16px;
       background: ${COLOR};
       color: #fff;
-      font-weight: 600;
-      font-size: 15px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .wr-header-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .wr-header-title {
+      font-weight: 600;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+    .wr-lang-switch {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .wr-lang-btn {
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .wr-lang-btn.active {
+      background: #fff;
+      color: ${COLOR};
+      border-color: #fff;
     }
     .wr-close {
       background: none;
@@ -448,7 +481,10 @@
   panel.className = "wr-panel";
   panel.innerHTML = `
     <div class="wr-header">
-      <span class="wr-header-title">${escapeHtml(TITLE)}</span>
+      <div class="wr-header-main">
+        <div class="wr-header-title">${escapeHtml(TITLE)}</div>
+        <div class="wr-lang-switch" style="display:none"></div>
+      </div>
       <button class="wr-close">&times;</button>
     </div>
     <div class="wr-messages">
@@ -466,6 +502,7 @@
   shadow.appendChild(panel);
 
   const headerTitle = panel.querySelector(".wr-header-title");
+  const langSwitch = panel.querySelector(".wr-lang-switch");
   const messages = panel.querySelector(".wr-messages");
   const typing = panel.querySelector(".wr-typing");
   const input = panel.querySelector(".wr-input");
@@ -483,6 +520,34 @@
 
   function getGreetingStorageKey() {
     return `wr_greeting_shown_${SITE_ID}`;
+  }
+
+  function getAvailableLanguageCodes() {
+    return (assistantConfig.language_switch?.options || []).map((item) => item.code);
+  }
+
+  function getDefaultLanguage() {
+    const switchCfg = assistantConfig.language_switch || {};
+    const codes = new Set(getAvailableLanguageCodes());
+    if (switchCfg.default && codes.has(switchCfg.default)) {
+      return switchCfg.default;
+    }
+    return "";
+  }
+
+  function applySelectedLanguage() {
+    const stored = localStorage.getItem(LANGUAGE_KEY) || "";
+    const codes = new Set(getAvailableLanguageCodes());
+    if (stored && codes.has(stored)) {
+      selectedLanguage = stored;
+      return;
+    }
+    selectedLanguage = getDefaultLanguage();
+    if (selectedLanguage) {
+      localStorage.setItem(LANGUAGE_KEY, selectedLanguage);
+    } else {
+      localStorage.removeItem(LANGUAGE_KEY);
+    }
   }
 
   function scrollToBottom() {
@@ -564,6 +629,34 @@
       headerTitle.textContent = display.title;
     }
     input.placeholder = display.input_placeholder || DEFAULT_PLACEHOLDER;
+    renderLanguageSwitch();
+  }
+
+  function renderLanguageSwitch() {
+    const switchCfg = assistantConfig.language_switch || {};
+    const options = switchCfg.options || [];
+    if (!switchCfg.enabled || options.length < 2) {
+      langSwitch.style.display = "none";
+      langSwitch.innerHTML = "";
+      return;
+    }
+
+    applySelectedLanguage();
+    langSwitch.style.display = "flex";
+    langSwitch.innerHTML = "";
+    options.forEach((option) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `wr-lang-btn${selectedLanguage === option.code ? " active" : ""}`;
+      btn.textContent = option.label || option.code.toUpperCase();
+      btn.addEventListener("click", () => {
+        selectedLanguage = option.code;
+        localStorage.setItem(LANGUAGE_KEY, selectedLanguage);
+        renderLanguageSwitch();
+        debugLog("language switched", { selectedLanguage });
+      });
+      langSwitch.appendChild(btn);
+    });
   }
 
   // ── Assistant config loading ───────────────────────────────────────────
@@ -587,7 +680,8 @@
           greetingEnabled: !!assistantConfig.greeting?.enabled,
           greetingLength: (assistantConfig.greeting?.message || "").length,
           starters: (assistantConfig.starters || []).length,
-          forms: (assistantConfig.forms || []).length
+          forms: (assistantConfig.forms || []).length,
+          languageSwitch: assistantConfig.language_switch || {}
         });
       }
     } catch (e) {
@@ -870,6 +964,7 @@
           query,
           session_id: sessionId,
           origin_domain: window.location.hostname,
+          response_language: selectedLanguage || undefined,
         }),
       });
 
