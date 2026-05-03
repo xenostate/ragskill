@@ -1052,6 +1052,22 @@ function getAssistantConfigTemplate() {
                     whatsapp_numbers: []
                 }
             }
+        ],
+        intent_rules: [
+            {
+                id: "contact_intent",
+                match: {
+                    keywords: ["contact", "call me", "leave my details"]
+                },
+                response_message: "I can help with that. Choose an option below.",
+                actions: [
+                    {
+                        type: "open_form",
+                        label: "Leave my details",
+                        form_id: "contact_form"
+                    }
+                ]
+            }
         ]
     };
 }

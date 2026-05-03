@@ -13,7 +13,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 import scripts.config as cfg
-from scripts.assistant_features import get_public_assistant_config, submit_assistant_form
+from scripts.assistant_features import (
+    get_assistant_config,
+    get_public_assistant_config,
+    match_intent_actions,
+    resolve_text_value,
+    submit_assistant_form,
+)
 from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent, verify_admin_token
 from scripts.rag_core import do_rag_sync, get_site_language_cached
 
@@ -39,6 +45,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[dict]
     confidence: str
+    actions: list[dict] = Field(default_factory=list)
 
 
 class WidgetConfigResponse(BaseModel):
@@ -129,15 +136,27 @@ async def chat(req: ChatRequest, request: Request):
 
     t0 = time.time()
     language = (req.response_language or "").strip().lower() or get_site_language_cached(req.site_id)
+    assistant_config = get_assistant_config(site.get("settings") or {})
+    intent_result = match_intent_actions(assistant_config, req.query)
 
     result = await asyncio.to_thread(
         do_rag_sync, req.site_id, req.query, req.top_k, req.session_id, language
     )
+    if intent_result["actions"] and result.get("confidence") == "low":
+        result["answer"] = resolve_text_value(
+            intent_result.get("response_message"),
+            language,
+        ) or resolve_text_value({
+            "ru": "Я могу помочь с этим. Выберите подходящее действие ниже.",
+            "en": "I can help with that. Choose one of the options below.",
+            "ko": "도와드릴 수 있어요. 아래에서 원하는 작업을 선택해 주세요.",
+        }, language)
 
     elapsed_ms = int((time.time() - t0) * 1000)
     cfg.log.info(
         f"chat site={req.site_id} q=\"{req.query[:50]}\" "
         f"confidence={result['confidence']} chunks={len(result['sources'])} "
+        f"intent_actions={len(intent_result['actions'])} "
         f"time={elapsed_ms}ms"
     )
 
@@ -146,7 +165,7 @@ async def chat(req: ChatRequest, request: Request):
         req.site_id, req.query, result["confidence"], elapsed_ms, len(result["sources"])
     ))
 
-    return ChatResponse(**result)
+    return ChatResponse(**result, actions=intent_result["actions"])
 
 
 @router.get("/api/widget/config/{site_id}", response_model=WidgetConfigResponse)

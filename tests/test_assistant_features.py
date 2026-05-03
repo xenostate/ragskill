@@ -9,6 +9,7 @@ import scripts.config as cfg
 from scripts.assistant_features import (
     assistant_config_template,
     get_public_assistant_config,
+    match_intent_actions,
     normalize_assistant_config,
     resolve_text_value,
     submit_assistant_form,
@@ -93,6 +94,40 @@ class TestAssistantConfig:
         assert resolve_text_value(config["display"]["title"], "en") == "Contact us"
         assert config["forms"][0]["fields"][0]["options"][0]["label"]["en"] == "Beginner"
         assert config["forms"][0]["fields"][0]["options"][1]["value"] == "advanced"
+
+    def test_intent_rules_are_normalized_and_match_actions(self):
+        config = normalize_assistant_config({
+            "intent_rules": [
+                {
+                    "id": "lead_capture",
+                    "match": {
+                        "keywords": ["оставить заявку", "связаться"]
+                    },
+                    "response_message": {"ru": "Оставьте заявку ниже", "en": "Leave a request below"},
+                    "actions": [
+                        {
+                            "type": "open_form",
+                            "label": {"ru": "Оставить заявку", "en": "Leave a request"},
+                            "form_id": "contact_form",
+                        },
+                        {
+                            "type": "send_message",
+                            "label": {"ru": "Узнать стоимость", "en": "Ask about pricing"},
+                            "message": {"ru": "Расскажите о стоимости", "en": "Tell me about pricing"},
+                        },
+                    ],
+                }
+            ]
+        })
+
+        assert config["intent_rules"][0]["match"]["keywords"] == ["оставить заявку", "связаться"]
+        assert config["intent_rules"][0]["actions"][0]["form_id"] == "contact_form"
+
+        matched = match_intent_actions(config, "Хочу оставить заявку на обучение")
+        assert matched["matched_rule_ids"] == ["lead_capture"]
+        assert len(matched["actions"]) == 2
+        assert matched["actions"][0]["type"] == "open_form"
+        assert matched["response_message"]["ru"] == "Оставьте заявку ниже"
 
 
 class TestAssistantForms:

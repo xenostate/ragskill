@@ -601,7 +601,7 @@
       })
       .replace(/\n/g, "<br>");
 
-    if (sources && sources.length > 0) {
+    if (PREVIEW_OPEN && sources && sources.length > 0) {
       html += `<div class="wr-sources"><strong>Sources:</strong>`;
       sources.forEach((source, index) => {
         html += `<a href="${safeSourceUrl(source.url)}" target="_blank" rel="noopener">[${index + 1}] ${escapeHtml(source.title)}</a>`;
@@ -641,6 +641,47 @@
 
   function getConfiguredForm(formId) {
     return (assistantConfig.forms || []).find((form) => form.id === formId) || null;
+  }
+
+  function getActionType(action) {
+    return action?.type || action?.action || "send_message";
+  }
+
+  function getActionLabel(action) {
+    const directLabel = resolveText(action?.label, getUiLanguage());
+    if (directLabel) {
+      return directLabel;
+    }
+    if (getActionType(action) === "open_form" && action?.form_id) {
+      const formDef = getConfiguredForm(action.form_id);
+      return resolveText(formDef?.title, getUiLanguage()) || "Open form";
+    }
+    return resolveText(action?.message, getUiLanguage()) || "Action";
+  }
+
+  function invokeAction(action) {
+    const actionType = getActionType(action);
+    const actionLabel = getActionLabel(action);
+    const actionMessage = resolveText(action?.message, getUiLanguage()) || actionLabel;
+
+    if (actionType === "open_form") {
+      openForm(action.form_id);
+      return;
+    }
+
+    const query = String(actionMessage || actionLabel || "").trim();
+    if (query) {
+      send(query, actionLabel || query);
+    }
+  }
+
+  function createActionButton(action) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "wr-chip";
+    button.textContent = getActionLabel(action);
+    button.addEventListener("click", () => invokeAction(action));
+    return button;
   }
 
   function applyDisplayConfig() {
@@ -774,23 +815,7 @@
       actions.className = "wr-actions";
 
       starters.forEach((starter) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "wr-chip";
-        const starterLabel = resolveText(starter.label, getUiLanguage()) || "Action";
-        const starterMessage = resolveText(starter.message, getUiLanguage());
-        button.textContent = starterLabel;
-        button.addEventListener("click", () => {
-          if (starter.action === "open_form") {
-            openForm(starter.form_id);
-            return;
-          }
-          const query = (starterMessage || starterLabel || "").trim();
-          if (query) {
-            send(query, starterLabel || query);
-          }
-        });
-        actions.appendChild(button);
+        actions.appendChild(createActionButton(starter));
       });
 
       card.appendChild(actions);
@@ -799,8 +824,39 @@
     startersRendered = true;
     debugLog("starters rendered", starters.map((starter) => ({
       id: starter.id,
-      action: starter.action,
+      action: getActionType(starter),
       form_id: starter.form_id || ""
+    })));
+  }
+
+  function renderResponseActions(actions) {
+    if (!Array.isArray(actions) || actions.length === 0) {
+      debugLog("response actions skipped", { count: 0 });
+      return;
+    }
+
+    addBotCard((card) => {
+      const title = document.createElement("div");
+      title.className = "wr-card-title";
+      title.textContent = resolveText({
+        ru: "Подходящие действия",
+        en: "Suggested actions",
+        ko: "추천 작업"
+      }, getUiLanguage());
+      card.appendChild(title);
+
+      const actionsWrap = document.createElement("div");
+      actionsWrap.className = "wr-actions";
+      actions.forEach((action) => {
+        actionsWrap.appendChild(createActionButton(action));
+      });
+      card.appendChild(actionsWrap);
+    });
+
+    debugLog("response actions rendered", actions.map((action) => ({
+      id: action.id || "",
+      type: getActionType(action),
+      form_id: action.form_id || ""
     })));
   }
 
@@ -1007,6 +1063,7 @@
         throw new Error(data.error || "Request failed");
       }
       addMessage(data.answer, "bot", data.sources, data.confidence);
+      renderResponseActions(data.actions || []);
     } catch (err) {
       addMessage("Sorry, something went wrong. Please try again.", "bot");
       console.error("web-rag widget error:", err);

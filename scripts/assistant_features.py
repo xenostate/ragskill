@@ -91,6 +91,22 @@ ASSISTANT_CONFIG_TEMPLATE = {
             },
         }
     ],
+    "intent_rules": [
+        {
+            "id": "contact_intent",
+            "match": {
+                "keywords": ["contact", "call me", "leave my details"],
+            },
+            "response_message": "I can help with that. Choose an option below.",
+            "actions": [
+                {
+                    "type": "open_form",
+                    "label": "Leave my details",
+                    "form_id": "contact_form",
+                }
+            ],
+        }
+    ],
 }
 
 
@@ -192,6 +208,61 @@ def _normalize_language_options(options) -> list[dict]:
     return normalized[:8]
 
 
+def _normalize_keywords(keywords) -> list[str]:
+    if not isinstance(keywords, list):
+        return []
+    normalized = []
+    seen = set()
+    for item in keywords:
+        text = " ".join(_clean_str(item, 120).lower().split())
+        if len(text) < 2 or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized[:30]
+
+
+def _normalize_action(item: dict, fallback_id: str) -> dict | None:
+    if not isinstance(item, dict):
+        return None
+    inferred_type = item.get("type") or item.get("action")
+    if not inferred_type and item.get("form_id"):
+        inferred_type = "open_form"
+    action_type = _clean_str(inferred_type, 30).lower() or "send_message"
+    if action_type not in ("send_message", "open_form"):
+        return None
+
+    label = _clean_text_value(item.get("label"), 80)
+    message = _clean_text_value(item.get("message"), 1200)
+    form_id = _safe_id(item.get("form_id"), "") if item.get("form_id") else ""
+
+    if action_type == "open_form" and not form_id:
+        return None
+    if action_type == "send_message" and not resolve_text_value(label) and not resolve_text_value(message):
+        return None
+
+    if not resolve_text_value(label):
+        if action_type == "open_form":
+            label = form_id.replace("_", " ").title()
+        else:
+            label = resolve_text_value(message)[:80]
+
+    action_id = _safe_id(
+        item.get("id")
+        or resolve_text_value(label)
+        or form_id
+        or resolve_text_value(message),
+        fallback_id,
+    )
+    return {
+        "id": action_id,
+        "type": action_type,
+        "label": label,
+        "message": message,
+        "form_id": form_id,
+    }
+
+
 def normalize_assistant_config(raw: dict | None) -> dict:
     """Normalize tenant assistant config into a safe, predictable shape."""
     raw = raw or {}
@@ -219,6 +290,7 @@ def normalize_assistant_config(raw: dict | None) -> dict:
         },
         "starters": [],
         "forms": [],
+        "intent_rules": [],
     }
 
     if config["language_switch"]["default"]:
@@ -293,6 +365,39 @@ def normalize_assistant_config(raw: dict | None) -> dict:
             },
         })
 
+    intent_rules = raw.get("intent_rules") if isinstance(raw.get("intent_rules"), list) else []
+    for idx, item in enumerate(intent_rules):
+        if not isinstance(item, dict):
+            continue
+        match = item.get("match") if isinstance(item.get("match"), dict) else {}
+        keywords = _normalize_keywords(match.get("keywords") if match else item.get("keywords"))
+        if not keywords:
+            continue
+
+        raw_actions = item.get("actions") if isinstance(item.get("actions"), list) else []
+        if not raw_actions and (item.get("action") or item.get("type") or item.get("form_id")):
+            raw_actions = [item]
+
+        actions = []
+        for action_idx, action in enumerate(raw_actions):
+            normalized_action = _normalize_action(action, f"intent_action_{idx + 1}_{action_idx + 1}")
+            if normalized_action:
+                actions.append(normalized_action)
+        if not actions:
+            continue
+
+        config["intent_rules"].append({
+            "id": _safe_id(item.get("id"), f"intent_rule_{idx + 1}"),
+            "match": {
+                "keywords": keywords,
+            },
+            "response_message": _clean_text_value(
+                item.get("response_message") or item.get("reply_message") or item.get("response"),
+                500,
+            ),
+            "actions": actions,
+        })
+
     return config
 
 
@@ -320,6 +425,40 @@ def get_public_assistant_config(site_settings: dict | None) -> dict:
         "greeting": config["greeting"],
         "starters": config["starters"],
         "forms": public_forms,
+    }
+
+
+def match_intent_actions(assistant_config: dict, query: str | None) -> dict:
+    """Match a user message against tenant-configured intent rules."""
+    query_text = " ".join(_clean_str(query, 2000).lower().split())
+    if not query_text:
+        return {"matched_rule_ids": [], "response_message": "", "actions": []}
+
+    matched_rule_ids: list[str] = []
+    actions: list[dict] = []
+    seen_actions: set[str] = set()
+    response_message = ""
+
+    for rule in assistant_config.get("intent_rules", []):
+        keywords = rule.get("match", {}).get("keywords") or []
+        if not any(keyword in query_text for keyword in keywords):
+            continue
+
+        matched_rule_ids.append(rule["id"])
+        if not response_message and resolve_text_value(rule.get("response_message")):
+            response_message = rule["response_message"]
+
+        for action in rule.get("actions", []):
+            signature = json.dumps(action, sort_keys=True, ensure_ascii=False)
+            if signature in seen_actions:
+                continue
+            seen_actions.add(signature)
+            actions.append(copy.deepcopy(action))
+
+    return {
+        "matched_rule_ids": matched_rule_ids,
+        "response_message": response_message,
+        "actions": actions,
     }
 
 
