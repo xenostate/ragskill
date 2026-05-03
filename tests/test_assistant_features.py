@@ -10,6 +10,7 @@ from scripts.assistant_features import (
     assistant_config_template,
     get_public_assistant_config,
     normalize_assistant_config,
+    resolve_text_value,
     submit_assistant_form,
     validate_form_submission,
 )
@@ -64,6 +65,35 @@ class TestAssistantConfig:
         template2 = assistant_config_template()
         assert template2["greeting"]["enabled"] is False
 
+    def test_multilingual_text_values_are_preserved(self):
+        config = normalize_assistant_config({
+            "display": {
+                "title": {"ru": "Связаться с нами", "en": "Contact us"},
+            },
+            "forms": [
+                {
+                    "id": "lead",
+                    "title": {"ru": "Форма", "en": "Form"},
+                    "fields": [
+                        {
+                            "name": "level",
+                            "label": {"ru": "Уровень", "en": "Level"},
+                            "type": "select",
+                            "options": [
+                                {"ru": "Начальный", "en": "Beginner"},
+                                {"value": "advanced", "label": {"ru": "Продвинутый", "en": "Advanced"}},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        })
+
+        assert config["display"]["title"]["ru"] == "Связаться с нами"
+        assert resolve_text_value(config["display"]["title"], "en") == "Contact us"
+        assert config["forms"][0]["fields"][0]["options"][0]["label"]["en"] == "Beginner"
+        assert config["forms"][0]["fields"][0]["options"][1]["value"] == "advanced"
+
 
 class TestAssistantForms:
     def test_validate_form_submission_required_and_email(self):
@@ -84,6 +114,31 @@ class TestAssistantForms:
         assert cleaned == {}
         assert "name" in errors
         assert "email" in errors
+
+    def test_validate_form_submission_accepts_normalized_select_values(self):
+        config = normalize_assistant_config({
+            "forms": [
+                {
+                    "id": "lead",
+                    "title": {"ru": "Заявка", "en": "Lead"},
+                    "fields": [
+                        {
+                            "name": "level",
+                            "label": {"ru": "Уровень", "en": "Level"},
+                            "type": "select",
+                            "required": True,
+                            "options": [
+                                {"value": "beginner", "label": {"ru": "Начальный", "en": "Beginner"}},
+                            ],
+                        },
+                    ],
+                }
+            ]
+        })
+        form, cleaned, errors = validate_form_submission(config, "lead", {"level": "beginner"})
+        assert form is not None
+        assert cleaned["level"] == "beginner"
+        assert errors == {}
 
     @patch("scripts.assistant_features._send_email_notifications", return_value={"configured": 1, "sent": 1})
     @patch("scripts.assistant_features._send_telegram_notifications", return_value={"configured": 0, "sent": 0})
@@ -157,3 +212,45 @@ class TestAssistantForms:
         )
         assert result["status_code"] == 400
         assert "phone" in result["errors"]
+
+    @patch("scripts.assistant_features._send_email_notifications", return_value={"configured": 0, "sent": 0})
+    @patch("scripts.assistant_features._send_telegram_notifications", return_value={"configured": 0, "sent": 0})
+    @patch("scripts.assistant_features._send_whatsapp_notifications", return_value={"configured": 0, "sent": 0})
+    def test_submit_assistant_form_resolves_multilingual_success_message(self, _wa, _tg, _email):
+        insert_execute = MagicMock()
+        insert_execute.execute.return_value = MagicMock(data=[{"id": 88}])
+        update_execute = MagicMock()
+        update_execute.eq.return_value.execute.return_value = MagicMock(data=[{"id": 88}])
+
+        table_mock = MagicMock()
+        table_mock.insert.return_value = insert_execute
+        table_mock.update.return_value = update_execute
+        cfg.sb = MagicMock()
+        cfg.sb.table.return_value = table_mock
+
+        settings = {
+            "assistant": {
+                "forms": [
+                    {
+                        "id": "contact_form",
+                        "title": {"ru": "Контакты", "en": "Contact"},
+                        "success_message": {"ru": "Отправлено", "en": "Sent"},
+                        "fields": [
+                            {"name": "name", "label": {"ru": "Имя", "en": "Name"}, "type": "text", "required": True},
+                        ],
+                    }
+                ]
+            }
+        }
+        result = submit_assistant_form(
+            5,
+            "example.com",
+            settings,
+            "session-1",
+            "contact_form",
+            {"name": "Jane"},
+            None,
+            None,
+            "en",
+        )
+        assert result["message"] == "Sent"

@@ -518,6 +518,26 @@
       .replace(/"/g, "&quot;");
   }
 
+  function resolveText(value, lang, fallback = "ru") {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const normalizedLang = String(lang || "").toLowerCase();
+      const normalizedFallback = String(fallback || "").toLowerCase();
+      if (normalizedLang && typeof value[normalizedLang] === "string" && value[normalizedLang].trim()) {
+        return value[normalizedLang].trim();
+      }
+      if (normalizedFallback && typeof value[normalizedFallback] === "string" && value[normalizedFallback].trim()) {
+        return value[normalizedFallback].trim();
+      }
+      const first = Object.values(value).find((item) => typeof item === "string" && item.trim());
+      return first ? first.trim() : "";
+    }
+    return String(value || "");
+  }
+
+  function getUiLanguage() {
+    return selectedLanguage || getDefaultLanguage() || "ru";
+  }
+
   function getGreetingStorageKey() {
     return `wr_greeting_shown_${SITE_ID}`;
   }
@@ -597,9 +617,9 @@
     msg.className = `wr-msg ${type}`;
 
     if (type === "bot") {
-      msg.innerHTML = renderBotHtml(text, sources, confidence);
+      msg.innerHTML = renderBotHtml(resolveText(text, getUiLanguage()), sources, confidence);
     } else {
-      msg.textContent = text;
+      msg.textContent = resolveText(text, getUiLanguage());
     }
 
     messages.insertBefore(msg, typing);
@@ -625,10 +645,11 @@
 
   function applyDisplayConfig() {
     const display = assistantConfig.display || {};
-    if (!titleLocked && display.title) {
-      headerTitle.textContent = display.title;
+    const resolvedTitle = resolveText(display.title, getUiLanguage());
+    if (!titleLocked && resolvedTitle) {
+      headerTitle.textContent = resolvedTitle;
     }
-    input.placeholder = display.input_placeholder || DEFAULT_PLACEHOLDER;
+    input.placeholder = resolveText(display.input_placeholder, getUiLanguage()) || DEFAULT_PLACEHOLDER;
     renderLanguageSwitch();
   }
 
@@ -648,11 +669,12 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `wr-lang-btn${selectedLanguage === option.code ? " active" : ""}`;
-      btn.textContent = option.label || option.code.toUpperCase();
+      btn.textContent = resolveText(option.label, option.code) || option.code.toUpperCase();
       btn.addEventListener("click", () => {
         selectedLanguage = option.code;
         localStorage.setItem(LANGUAGE_KEY, selectedLanguage);
         renderLanguageSwitch();
+        applyDisplayConfig();
         debugLog("language switched", { selectedLanguage });
       });
       langSwitch.appendChild(btn);
@@ -676,9 +698,9 @@
       if (data && data.assistant) {
         assistantConfig = data.assistant;
         debugLog("config loaded", {
-          title: assistantConfig.display?.title || "",
+          title: resolveText(assistantConfig.display?.title, getUiLanguage()),
           greetingEnabled: !!assistantConfig.greeting?.enabled,
-          greetingLength: (assistantConfig.greeting?.message || "").length,
+          greetingLength: resolveText(assistantConfig.greeting?.message, getUiLanguage()).length,
           starters: (assistantConfig.starters || []).length,
           forms: (assistantConfig.forms || []).length,
           languageSwitch: assistantConfig.language_switch || {}
@@ -708,11 +730,11 @@
     const alreadyShown = localStorage.getItem(storageKey) === "1";
     debugLog("greeting check", {
       enabled: !!greeting.enabled,
-      hasMessage: !!greeting.message,
+      hasMessage: !!resolveText(greeting.message, getUiLanguage()),
       alreadyShown,
       greetingRendered
     });
-    if (!greeting.enabled || !greeting.message || greetingRendered) {
+    if (!greeting.enabled || !resolveText(greeting.message, getUiLanguage()) || greetingRendered) {
       return false;
     }
     if (greeting.show_once && alreadyShown) {
@@ -720,7 +742,7 @@
       return false;
     }
 
-    addMessage(greeting.message, "bot");
+    addMessage(resolveText(greeting.message, getUiLanguage()), "bot");
     greetingRendered = true;
     debugLog("greeting rendered");
     if (greeting.show_once) {
@@ -742,7 +764,10 @@
     addBotCard((card) => {
       const title = document.createElement("div");
       title.className = "wr-card-title";
-      title.textContent = "Quick actions";
+      title.textContent = resolveText({
+        ru: "Быстрые действия",
+        en: "Quick actions"
+      }, getUiLanguage());
       card.appendChild(title);
 
       const actions = document.createElement("div");
@@ -752,15 +777,17 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "wr-chip";
-        button.textContent = starter.label || "Action";
+        const starterLabel = resolveText(starter.label, getUiLanguage()) || "Action";
+        const starterMessage = resolveText(starter.message, getUiLanguage());
+        button.textContent = starterLabel;
         button.addEventListener("click", () => {
           if (starter.action === "open_form") {
             openForm(starter.form_id);
             return;
           }
-          const query = (starter.message || starter.label || "").trim();
+          const query = (starterMessage || starterLabel || "").trim();
           if (query) {
-            send(query, starter.label || query);
+            send(query, starterLabel || query);
           }
         });
         actions.appendChild(button);
@@ -810,12 +837,17 @@
       const select = document.createElement("select");
       const placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = field.placeholder || `Select ${field.label}`;
+      placeholder.textContent = resolveText(field.placeholder, getUiLanguage()) || `Select ${resolveText(field.label, getUiLanguage())}`;
       select.appendChild(placeholder);
       (field.options || []).forEach((option) => {
         const opt = document.createElement("option");
-        opt.value = option;
-        opt.textContent = option;
+        if (option && typeof option === "object" && !Array.isArray(option)) {
+          opt.value = option.value || resolveText(option.label, getUiLanguage());
+          opt.textContent = resolveText(option.label, getUiLanguage()) || opt.value;
+        } else {
+          opt.value = option;
+          opt.textContent = resolveText(option, getUiLanguage());
+        }
         select.appendChild(opt);
       });
       return select;
@@ -839,13 +871,13 @@
     addBotCard((card) => {
       const title = document.createElement("div");
       title.className = "wr-card-title";
-      title.textContent = formDef.title || "Form";
+      title.textContent = resolveText(formDef.title, getUiLanguage()) || "Form";
       card.appendChild(title);
 
-      if (formDef.description) {
+      if (resolveText(formDef.description, getUiLanguage())) {
         const desc = document.createElement("div");
         desc.className = "wr-card-text";
-        desc.textContent = formDef.description;
+        desc.textContent = resolveText(formDef.description, getUiLanguage());
         card.appendChild(desc);
       }
 
@@ -858,12 +890,12 @@
         wrap.className = "wr-field";
 
         const label = document.createElement("label");
-        label.textContent = `${field.label}${field.required ? " *" : ""}`;
+        label.textContent = `${resolveText(field.label, getUiLanguage())}${field.required ? " *" : ""}`;
         wrap.appendChild(label);
 
         const inputEl = createInputForField(field);
         inputEl.name = field.name;
-        inputEl.placeholder = field.placeholder || "";
+        inputEl.placeholder = resolveText(field.placeholder, getUiLanguage()) || "";
         if (field.required) {
           inputEl.required = true;
         }
@@ -884,7 +916,7 @@
       const submitBtn = document.createElement("button");
       submitBtn.type = "submit";
       submitBtn.className = "wr-submit";
-      submitBtn.textContent = formDef.submit_label || "Submit";
+      submitBtn.textContent = resolveText(formDef.submit_label, getUiLanguage()) || "Submit";
       formEl.appendChild(submitBtn);
 
       formEl.addEventListener("submit", async (event) => {
@@ -911,6 +943,7 @@
               values,
               session_id: sessionId,
               page_url: window.location.href,
+              response_language: selectedLanguage || undefined,
             }),
           });
           const data = await resp.json();
@@ -926,7 +959,7 @@
             return;
           }
 
-          addMessage(data.message || formDef.success_message || "Thanks. Your request has been sent.", "bot");
+          addMessage(data.message || resolveText(formDef.success_message, getUiLanguage()) || "Thanks. Your request has been sent.", "bot");
           formEl.remove();
           return;
         } catch (err) {

@@ -51,6 +51,7 @@ class FormSubmitRequest(BaseModel):
     values: dict = Field(default_factory=dict)
     session_id: str | None = Field(default=None, max_length=128)
     page_url: str | None = Field(default=None, max_length=2000)
+    response_language: str | None = Field(default=None, max_length=12)
 
 
 @router.get("/health")
@@ -183,6 +184,7 @@ async def submit_widget_form(req: FormSubmitRequest, request: Request):
         req.values or {},
         req.page_url,
         request.headers.get("user-agent", ""),
+        req.response_language,
     )
     if result.get("error"):
         return JSONResponse(

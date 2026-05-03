@@ -19,6 +19,7 @@ import scripts.config as cfg
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 SAFE_ID_RE = re.compile(r"[^a-z0-9_]+")
+DEFAULT_TEXT_FALLBACK_LANG = "ru"
 
 ASSISTANT_CONFIG_TEMPLATE = {
     "display": {
@@ -120,6 +121,58 @@ def _coerce_options(options) -> list[str]:
     return cleaned[:20]
 
 
+def _clean_text_value(value, max_len: int = 500):
+    """Allow either a plain string or a {lang: text} mapping."""
+    if isinstance(value, dict):
+        cleaned = {}
+        for lang, text in value.items():
+            code = _safe_id(lang, "")
+            label = _clean_str(text, max_len)
+            if code and label:
+                cleaned[code] = label
+        return cleaned or ""
+    return _clean_str(value, max_len)
+
+
+def resolve_text_value(value, lang: str | None = None, fallback: str = DEFAULT_TEXT_FALLBACK_LANG) -> str:
+    """Resolve a string or localized mapping into one display string."""
+    if isinstance(value, dict):
+        preferred = _safe_id(lang or "", "")
+        fallback_code = _safe_id(fallback, "")
+        if preferred and value.get(preferred):
+            return value[preferred]
+        if fallback_code and value.get(fallback_code):
+            return value[fallback_code]
+        if preferred and "_" in preferred:
+            base = preferred.split("_", 1)[0]
+            if value.get(base):
+                return value[base]
+        return next((str(text).strip() for text in value.values() if str(text).strip()), "")
+    return _clean_str(value, 2000)
+
+
+def _normalize_field_options(options) -> list[dict]:
+    if not isinstance(options, list):
+        return []
+    normalized = []
+    for idx, item in enumerate(options):
+        if isinstance(item, dict) and ("value" in item or "label" in item):
+            value = _clean_str(item.get("value"), 120)
+            label = _clean_text_value(item.get("label"), 120)
+        else:
+            label = _clean_text_value(item, 120)
+            value = resolve_text_value(label)[:120]
+        if not value:
+            value = f"option_{idx + 1}"
+        if not resolve_text_value(label):
+            label = value
+        normalized.append({
+            "value": value,
+            "label": label,
+        })
+    return normalized[:20]
+
+
 def _normalize_language_options(options) -> list[dict]:
     if not isinstance(options, list):
         return []
@@ -150,8 +203,8 @@ def normalize_assistant_config(raw: dict | None) -> dict:
     config = {
         "version": 1,
         "display": {
-            "title": _clean_str(display.get("title"), 80),
-            "input_placeholder": _clean_str(display.get("input_placeholder"), 120),
+            "title": _clean_text_value(display.get("title"), 80),
+            "input_placeholder": _clean_text_value(display.get("input_placeholder"), 120),
         },
         "language_switch": {
             "enabled": bool(language_switch.get("enabled", False)),
@@ -160,7 +213,7 @@ def normalize_assistant_config(raw: dict | None) -> dict:
         },
         "greeting": {
             "enabled": bool(greeting.get("enabled", False)),
-            "message": _clean_str(greeting.get("message"), 1200),
+            "message": _clean_text_value(greeting.get("message"), 1200),
             "show_once": bool(greeting.get("show_once", True)),
             "delay_ms": max(0, min(int(greeting.get("delay_ms", 0) or 0), 10000)),
         },
@@ -180,14 +233,14 @@ def normalize_assistant_config(raw: dict | None) -> dict:
         action = item.get("action")
         if action not in ("send_message", "open_form"):
             action = "send_message"
-        label = _clean_str(item.get("label"), 80)
-        if not label:
+        label = _clean_text_value(item.get("label"), 80)
+        if not resolve_text_value(label):
             continue
         config["starters"].append({
-            "id": _safe_id(item.get("id") or label, f"starter_{idx + 1}"),
+            "id": _safe_id(item.get("id") or resolve_text_value(label), f"starter_{idx + 1}"),
             "label": label,
             "action": action,
-            "message": _clean_str(item.get("message"), 1200),
+            "message": _clean_text_value(item.get("message"), 1200),
             "form_id": _safe_id(item.get("form_id"), "") if item.get("form_id") else "",
         })
 
@@ -196,10 +249,16 @@ def normalize_assistant_config(raw: dict | None) -> dict:
         if not isinstance(item, dict):
             continue
         form_id = _safe_id(item.get("id"), f"form_{idx + 1}")
-        title = _clean_str(item.get("title"), 120) or form_id.replace("_", " ").title()
-        description = _clean_str(item.get("description"), 500)
-        submit_label = _clean_str(item.get("submit_label"), 40) or "Submit"
-        success_message = _clean_str(item.get("success_message"), 240) or "Thanks. Your request has been received."
+        title = _clean_text_value(item.get("title"), 120)
+        if not resolve_text_value(title):
+            title = form_id.replace("_", " ").title()
+        description = _clean_text_value(item.get("description"), 500)
+        submit_label = _clean_text_value(item.get("submit_label"), 40)
+        if not resolve_text_value(submit_label):
+            submit_label = "Submit"
+        success_message = _clean_text_value(item.get("success_message"), 240)
+        if not resolve_text_value(success_message):
+            success_message = "Thanks. Your request has been received."
         fields = []
         for field_idx, field in enumerate(item.get("fields") or []):
             if not isinstance(field, dict):
@@ -208,14 +267,16 @@ def normalize_assistant_config(raw: dict | None) -> dict:
             field_type = _clean_str(field.get("type"), 20).lower() or "text"
             if field_type not in ("text", "textarea", "email", "tel", "number", "select"):
                 field_type = "text"
-            label = _clean_str(field.get("label"), 80) or field_name.replace("_", " ").title()
+            label = _clean_text_value(field.get("label"), 80)
+            if not resolve_text_value(label):
+                label = field_name.replace("_", " ").title()
             fields.append({
                 "name": field_name,
                 "label": label,
                 "type": field_type,
                 "required": bool(field.get("required", False)),
-                "placeholder": _clean_str(field.get("placeholder"), 120),
-                "options": _coerce_options(field.get("options")),
+                "placeholder": _clean_text_value(field.get("placeholder"), 120),
+                "options": _normalize_field_options(field.get("options")),
             })
         destinations = item.get("destinations") if isinstance(item.get("destinations"), dict) else {}
         config["forms"].append({
@@ -284,19 +345,21 @@ def validate_form_submission(assistant_config: dict, form_id: str, values: dict 
             continue
         if value and field["type"] == "select":
             options = field.get("options") or []
-            if options and value not in options:
+            option_values = {opt.get("value") for opt in options if isinstance(opt, dict)}
+            if option_values and value not in option_values:
                 errors[field["name"]] = "Please choose one of the available options."
                 continue
         cleaned[field["name"]] = value
     return form, cleaned, errors
 
 
-def _build_notification_text(site_id: int, site_domain: str, form: dict, payload: dict, page_url: str | None) -> str:
+def _build_notification_text(site_id: int, site_domain: str, form: dict, payload: dict,
+                             page_url: str | None, language: str | None = None) -> str:
     lines = [
         "New assistant form submission",
         "",
         f"Site: {site_domain} (#{site_id})",
-        f"Form: {form['title']} ({form['id']})",
+        f"Form: {resolve_text_value(form['title'], language)} ({form['id']})",
     ]
     if page_url:
         lines.append(f"Page: {page_url}")
@@ -304,7 +367,7 @@ def _build_notification_text(site_id: int, site_domain: str, form: dict, payload
     lines.append("Fields:")
     for field in form.get("fields", []):
         name = field["name"]
-        label = field["label"]
+        label = resolve_text_value(field["label"], language)
         value = payload.get(name, "")
         lines.append(f"- {label}: {value or '(empty)'}")
     return "\n".join(lines)
@@ -423,7 +486,8 @@ def _send_whatsapp_notifications(site_id: int, numbers: list[str], text: str) ->
 
 def submit_assistant_form(site_id: int, site_domain: str, site_settings: dict | None,
                           session_id: str | None, form_id: str, values: dict | None,
-                          page_url: str | None, user_agent: str | None) -> dict:
+                          page_url: str | None, user_agent: str | None,
+                          response_language: str | None = None) -> dict:
     """Validate, store, and notify configured destinations for a form submission."""
     assistant_config = get_assistant_config(site_settings)
     form, cleaned, errors = validate_form_submission(assistant_config, form_id, values)
@@ -436,7 +500,7 @@ def submit_assistant_form(site_id: int, site_domain: str, site_settings: dict | 
         "site_id": site_id,
         "session_id": _clean_str(session_id, 128),
         "form_id": form["id"],
-        "form_title": form["title"],
+        "form_title": resolve_text_value(form["title"], response_language),
         "payload": cleaned,
         "page_url": _clean_str(page_url, 2000),
         "user_agent": _clean_str(user_agent, 500),
@@ -445,7 +509,7 @@ def submit_assistant_form(site_id: int, site_domain: str, site_settings: dict | 
     insert_resp = cfg.sb.table("assistant_form_submissions").insert(row).execute()
     submission_id = insert_resp.data[0]["id"] if insert_resp.data else None
 
-    notification_text = _build_notification_text(site_id, site_domain, form, cleaned, page_url)
+    notification_text = _build_notification_text(site_id, site_domain, form, cleaned, page_url, response_language)
     subject = f"New assistant lead from {site_domain}"
     destinations = form.get("destinations") or {}
     delivery_status = {
@@ -464,7 +528,7 @@ def submit_assistant_form(site_id: int, site_domain: str, site_settings: dict | 
 
     return {
         "success": True,
-        "message": form["success_message"],
+        "message": resolve_text_value(form["success_message"], response_language),
         "submission_id": submission_id,
         "delivery_status": delivery_status,
     }
