@@ -66,6 +66,11 @@ async def activate(request: Request):
     max_pages = min(int(body.get("max_pages", 100)), 300)
 
     current_user = verify_user(request, require_active=True)
+    if not current_user:
+        return JSONResponse(
+            {"error": "Please sign in or create an account in the customer portal before activating an assistant."},
+            status_code=401,
+        )
     if not code or not site_id or (not token and not current_user):
         return JSONResponse({"error": "Code, site_id, and token are required"}, status_code=400)
 
@@ -155,6 +160,11 @@ async def quick_activate(
         return blocked
 
     current_user = verify_user(request, require_active=True)
+    if not current_user:
+        return JSONResponse(
+            {"error": "Please sign in or create an account in the customer portal before activating an assistant."},
+            status_code=401,
+        )
 
     code = code.strip()
     url = url.strip()

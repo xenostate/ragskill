@@ -52,6 +52,12 @@
             border-bottom: 1px solid rgba(0,0,0,0.06);
         }
 
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .logo {
             font-size: 18px;
             font-weight: 800;
@@ -88,6 +94,27 @@
         }
 
         .lang-btn:hover:not(.active) { color: var(--text); }
+
+        .portal-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 14px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .portal-link:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
 
         /* ── Landing page ── */
         .landing { display: block; }
@@ -135,6 +162,18 @@
             line-height: 1.65;
             max-width: 540px;
             margin: 0 auto 40px;
+        }
+
+        .hero-account-note {
+            max-width: 640px;
+            margin: 18px auto 0;
+            padding: 14px 18px;
+            border: 1px solid rgba(251,116,45,0.18);
+            background: rgba(251,116,45,0.06);
+            border-radius: 14px;
+            font-size: 14px;
+            color: var(--text2);
+            line-height: 1.55;
         }
 
         .hero-cta {
@@ -306,6 +345,14 @@
             font-weight: 800;
             margin-bottom: 12px;
             letter-spacing: -0.5px;
+        }
+
+        .account-note {
+            max-width: 520px;
+            margin: 14px auto 0;
+            font-size: 14px;
+            color: var(--text2);
+            line-height: 1.6;
         }
 
         .qa-overlay {
@@ -787,10 +834,13 @@
 <!-- ── Top bar ── -->
 <div class="topbar">
     <div class="logo" id="logo-link" style="cursor:pointer;">Web<span>RAG</span> Systems</div>
-    <div class="lang-switch">
-        <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
-        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
-        <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
+    <div class="topbar-right">
+        <a class="portal-link" href="/app" data-i18n="portalBtn"></a>
+        <div class="lang-switch">
+            <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
+            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+            <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
+        </div>
     </div>
 </div>
 
@@ -801,6 +851,7 @@
     <section class="hero">
         <h1 data-i18n-html="heroTitle"></h1>
         <p data-i18n="heroSub"></p>
+        <div class="hero-account-note" data-i18n="heroAccountNote"></div>
         <div class="hero-chat" id="hero-chat">
             <div class="hero-chat-body" id="lc-body">
                 <div class="hero-chat-msg bot" data-i18n="lcWelcome"></div>
@@ -882,6 +933,7 @@
             <button class="hero-cta" onclick="openQaModal()">
                 <span data-i18n="qaBtn"></span>
             </button>
+            <p class="account-note" data-i18n="qaAccountNote"></p>
         </div>
 
         <div class="quick-activate" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
@@ -1102,6 +1154,8 @@
             heroTitle: 'Подарите <span class="gradient-text">умного помощника</span> вашему сайту',
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
+            portalBtn: "Личный кабинет",
+            heroAccountNote: "Аккаунт клиента нужен для сохранения проектов и активации платных ассистентов. Бесплатный trial можно пройти сразу, а для активации откройте личный кабинет и войдите в него.",
             lcWelcome: "Привет! Я AI-ассистент WebRAG. Задайте мне любой вопрос о нашем продукте.",
             lcPlaceholder: "Спросите что-нибудь о WebRAG...",
             lcLabel: "Это живой пример работы нашего AI-ассистента",
@@ -1151,6 +1205,7 @@
             qaCode: "Код активации",
             qaCodePh: "Введите код",
             qaBtn: "Активировать",
+            qaAccountNote: "Активация платного ассистента теперь привязывается к аккаунту клиента. Если у вас еще нет аккаунта, откройте личный кабинет и зарегистрируйтесь.",
             qaDone: "Ваш код для вставки на сайт:",
             qaCopy: "Нажмите, чтобы скопировать",
             footerText: "Интеллектуальные решения для бизнеса",
@@ -1201,6 +1256,7 @@
             actCodePh: "Введите код",
             actPages: "Количество страниц для индексации",
             actBtn: "Активировать",
+            authRequired: "Сначала войдите или создайте аккаунт в личном кабинете, чтобы активировать ассистента.",
             actErrEmpty: "Пожалуйста, введите код.",
             actErrNet: "Ошибка сети.",
             actDone: "Активировано!",
@@ -1214,6 +1270,8 @@
             heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
+            portalBtn: "Customer Portal",
+            heroAccountNote: "Customer accounts now own activated projects. You can still run a free trial here, but production activation should be completed from the customer portal after signing in.",
             lcWelcome: "Hi! I'm the WebRAG AI assistant. Ask me anything about our product.",
             lcPlaceholder: "Ask something about WebRAG...",
             lcLabel: "This is a live demo of our AI assistant",
@@ -1263,6 +1321,7 @@
             qaCode: "Activation code",
             qaCodePh: "Enter code",
             qaBtn: "Activate",
+            qaAccountNote: "Paid assistant activation now attaches to a customer account. If you don't have one yet, open the portal and create it first.",
             qaDone: "Your embed code:",
             qaCopy: "Click to copy",
             footerText: "Intelligent solutions for business",
@@ -1313,6 +1372,7 @@
             actCodePh: "Enter code",
             actPages: "Pages to index",
             actBtn: "Activate",
+            authRequired: "Please sign in or create an account in the customer portal before activating an assistant.",
             actErrEmpty: "Please enter a code.",
             actErrNet: "Network error.",
             actDone: "Activated!",
@@ -1326,6 +1386,8 @@
             heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
+            portalBtn: "Жеке кабинет",
+            heroAccountNote: "Клиент аккаунты жобаларды сақтау және ақылы ассистенттерді белсендіру үшін керек. Тегін trial-ды осы жерден өте аласыз, ал белсендіру үшін жеке кабинетке кіріңіз.",
             lcWelcome: "Сәлем! Мен WebRAG AI-көмекшісімін. Біздің өнім туралы кез келген сұрақ қойыңыз.",
             lcPlaceholder: "WebRAG туралы сұрақ қойыңыз...",
             lcLabel: "Бұл біздің AI-көмекшінің тікелей демосы",
@@ -1375,6 +1437,7 @@
             qaCode: "Белсендіру коды",
             qaCodePh: "Кодты енгізіңіз",
             qaBtn: "Белсендіру",
+            qaAccountNote: "Ақылы ассистентті белсендіру енді клиент аккаунтына байланысады. Егер аккаунтыңыз жоқ болса, алдымен жеке кабинетте тіркеліңіз.",
             qaDone: "Сайтқа енгізу коды:",
             qaCopy: "Көшіру үшін басыңыз",
             footerText: "Бизнеске арналған интеллектуалды шешімдер",
@@ -1425,6 +1488,7 @@
             actCodePh: "Кодты енгізіңіз",
             actPages: "Индекстеу беттерінің саны",
             actBtn: "Белсендіру",
+            authRequired: "Алдымен ассистентті белсендіру үшін жеке кабинетке кіріңіз немесе аккаунт жасаңыз.",
             actErrEmpty: "Кодты енгізіңіз.",
             actErrNet: "Желі қатесі.",
             actDone: "Белсендірілді!",
@@ -1795,6 +1859,7 @@
         const code = document.getElementById("a-code").value.trim();
         const err = document.getElementById("a-err");
 
+        if (!getUserToken()) { showErr(err, t.authRequired); return; }
         if (!code) { showErr(err, t.actErrEmpty); return; }
         hideErr(err);
 
@@ -2034,6 +2099,7 @@
         var successEl = document.getElementById("qa-success");
 
         if (!url) { showErr(err, t.qaUrl || "URL required"); return; }
+        if (!(localStorage.getItem("wr_user_token") || "")) { showErr(err, t.authRequired || "Please sign in first."); return; }
         if (!code) { showErr(err, t.qaCode || "Code required"); return; }
         hideErr(err);
         btn.disabled = true;
