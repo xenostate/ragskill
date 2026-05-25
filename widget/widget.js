@@ -8,6 +8,14 @@
   const TITLE = scriptTag?.getAttribute("data-title") || "Ask a question";
   const COLOR = scriptTag?.getAttribute("data-color") || "#2563eb";
   const POSITION = scriptTag?.getAttribute("data-position") || "right";
+  const BUBBLE_SIZE = clampNumber(scriptTag?.getAttribute("data-bubble-size"), 56, 44, 96);
+  const PANEL_WIDTH = clampNumber(scriptTag?.getAttribute("data-panel-width"), 380, 320, 520);
+  const PANEL_HEIGHT = clampNumber(scriptTag?.getAttribute("data-panel-height"), 520, 420, 760);
+  const BUBBLE_SHAPE = normalizeBubbleShape(scriptTag?.getAttribute("data-bubble-shape"));
+  const PANEL_RADIUS = clampNumber(scriptTag?.getAttribute("data-panel-radius"), 16, 8, 32);
+  const ICON_NAME = normalizeIconName(scriptTag?.getAttribute("data-icon"));
+  const FONT_FAMILY = sanitizeFontFamily(scriptTag?.getAttribute("data-font-family"));
+  const FONT_URL = sanitizeFontUrl(scriptTag?.getAttribute("data-font-url"));
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
   const PREVIEW_ADMIN_TOKEN = scriptTag?.getAttribute("data-preview-admin-token") || "";
@@ -50,6 +58,96 @@
   let selectedLanguage = "";
   let debugPanel = null;
   let debugLines = null;
+
+  function clampNumber(value, fallback, min, max) {
+    const num = parseInt(value || "", 10);
+    if (!Number.isFinite(num)) {
+      return fallback;
+    }
+    return Math.min(max, Math.max(min, num));
+  }
+
+  function normalizeBubbleShape(value) {
+    const shape = String(value || "").trim().toLowerCase();
+    if (shape === "rounded-square" || shape === "rounded_square") {
+      return "rounded-square";
+    }
+    if (shape === "pill") {
+      return "pill";
+    }
+    return "circle";
+  }
+
+  function normalizeIconName(value) {
+    const icon = String(value || "").trim().toLowerCase();
+    if (["chat", "message", "sparkles", "question", "book", "cap"].includes(icon)) {
+      return icon;
+    }
+    return "chat";
+  }
+
+  function sanitizeFontFamily(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    if (!/^[a-zA-Z0-9,'" _-]+(?:\s*,\s*[a-zA-Z0-9,'" _-]+)*$/.test(text)) {
+      return "";
+    }
+    return text;
+  }
+
+  function sanitizeFontUrl(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    try {
+      const parsed = new URL(text, window.location.href);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        return parsed.href;
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  function getBubbleBorderRadius() {
+    if (BUBBLE_SHAPE === "rounded-square") {
+      return `${Math.round(BUBBLE_SIZE * 0.32)}px`;
+    }
+    if (BUBBLE_SHAPE === "pill") {
+      return `${Math.round(BUBBLE_SIZE * 0.42)}px`;
+    }
+    return "50%";
+  }
+
+  function getBubbleIconMarkup() {
+    const icons = {
+      chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>`,
+      message: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5h16v10H8l-4 4z"/>
+      </svg>`,
+      sparkles: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l1.9 4.8L19 9.7l-4.2 2.4L13 17l-1.8-4.9L7 9.7l5.1-1.9z"/>
+        <path d="M5 3v3"/>
+        <path d="M3.5 4.5h3"/>
+        <path d="M19 16v5"/>
+        <path d="M16.5 18.5h5"/>
+      </svg>`,
+      question: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.1 9a3 3 0 1 1 5.8 1c0 2-3 2.5-3 4"/>
+        <path d="M12 17h.01"/>
+        <circle cx="12" cy="12" r="9"/>
+      </svg>`,
+      book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>`,
+      cap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 10l10-5 10 5-10 5-10-5z"/>
+        <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>
+      </svg>`
+    };
+    return icons[ICON_NAME] || icons.chat;
+  }
 
   function setupDebugPanel() {
     if (!DEBUG_PANEL || debugPanel) return;
@@ -141,6 +239,13 @@
   document.body.appendChild(host);
   const shadow = host.attachShadow({ mode: "closed" });
 
+  if (FONT_URL) {
+    const fontLink = document.createElement("link");
+    fontLink.rel = "stylesheet";
+    fontLink.href = FONT_URL;
+    shadow.appendChild(fontLink);
+  }
+
   // ── Styles ─────────────────────────────────────────────────────────────
   const style = document.createElement("style");
   style.textContent = `
@@ -150,9 +255,9 @@
       position: fixed;
       bottom: 24px;
       ${POSITION}: 24px;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
+      width: ${BUBBLE_SIZE}px;
+      height: ${BUBBLE_SIZE}px;
+      border-radius: ${getBubbleBorderRadius()};
       background: ${COLOR};
       color: #fff;
       border: none;
@@ -165,24 +270,27 @@
       transition: transform 0.2s;
     }
     .wr-bubble:hover { transform: scale(1.08); }
-    .wr-bubble svg { width: 28px; height: 28px; }
+    .wr-bubble svg {
+      width: ${Math.round(BUBBLE_SIZE * 0.5)}px;
+      height: ${Math.round(BUBBLE_SIZE * 0.5)}px;
+    }
 
     .wr-panel {
       position: fixed;
-      bottom: 92px;
+      bottom: ${BUBBLE_SIZE + 36}px;
       ${POSITION}: 24px;
-      width: 380px;
+      width: ${PANEL_WIDTH}px;
       max-width: calc(100vw - 48px);
-      height: 520px;
+      height: ${PANEL_HEIGHT}px;
       max-height: calc(100vh - 120px);
       background: #fff;
-      border-radius: 16px;
+      border-radius: ${PANEL_RADIUS}px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       display: none;
       flex-direction: column;
       overflow: hidden;
       z-index: 999998;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: ${FONT_FAMILY || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
       font-size: 14px;
       color: #1a1a1a;
     }
@@ -457,8 +565,8 @@
         width: calc(100vw - 24px);
         max-width: calc(100vw - 24px);
         ${POSITION}: 12px;
-        bottom: 82px;
-        height: min(70vh, 520px);
+        bottom: ${Math.max(BUBBLE_SIZE + 26, 82)}px;
+        height: min(70vh, ${PANEL_HEIGHT}px);
       }
       .wr-bubble {
         ${POSITION}: 12px;
@@ -472,9 +580,7 @@
   // ── HTML ───────────────────────────────────────────────────────────────
   const bubble = document.createElement("button");
   bubble.className = "wr-bubble";
-  bubble.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-  </svg>`;
+  bubble.innerHTML = getBubbleIconMarkup();
   shadow.appendChild(bubble);
 
   const panel = document.createElement("div");

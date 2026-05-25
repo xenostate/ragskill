@@ -388,9 +388,18 @@ curl -X POST https://YOUR-SERVER/api/internal/company-kb/crawl \
 <script
   src="https://YOUR-SERVER-URL/widget.js"
   data-site-id="1"
+  data-api="https://YOUR-SERVER-URL"
   data-title="Ask a question"
   data-color="#2563eb"
   data-position="right"
+  data-bubble-size="56"
+  data-bubble-shape="circle"
+  data-panel-width="380"
+  data-panel-height="520"
+  data-panel-radius="16"
+  data-icon="chat"
+  data-font-family="'Inter', sans-serif"
+  data-font-url="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
 ></script>
 ```
 
@@ -401,6 +410,14 @@ curl -X POST https://YOUR-SERVER/api/internal/company-kb/crawl \
 | `data-title` | "Ask a question" | Chat panel header text |
 | `data-color` | `#2563eb` | Accent color (hex) |
 | `data-position` | `right` | Bubble position: `right` or `left` |
+| `data-bubble-size` | `56` | Bubble size in px (`44`-`96`) |
+| `data-bubble-shape` | `circle` | Bubble shape: `circle`, `rounded-square`, or `pill` |
+| `data-panel-width` | `380` | Chat panel width in px (`320`-`520`) |
+| `data-panel-height` | `520` | Chat panel height in px (`420`-`760`) |
+| `data-panel-radius` | `16` | Chat panel corner radius in px (`8`-`32`) |
+| `data-icon` | `chat` | Bubble icon: `chat`, `message`, `sparkles`, `question`, `book`, or `cap` |
+| `data-font-family` | system stack | Custom font-family for the widget UI |
+| `data-font-url` | none | Optional stylesheet URL for loading a custom font |
 
 If the site has an assistant config saved, the embed automatically supports:
 
