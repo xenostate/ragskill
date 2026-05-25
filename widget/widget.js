@@ -7,7 +7,7 @@
   const API_URL = scriptTag?.getAttribute("data-api") || window.location.origin;
   const TITLE = scriptTag?.getAttribute("data-title") || "Ask a question";
   const COLOR = scriptTag?.getAttribute("data-color") || "#2563eb";
-  const POSITION = scriptTag?.getAttribute("data-position") || "right";
+  const POSITION = normalizePosition(scriptTag?.getAttribute("data-position"));
   const BUBBLE_SIZE = clampNumber(scriptTag?.getAttribute("data-bubble-size"), 56, 44, 96);
   const PANEL_WIDTH = clampNumber(scriptTag?.getAttribute("data-panel-width"), 380, 320, 520);
   const PANEL_HEIGHT = clampNumber(scriptTag?.getAttribute("data-panel-height"), 520, 420, 760);
@@ -16,6 +16,7 @@
   const ICON_NAME = normalizeIconName(scriptTag?.getAttribute("data-icon"));
   const FONT_FAMILY = sanitizeFontFamily(scriptTag?.getAttribute("data-font-family"));
   const FONT_URL = sanitizeFontUrl(scriptTag?.getAttribute("data-font-url"));
+  const HIDE_BUBBLE = scriptTag?.getAttribute("data-hide-bubble") === "true";
   const AUTO_OPEN = scriptTag?.getAttribute("data-auto-open") === "true";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
@@ -87,6 +88,14 @@
     return "chat";
   }
 
+  function normalizePosition(value) {
+    const pos = String(value || "").trim().toLowerCase();
+    if (pos === "left" || pos === "center") {
+      return pos;
+    }
+    return "right";
+  }
+
   function sanitizeFontFamily(value) {
     const text = String(value || "").trim();
     if (!text) return "";
@@ -116,6 +125,26 @@
       return `${Math.round(BUBBLE_SIZE * 0.42)}px`;
     }
     return "50%";
+  }
+
+  function getBubblePositionCss() {
+    if (POSITION === "left") {
+      return "left: 24px;";
+    }
+    if (POSITION === "center") {
+      return "left: 50%; transform: translateX(-50%);";
+    }
+    return "right: 24px;";
+  }
+
+  function getPanelPositionCss() {
+    if (POSITION === "left") {
+      return `bottom: ${BUBBLE_SIZE + 36}px; left: 24px;`;
+    }
+    if (POSITION === "center") {
+      return "top: 50%; left: 50%; transform: translate(-50%, -50%);";
+    }
+    return `bottom: ${BUBBLE_SIZE + 36}px; right: 24px;`;
   }
 
   function getBubbleIconMarkup() {
@@ -255,7 +284,7 @@
     .wr-bubble {
       position: fixed;
       bottom: 24px;
-      ${POSITION}: 24px;
+      ${getBubblePositionCss()}
       width: ${BUBBLE_SIZE}px;
       height: ${BUBBLE_SIZE}px;
       border-radius: ${getBubbleBorderRadius()};
@@ -269,8 +298,9 @@
       justify-content: center;
       z-index: 999999;
       transition: transform 0.2s;
+      ${HIDE_BUBBLE ? "display:none;" : ""}
     }
-    .wr-bubble:hover { transform: scale(1.08); }
+    .wr-bubble:hover { ${POSITION === "center" ? "transform: translateX(-50%) scale(1.08);" : "transform: scale(1.08);"} }
     .wr-bubble svg {
       width: ${Math.round(BUBBLE_SIZE * 0.5)}px;
       height: ${Math.round(BUBBLE_SIZE * 0.5)}px;
@@ -278,8 +308,7 @@
 
     .wr-panel {
       position: fixed;
-      bottom: ${BUBBLE_SIZE + 36}px;
-      ${POSITION}: 24px;
+      ${getPanelPositionCss()}
       width: ${PANEL_WIDTH}px;
       max-width: calc(100vw - 48px);
       height: ${PANEL_HEIGHT}px;
@@ -565,12 +594,12 @@
       .wr-panel {
         width: calc(100vw - 24px);
         max-width: calc(100vw - 24px);
-        ${POSITION}: 12px;
-        bottom: ${Math.max(BUBBLE_SIZE + 26, 82)}px;
+        ${POSITION === "left" ? "left: 12px;" : POSITION === "center" ? "left: 50%; transform: translate(-50%, -50%);" : "right: 12px;"}
+        ${POSITION === "center" ? "top: 50%;" : `bottom: ${Math.max(BUBBLE_SIZE + 26, 82)}px;`}
         height: min(70vh, ${PANEL_HEIGHT}px);
       }
       .wr-bubble {
-        ${POSITION}: 12px;
+        ${POSITION === "left" ? "left: 12px;" : POSITION === "center" ? "left: 50%; transform: translateX(-50%);" : "right: 12px;"}
         bottom: 16px;
       }
       .wr-msg { max-width: 94%; }
@@ -615,6 +644,9 @@
   const input = panel.querySelector(".wr-input");
   const sendBtn = panel.querySelector(".wr-send");
   const closeBtn = panel.querySelector(".wr-close");
+  if (HIDE_BUBBLE) {
+    closeBtn.style.display = "none";
+  }
 
   // ── Utilities ──────────────────────────────────────────────────────────
   function escapeHtml(text) {
@@ -1196,7 +1228,9 @@
     }
   }
 
-  bubble.addEventListener("click", toggle);
+  if (!HIDE_BUBBLE) {
+    bubble.addEventListener("click", toggle);
+  }
   closeBtn.addEventListener("click", toggle);
   sendBtn.addEventListener("click", () => send());
   input.addEventListener("keydown", (event) => {

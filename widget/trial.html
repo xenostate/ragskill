@@ -58,64 +58,6 @@
             gap: 10px;
         }
 
-        .account-banner {
-            display: none;
-            position: fixed;
-            top: 74px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 99;
-            width: min(820px, calc(100vw - 32px));
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.96);
-            border: 1px solid rgba(251,116,45,0.18);
-            border-radius: 14px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            backdrop-filter: blur(12px);
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-        }
-
-        .account-banner.show {
-            display: flex;
-        }
-
-        .account-banner-text {
-            color: var(--text2);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        .account-banner-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .account-banner-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 9px 14px;
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            font-family: inherit;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .account-banner-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
         .logo {
             font-size: 18px;
             font-weight: 800;
@@ -172,6 +114,12 @@
         .portal-link:hover {
             border-color: var(--accent);
             color: var(--accent);
+        }
+
+        .portal-user {
+            color: var(--text2);
+            font-size: 12px;
+            font-weight: 700;
         }
 
         /* ── Landing page ── */
@@ -884,13 +832,6 @@
             .section-title { font-size: 24px; }
             .field-row { flex-direction: column; gap: 0; }
             .chat-box { height: calc(100vh - 220px); }
-            .account-banner {
-                top: 68px;
-                width: calc(100vw - 20px);
-                padding: 12px;
-                flex-direction: column;
-                align-items: flex-start;
-            }
         }
     </style>
 </head>
@@ -900,20 +841,12 @@
 <div class="topbar">
     <div class="logo" id="logo-link" style="cursor:pointer;">Web<span>RAG</span> Systems</div>
     <div class="topbar-right">
-        <a class="portal-link" href="/app" data-i18n="portalBtn"></a>
+        <a class="portal-link" href="/app"><span data-i18n="portalBtn"></span><span class="portal-user" id="portal-user"></span></a>
         <div class="lang-switch">
             <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
             <button class="lang-btn" data-lang="en" onclick="setLang('en')">ENG</button>
             <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
         </div>
-    </div>
-</div>
-
-<div class="account-banner" id="account-banner">
-    <div class="account-banner-text" id="account-banner-text"></div>
-    <div class="account-banner-actions">
-        <a class="account-banner-btn" href="/app" id="account-banner-open"></a>
-        <button class="account-banner-btn" type="button" id="account-banner-logout"></button>
     </div>
 </div>
 
@@ -1201,9 +1134,6 @@
             heroCta: "Попробовать бесплатно",
             portalBtn: "Личный кабинет",
             heroAccountNote: "Аккаунт клиента нужен для сохранения проектов и активации платных ассистентов. Бесплатный trial можно пройти сразу, а для активации откройте личный кабинет и войдите в него.",
-            accountBanner: "Вы вошли как {email}. Ваши проекты будут сохраняться в личном кабинете.",
-            accountOpen: "Открыть кабинет",
-            accountLogout: "Выйти",
             lcWelcome: "Привет! Я AI-ассистент WebRAG. Задайте мне любой вопрос о нашем продукте.",
             lcPlaceholder: "Спросите что-нибудь о WebRAG...",
             lcLabel: "Это живой пример работы нашего AI-ассистента",
@@ -1320,9 +1250,6 @@
             heroCta: "Try for free",
             portalBtn: "Customer Portal",
             heroAccountNote: "Customer accounts now own activated projects. You can still run a free trial here, but production activation should be completed from the customer portal after signing in.",
-            accountBanner: "Signed in as {email}. Your projects will be saved under this customer account.",
-            accountOpen: "Open dashboard",
-            accountLogout: "Sign out",
             lcWelcome: "Hi! I'm the WebRAG AI assistant. Ask me anything about our product.",
             lcPlaceholder: "Ask something about WebRAG...",
             lcLabel: "This is a live demo of our AI assistant",
@@ -1439,9 +1366,6 @@
             heroCta: "Тегін байқап көру",
             portalBtn: "Жеке кабинет",
             heroAccountNote: "Клиент аккаунты жобаларды сақтау және ақылы ассистенттерді белсендіру үшін керек. Тегін trial-ды осы жерден өте аласыз, ал белсендіру үшін жеке кабинетке кіріңіз.",
-            accountBanner: "Сіз {email} ретінде кірдіңіз. Жобаларыңыз осы клиент аккаунтында сақталады.",
-            accountOpen: "Кабинетті ашу",
-            accountLogout: "Шығу",
             lcWelcome: "Сәлем! Мен WebRAG AI-көмекшісімін. Біздің өнім туралы кез келген сұрақ қойыңыз.",
             lcPlaceholder: "WebRAG туралы сұрақ қойыңыз...",
             lcLabel: "Бұл біздің AI-көмекшінің тікелей демосы",
@@ -1588,7 +1512,7 @@
         currentLang = lang;
         localStorage.setItem("wr_lang", lang);
         applyTranslations();
-        refreshAccountBanner();
+        refreshPortalUser();
     };
 
     // Apply on load
@@ -1637,21 +1561,21 @@
         script.setAttribute("data-auto-open", "true");
         script.setAttribute("data-title", "WebRAG Demo");
         script.setAttribute("data-color", "#fb742d");
-        script.setAttribute("data-position", "right");
+        script.setAttribute("data-position", "center");
+        script.setAttribute("data-hide-bubble", "true");
+        script.setAttribute("data-panel-width", "440");
+        script.setAttribute("data-panel-height", "560");
         script.setAttribute("data-landing-widget", "true");
         document.body.appendChild(script);
         landingWidgetLoaded = true;
     }
 
-    async function refreshAccountBanner() {
-        const banner = document.getElementById("account-banner");
-        const text = document.getElementById("account-banner-text");
-        const openBtn = document.getElementById("account-banner-open");
-        const logoutBtn = document.getElementById("account-banner-logout");
+    async function refreshPortalUser() {
+        const text = document.getElementById("portal-user");
         const userToken = getUserToken();
 
         if (!userToken) {
-            banner.classList.remove("show");
+            text.textContent = "";
             return;
         }
 
@@ -1659,17 +1583,14 @@
             const resp = await fetch(API + "/api/user/me", { headers: { "X-User-Token": userToken } });
             if (!resp.ok) {
                 localStorage.removeItem("wr_user_token");
-                banner.classList.remove("show");
+                text.textContent = "";
                 return;
             }
             const data = await resp.json();
-            const email = (data.user && data.user.email) || "user";
-            text.textContent = (T[currentLang].accountBanner || "").replace("{email}", email);
-            openBtn.textContent = T[currentLang].accountOpen || "Open dashboard";
-            logoutBtn.textContent = T[currentLang].accountLogout || "Sign out";
-            banner.classList.add("show");
+            const displayName = (data.user && (data.user.name || data.user.email)) || "user";
+            text.textContent = ` · ${displayName}`;
         } catch (e) {
-            banner.classList.remove("show");
+            text.textContent = "";
         }
     }
 
@@ -1707,13 +1628,8 @@
     // Auto-login if already registered — go straight to trial on CTA click
     // But stay on landing by default
 
-    document.getElementById("account-banner-logout").addEventListener("click", function() {
-        localStorage.removeItem("wr_user_token");
-        refreshAccountBanner();
-    });
-
     ensureLandingWidget();
-    refreshAccountBanner();
+    refreshPortalUser();
 
     // ── Step 1: Register ──
     window.doRegister = async function() {
@@ -2458,8 +2374,5 @@
     if (window.applyTranslations) window.applyTranslations();
 })();
 </script>
-<!-- Temporary integration test: real embeddable widget for site_id 42.
-     Remove this script tag after landing-page verification is complete. -->
-<script src="/widget.js?landing-test=1" data-site-id="42"></script>
 </body>
 </html>
