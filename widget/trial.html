@@ -857,7 +857,6 @@
     <section class="hero">
         <h1 data-i18n-html="heroTitle"></h1>
         <p data-i18n="heroSub"></p>
-        <div class="hero-account-note" data-i18n="heroAccountNote"></div>
     </section>
 
     <!-- Features -->
@@ -1052,7 +1051,7 @@
         <div class="chat-box">
             <div class="chat-bar">
                 <span id="c-title">Assistant</span>
-                <small>trial &middot; 24h</small>
+                <small>trial &middot; 3h</small>
             </div>
             <div class="chat-body" id="c-body">
                 <div class="msg sys" data-i18n="chatReady"></div>
@@ -1066,7 +1065,7 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" style="margin-top:16px" onclick="goActivate()">
+        <button class="btn btn-primary" style="margin-top:16px" onclick="goPortalFromChat()">
             <span data-i18n="chatGetCode"></span>
         </button>
         <button class="btn btn-ghost" style="margin-top:8px" onclick="resetAll()">
@@ -1133,7 +1132,6 @@
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
             portalBtn: "Личный кабинет",
-            heroAccountNote: "Аккаунт клиента нужен для сохранения проектов и активации платных ассистентов. Бесплатный trial можно пройти сразу, а для активации откройте личный кабинет и войдите в него.",
             lcWelcome: "Привет! Я AI-ассистент WebRAG. Задайте мне любой вопрос о нашем продукте.",
             lcPlaceholder: "Спросите что-нибудь о WebRAG...",
             lcLabel: "Это живой пример работы нашего AI-ассистента",
@@ -1144,9 +1142,9 @@
             feat3Title: "Мультиязычность",
             feat3Desc: "Поддержка русского, английского, казахского и других языков. Ассистент отвечает на языке вашей аудитории.",
             tutorialTitle: "Как это работает",
-            tutorialSub: "Четыре простых шага от регистрации до работающего ассистента",
+            tutorialSub: "Четыре простых шага чтобы протестировать потенциального ассистента",
             tut1Title: "Зарегистрируйтесь",
-            tut1Desc: "Укажите имя, email и название компании — это займёт 30 секунд.",
+            tut1Desc: "Укажите login и email — это займёт 30 секунд.",
             tut2Title: "Вставьте URL вашего сайта",
             tut2Desc: "Наш AI просканирует страницы и загрузит контент. Можно также добавить PDF-файлы.",
             tut3Title: "Протестируйте ассистента",
@@ -1223,7 +1221,7 @@
             chatSub: "Задайте любой вопрос по содержимому проиндексированного сайта.",
             chatReady: "Контент проиндексирован. Задайте мне вопрос!",
             chatPh: "Введите вопрос...",
-            chatGetCode: "Получить код виджета",
+            chatGetCode: "Перейти в личный кабинет",
             chatTryAnother: "Попробовать другой сайт",
             chatStopTrial: "Завершить пробный период",
             chatStopConfirm: "Вы уверены? Все данные будут удалены и вы вернётесь на главную страницу.",
@@ -1249,7 +1247,6 @@
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
             portalBtn: "Customer Portal",
-            heroAccountNote: "Customer accounts now own activated projects. You can still run a free trial here, but production activation should be completed from the customer portal after signing in.",
             lcWelcome: "Hi! I'm the WebRAG AI assistant. Ask me anything about our product.",
             lcPlaceholder: "Ask something about WebRAG...",
             lcLabel: "This is a live demo of our AI assistant",
@@ -1339,7 +1336,7 @@
             chatSub: "Ask anything about the indexed content.",
             chatReady: "Content indexed. Ask me anything!",
             chatPh: "Type a question...",
-            chatGetCode: "Get Widget Code",
+            chatGetCode: "Open Customer Portal",
             chatTryAnother: "Try another site",
             chatStopTrial: "Stop trial",
             chatStopConfirm: "Are you sure? All data will be deleted and you'll return to the main page.",
@@ -1365,7 +1362,6 @@
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
             portalBtn: "Жеке кабинет",
-            heroAccountNote: "Клиент аккаунты жобаларды сақтау және ақылы ассистенттерді белсендіру үшін керек. Тегін trial-ды осы жерден өте аласыз, ал белсендіру үшін жеке кабинетке кіріңіз.",
             lcWelcome: "Сәлем! Мен WebRAG AI-көмекшісімін. Біздің өнім туралы кез келген сұрақ қойыңыз.",
             lcPlaceholder: "WebRAG туралы сұрақ қойыңыз...",
             lcLabel: "Бұл біздің AI-көмекшінің тікелей демосы",
@@ -1455,7 +1451,7 @@
             chatSub: "Индекстелген мазмұн бойынша кез келген сұрақ қойыңыз.",
             chatReady: "Мазмұн индекстелді. Маған сұрақ қойыңыз!",
             chatPh: "Сұрақ жазыңыз...",
-            chatGetCode: "Виджет кодын алу",
+            chatGetCode: "Жеке кабинетке өту",
             chatTryAnother: "Басқа сайтты сынау",
             chatStopTrial: "Сынақ кезеңін тоқтату",
             chatStopConfirm: "Сенімдісіз бе? Барлық деректер жойылады және сіз басты бетке ораласыз.",
@@ -1824,6 +1820,7 @@
     // ── Step 4: Activate ──
     window.goActivate = function() { go("activate", 4); };
     window.goChat = function() { go("chat", 3); };
+    window.goPortalFromChat = function() { window.location.href = "/app"; };
 
     window.doActivate = async function() {
         const t = T[currentLang];

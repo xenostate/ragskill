@@ -206,6 +206,8 @@
 
         .form-row { display: flex; gap: 12px; align-items: flex-end; }
         .form-row .form-group { flex: 1; margin-bottom: 0; }
+        .inline-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .helper-text { font-size: 12px; color: var(--text2); margin-top: 8px; }
 
         .status-msg {
             padding: 10px 14px;
@@ -511,6 +513,104 @@
 
         <!-- Tab: Dashboard / Analytics -->
         <div class="tab-content active" id="tab-analytics">
+            <div class="hero-grid">
+                <div class="card">
+                    <h2 style="font-size:18px;font-weight:800;margin-bottom:8px">Create Website Assistant</h2>
+                    <p style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+                        Create or refresh a production website assistant directly from admin. This replaces the customer-portal activation controls.
+                    </p>
+                    <div class="form-row" style="margin-bottom:12px">
+                        <div class="form-group">
+                            <label>Website URL</label>
+                            <input type="url" id="admin-activate-url" placeholder="https://your-site.com">
+                        </div>
+                        <div class="form-group" style="max-width:140px">
+                            <label>Max pages</label>
+                            <select id="admin-activate-pages">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="150">150</option>
+                                <option value="200">200</option>
+                                <option value="300">300</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:12px">
+                        <div class="form-group">
+                            <label>Language</label>
+                            <select id="admin-activate-language">
+                                <option value="" selected>Auto</option>
+                                <option value="ru">Russian</option>
+                                <option value="en">English</option>
+                                <option value="kk">Kazakh</option>
+                                <option value="ko">Korean</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>PDF files (optional)</label>
+                            <input type="file" id="admin-activate-pdfs" accept=".pdf" multiple>
+                            <div class="helper-text" id="admin-activate-file-list"></div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px">
+                        <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;">
+                            <input type="checkbox" id="admin-activate-playwright" style="width:auto;">
+                            <span>Use Playwright for JavaScript-heavy sites</span>
+                        </label>
+                    </div>
+                    <div class="inline-actions">
+                        <button class="btn btn-primary btn-sm" style="width:auto;margin-top:0" onclick="adminQuickActivate()">Create website assistant</button>
+                    </div>
+                    <div class="status-msg" id="admin-activate-status"></div>
+                </div>
+
+                <div class="card">
+                    <h2 style="font-size:18px;font-weight:800;margin-bottom:8px">Create Internal Assistant</h2>
+                    <p style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+                        Create a private assistant directly from admin. The new assistant and underlying site will be attached to the admin owner account.
+                    </p>
+                    <div class="form-row" style="margin-bottom:12px">
+                        <div class="form-group">
+                            <label>Assistant name</label>
+                            <input type="text" id="admin-ia-name" placeholder="Korean School Team Assistant">
+                        </div>
+                        <div class="form-group">
+                            <label>Slug</label>
+                            <input type="text" id="admin-ia-slug" placeholder="korean-school-team">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:12px">
+                        <div class="form-group">
+                            <label>Admin password</label>
+                            <input type="password" id="admin-ia-admin-password" placeholder="At least 4 characters">
+                        </div>
+                        <div class="form-group">
+                            <label>User password</label>
+                            <input type="password" id="admin-ia-user-password" placeholder="At least 4 characters">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:14px">
+                        <div class="form-group">
+                            <label>Language</label>
+                            <select id="admin-ia-language">
+                                <option value="en">English</option>
+                                <option value="ru">Russian</option>
+                                <option value="kk">Kazakh</option>
+                                <option value="ko">Korean</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Created by email (optional)</label>
+                            <input type="email" id="admin-ia-email" placeholder="admin@company.com">
+                        </div>
+                    </div>
+                    <div class="inline-actions">
+                        <button class="btn btn-primary btn-sm" style="width:auto;margin-top:0" onclick="adminCreateInternalAssistant()">Create internal assistant</button>
+                    </div>
+                    <div class="status-msg" id="admin-ia-status"></div>
+                </div>
+            </div>
+
             <!-- Stat cards -->
             <div class="stat-grid" id="analytics-stats">
                 <div class="stat-card"><div class="stat-value" style="color:var(--accent)">—</div><div class="stat-label">Total Queries</div></div>
@@ -676,6 +776,20 @@ function authHeaders() {
     return { "Content-Type": "application/json", "X-Admin-Token": adminToken };
 }
 
+function setStatus(id, tone, message) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `status-msg ${tone}`;
+    el.textContent = message;
+}
+
+function refreshAdminWorkspace() {
+    analyticsLoaded = false;
+    loadSites();
+    loadAssistants();
+    loadAnalytics();
+}
+
 // ── Tabs ──
 
 function switchTab(tab) {
@@ -718,6 +832,91 @@ async function loadDocuments() {
             </div>
         </div>
     `).join("");
+}
+
+const adminPdfInput = document.getElementById("admin-activate-pdfs");
+if (adminPdfInput) {
+    adminPdfInput.addEventListener("change", function() {
+        const names = Array.from(this.files || []).map((file) => file.name);
+        document.getElementById("admin-activate-file-list").textContent = names.join(", ");
+    });
+}
+
+async function adminQuickActivate() {
+    const statusId = "admin-activate-status";
+    const url = document.getElementById("admin-activate-url").value.trim();
+    if (!url) {
+        setStatus(statusId, "error", "Website URL is required.");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append("url", url);
+    fd.append("max_pages", document.getElementById("admin-activate-pages").value);
+    fd.append("language", document.getElementById("admin-activate-language").value);
+    fd.append("use_playwright", document.getElementById("admin-activate-playwright").checked ? "1" : "0");
+    const files = document.getElementById("admin-activate-pdfs").files || [];
+    for (let i = 0; i < files.length; i++) fd.append("pdfs", files[i]);
+
+    setStatus(statusId, "info", "Creating website assistant...");
+    try {
+        const resp = await fetch(API + "/api/admin/quick-activate", {
+            method: "POST",
+            headers: { "X-Admin-Token": adminToken },
+            body: fd,
+        });
+        if (resp.status === 401) { doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            setStatus(statusId, "error", data.error || "Failed to create website assistant.");
+            return;
+        }
+
+        setStatus(statusId, "success", `Assistant created for site #${data.site_id}. Indexing has started.`);
+        document.getElementById("admin-activate-url").value = "";
+        document.getElementById("admin-activate-pdfs").value = "";
+        document.getElementById("admin-activate-file-list").textContent = "";
+        refreshAdminWorkspace();
+    } catch (e) {
+        setStatus(statusId, "error", "Network error: " + e.message);
+    }
+}
+
+async function adminCreateInternalAssistant() {
+    const statusId = "admin-ia-status";
+    const payload = {
+        name: document.getElementById("admin-ia-name").value.trim(),
+        slug: document.getElementById("admin-ia-slug").value.trim().toLowerCase(),
+        admin_password: document.getElementById("admin-ia-admin-password").value,
+        user_password: document.getElementById("admin-ia-user-password").value,
+        language: document.getElementById("admin-ia-language").value,
+        email: document.getElementById("admin-ia-email").value.trim(),
+    };
+
+    setStatus(statusId, "info", "Creating internal assistant...");
+    try {
+        const resp = await fetch(API + "/api/admin/internal/setup", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (resp.status === 401) { doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            setStatus(statusId, "error", data.error || "Failed to create internal assistant.");
+            return;
+        }
+
+        setStatus(statusId, "success", `Assistant created: ${data.url}`);
+        document.getElementById("admin-ia-name").value = "";
+        document.getElementById("admin-ia-slug").value = "";
+        document.getElementById("admin-ia-admin-password").value = "";
+        document.getElementById("admin-ia-user-password").value = "";
+        document.getElementById("admin-ia-email").value = "";
+        refreshAdminWorkspace();
+    } catch (e) {
+        setStatus(statusId, "error", "Network error: " + e.message);
+    }
 }
 
 async function addDocument() {
@@ -1438,7 +1637,7 @@ async function loadAssistants() {
     const assistants = data.assistants || [];
 
     if (assistants.length === 0) {
-        list.innerHTML = '<div class="empty-state">No internal assistants yet. Customers can create them from the main website.</div>';
+        list.innerHTML = '<div class="empty-state">No internal assistants yet. Create one from the admin dashboard above.</div>';
         return;
     }
 

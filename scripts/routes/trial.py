@@ -213,7 +213,7 @@ async def trial_start(
     max_pages = max(1, min(max_pages, 50))
 
     domain = f"trial-{uuid.uuid4().hex[:8]}.demo"
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
 
     site_settings = {"source_url": url, "trial": True}
     if token.strip():

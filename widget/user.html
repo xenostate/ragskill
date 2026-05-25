@@ -483,8 +483,6 @@
     <div class="topbar">
         <div class="brand">Web<span>RAG</span> Portal</div>
         <div class="topbar-right">
-            <button class="btn btn-sm btn-outline" data-i18n="top_activate" onclick="focusActivateCard()">Activate Assistant</button>
-            <button class="btn btn-sm btn-outline" data-i18n="top_internal" onclick="focusInternalAssistantCard()">Create Internal Assistant</button>
             <span id="user-pill"></span>
             <button class="btn btn-sm btn-outline" data-i18n="top_trial" onclick="window.location.href='/trial'">Open Trial Wizard</button>
             <button class="btn btn-sm btn-outline" data-i18n="top_logout" onclick="doLogout()">Logout</button>
@@ -493,54 +491,7 @@
 
     <div class="container">
         <div class="hero-grid">
-            <div class="card" id="activate-card">
-                <h2 data-i18n="activate_title">Activate a paid assistant</h2>
-                <p data-i18n="activate_sub">Enter your site URL and activation code to create or unlock a production website assistant under your account.</p>
-                <div class="form-row">
-                    <div class="field">
-                        <label data-i18n="field_site_url">Website URL</label>
-                        <input type="url" id="activate-url" data-i18n-ph="ph_site_url" placeholder="https://your-site.com">
-                    </div>
-                    <div class="field">
-                        <label data-i18n="field_activation_code">Activation code</label>
-                        <input type="text" id="activate-code" data-i18n-ph="ph_activation_code" placeholder="Enter your code">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="field">
-                        <label data-i18n="field_max_pages">Max pages</label>
-                        <select id="activate-pages">
-                            <option value="50">50</option>
-                            <option value="100" selected>100</option>
-                            <option value="150">150</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label data-i18n="field_language">Language</label>
-                        <select id="activate-language">
-                            <option value="" selected>Auto</option>
-                            <option value="ru">Russian</option>
-                            <option value="en">English</option>
-                            <option value="kk">Kazakh</option>
-                            <option value="ko">Korean</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field">
-                    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;">
-                        <input type="checkbox" id="activate-playwright" style="width:auto;">
-                        <span data-i18n="field_playwright">Use Playwright for JavaScript-heavy sites</span>
-                    </label>
-                </div>
-                <div class="inline-actions">
-                    <button class="btn btn-primary" data-i18n="activate_btn" onclick="activateAssistant()">Activate</button>
-                </div>
-                <div class="status-msg" id="activate-status"></div>
-            </div>
-
-            <div class="card">
+            <div class="card" style="grid-column:1 / -1;">
                 <h2 data-i18n="workspace_title">Your workspace</h2>
                 <p data-i18n="workspace_sub">You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.</p>
                 <div class="stats">
@@ -565,43 +516,6 @@
             <div id="sites-list"><div class="loading">Loading your sites...</div></div>
         </div>
         <div class="tab-content" id="tab-assistants">
-            <div class="card" id="internal-assistant-card" style="margin-bottom:18px;">
-                <h3 data-i18n="internal_title">Create an internal assistant</h3>
-                <p data-i18n="internal_sub">Spin up a private knowledge assistant under your account. Your team will use one admin password for management and one user password for everyday access.</p>
-                <div class="form-row">
-                    <div class="field">
-                        <label data-i18n="field_assistant_name">Assistant name</label>
-                        <input type="text" id="ia-name" data-i18n-ph="ph_assistant_name" placeholder="Korean School Team Assistant">
-                    </div>
-                    <div class="field">
-                        <label data-i18n="field_slug">Slug</label>
-                        <input type="text" id="ia-slug" data-i18n-ph="ph_slug" placeholder="korean-school-team">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="field">
-                        <label data-i18n="field_admin_password">Admin password</label>
-                        <input type="password" id="ia-admin-password" data-i18n-ph="ph_admin_password" placeholder="At least 4 characters">
-                    </div>
-                    <div class="field">
-                        <label data-i18n="field_user_password">User password</label>
-                        <input type="password" id="ia-user-password" data-i18n-ph="ph_user_password" placeholder="At least 4 characters">
-                    </div>
-                    <div class="field">
-                        <label data-i18n="field_language">Language</label>
-                        <select id="ia-language">
-                            <option value="en">English</option>
-                            <option value="ru">Russian</option>
-                            <option value="kk">Kazakh</option>
-                            <option value="ko">Korean</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="inline-actions">
-                    <button class="btn btn-primary" data-i18n="internal_btn" onclick="createInternalAssistant()">Create assistant</button>
-                </div>
-                <div class="status-msg" id="ia-status"></div>
-            </div>
             <div id="assistants-list"><div class="loading">Loading your assistants...</div></div>
         </div>
         <div class="tab-content" id="tab-site-detail"></div>
@@ -983,18 +897,6 @@ function setStatus(id, tone, message) {
     el.textContent = message;
 }
 
-function focusActivateCard() {
-    switchTab("sites");
-    const card = document.getElementById("activate-card");
-    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function focusInternalAssistantCard() {
-    switchTab("assistants");
-    const card = document.getElementById("internal-assistant-card");
-    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 async function doSignup() {
     hideErr("signup-err");
     const name = document.getElementById("signup-name").value.trim();
@@ -1079,69 +981,6 @@ function switchTab(tab) {
     document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
     const pane = document.getElementById("tab-" + tab);
     if (pane) pane.classList.add("active");
-}
-
-async function activateAssistant() {
-    setStatus("activate-status", "info", t("status_activate_start"));
-    const fd = new FormData();
-    fd.append("url", document.getElementById("activate-url").value.trim());
-    fd.append("code", document.getElementById("activate-code").value.trim());
-    fd.append("max_pages", document.getElementById("activate-pages").value);
-    fd.append("language", document.getElementById("activate-language").value);
-    fd.append("use_playwright", document.getElementById("activate-playwright").checked ? "1" : "0");
-
-    try {
-        const resp = await fetch(API + "/api/quick-activate", {
-            method: "POST",
-            headers: { "X-User-Token": userToken },
-            body: fd,
-        });
-        const data = await resp.json();
-        if (!resp.ok) {
-            setStatus("activate-status", "error", data.error || t("status_activate_error"));
-            return;
-        }
-        setStatus("activate-status", "success", t("status_activate_success", { siteId: data.site_id }));
-        await Promise.all([loadSites(), loadAssistants(), refreshStats()]);
-    } catch (e) {
-        setStatus("activate-status", "error", t("status_network", { message: e.message }));
-    }
-}
-
-async function createInternalAssistant() {
-    setStatus("ia-status", "info", t("status_internal_start"));
-    const payload = {
-        name: document.getElementById("ia-name").value.trim(),
-        slug: document.getElementById("ia-slug").value.trim().toLowerCase(),
-        admin_password: document.getElementById("ia-admin-password").value,
-        user_password: document.getElementById("ia-user-password").value,
-        language: document.getElementById("ia-language").value,
-        email: currentUser ? currentUser.email : "",
-        code: "",
-    };
-
-    try {
-        const resp = await fetch(API + "/api/internal/setup", {
-            method: "POST",
-            headers: authHeaders(),
-            body: JSON.stringify(payload),
-        });
-        if (resp.status === 401) { await doLogout(); return; }
-        const data = await resp.json();
-        if (!resp.ok || !data.success) {
-            setStatus("ia-status", "error", data.error || t("status_internal_error"));
-            return;
-        }
-        setStatus("ia-status", "success", t("status_internal_success", { url: data.url }));
-        document.getElementById("ia-name").value = "";
-        document.getElementById("ia-slug").value = "";
-        document.getElementById("ia-admin-password").value = "";
-        document.getElementById("ia-user-password").value = "";
-        await Promise.all([loadAssistants(), loadSites(), refreshStats()]);
-        switchTab("assistants");
-    } catch (e) {
-        setStatus("ia-status", "error", t("status_network", { message: e.message }));
-    }
 }
 
 async function refreshStats() {

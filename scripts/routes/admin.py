@@ -5,6 +5,7 @@ Admin dashboard endpoints: auth, documents, sites, landing page, PDF upload, rec
 from __future__ import annotations
 
 import asyncio
+import bcrypt
 import hashlib
 import io
 import os
@@ -13,8 +14,9 @@ import uuid
 import time
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlparse
 
-from fastapi import APIRouter, Request, UploadFile, File
+from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse
 from pypdf import PdfReader
 
@@ -25,6 +27,38 @@ from scripts.indexer import chunk_text, content_hash
 from scripts.routes.trial import run_trial_indexing
 
 router = APIRouter()
+
+
+def _admin_owner_user_id() -> int | None:
+    try:
+        if cfg.APP_ADMIN_EMAIL:
+            resp = (
+                cfg.sb.table("app_users")
+                .select("id")
+                .eq("email", cfg.APP_ADMIN_EMAIL)
+                .limit(1)
+                .execute()
+            )
+            if resp.data:
+                return resp.data[0]["id"]
+
+        resp = (
+            cfg.sb.table("app_users")
+            .select("id")
+            .eq("role", "admin")
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return resp.data[0]["id"]
+    except Exception as e:
+        cfg.log.warning(f"Could not resolve admin owner id: {e}")
+    return None
+
+
+def _widget_snippet(site_id: int) -> str:
+    public_url = os.environ.get("PUBLIC_URL", "https://wrs.kz").rstrip("/")
+    return f'<script src="{public_url}/widget.js" data-site-id="{site_id}" data-api="{public_url}"></script>'
 
 
 # ── Landing page content ────────────────────────────────────────────────────
@@ -449,6 +483,152 @@ async def admin_recrawl_site(site_id: int, request: Request):
 
     cfg.log.info(f"Admin triggered re-crawl for site {site_id}: url={source_url} max_pages={max_pages}")
     return {"success": True, "site_id": site_id, "source_url": source_url, "message": "Re-crawl started"}
+
+
+@router.post("/api/admin/quick-activate")
+async def admin_quick_activate(
+    request: Request,
+    url: str = Form(...),
+    max_pages: int = Form(default=100),
+    language: str = Form(default=""),
+    use_playwright: str = Form(default="0"),
+    pdfs: list[UploadFile] = File(default=[]),
+):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    url = url.strip()
+    max_pages = max(1, min(max_pages, 300))
+    if not url:
+        return JSONResponse({"error": "URL is required"}, status_code=400)
+
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        url = f"https://{url}"
+        parsed = urlparse(url)
+    if not parsed.netloc:
+        return JSONResponse({"error": "Invalid URL"}, status_code=400)
+
+    safe, reason = is_url_safe(url)
+    if not safe:
+        cfg.log.warning(f"SSRF blocked in admin_quick_activate: {url} — {reason}")
+        return JSONResponse({"error": reason}, status_code=400)
+
+    domain = parsed.netloc
+    owner_user_id = _admin_owner_user_id()
+
+    pdf_data = []
+    for pdf in pdfs:
+        content = await pdf.read()
+        if len(content) > cfg.MAX_PDF_SIZE:
+            return JSONResponse({"error": f"PDF '{pdf.filename}' exceeds 10MB limit"}, status_code=400)
+        pdf_data.append({"filename": pdf.filename, "content": content})
+
+    existing = cfg.sb.table("sites").select("id, settings").eq("domain", domain).execute()
+    if existing.data:
+        site_id = existing.data[0]["id"]
+        existing_settings = existing.data[0].get("settings") or {}
+        existing_settings["source_url"] = url
+        existing_settings["use_playwright"] = use_playwright == "1"
+        update_payload = {
+            "is_trial": False,
+            "expires_at": None,
+            "language": language or "en",
+            "settings": existing_settings,
+        }
+        if owner_user_id:
+            update_payload["owner_user_id"] = owner_user_id
+        cfg.sb.table("sites").update(update_payload).eq("id", site_id).execute()
+
+        old_docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
+        for doc in (old_docs.data or []):
+            cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+        cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
+    else:
+        insert_payload = {
+            "domain": domain,
+            "language": language or "en",
+            "is_trial": False,
+            "settings": {"source_url": url, "use_playwright": use_playwright == "1"},
+        }
+        if owner_user_id:
+            insert_payload["owner_user_id"] = owner_user_id
+        site_resp = cfg.sb.table("sites").insert(insert_payload).execute()
+        site_id = site_resp.data[0]["id"]
+
+    cfg.trial_progress[site_id] = {"step": 0, "total": 0, "message": "Starting...", "done": False, "error": None}
+    pw = use_playwright == "1"
+    asyncio.get_event_loop().create_task(
+        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
+    )
+
+    cfg.log.info(f"Admin quick-activate: site_id={site_id} domain={domain} url={url} pdfs={len(pdf_data)}")
+    return {"success": True, "site_id": site_id, "widget_code": _widget_snippet(site_id)}
+
+
+@router.post("/api/admin/internal/setup")
+async def admin_setup_internal_assistant(request: Request):
+    if not verify_admin(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    body = await request.json()
+    name = body.get("name", "").strip()
+    slug = body.get("slug", "").strip().lower()
+    admin_password = body.get("admin_password", "").strip()
+    user_password = body.get("user_password", "").strip()
+    language = body.get("language", "").strip()
+    created_by = body.get("email", "").strip()
+
+    if not name or not slug or not admin_password or not user_password:
+        return JSONResponse({"error": "All fields are required: name, slug, admin_password, user_password"}, status_code=400)
+    if not re.match(r'^[a-z0-9][a-z0-9\-]{1,48}[a-z0-9]$', slug):
+        return JSONResponse({"error": "Slug must be 3-50 chars, lowercase letters, numbers, and hyphens only"}, status_code=400)
+    if admin_password == user_password:
+        return JSONResponse({"error": "Admin and user passwords must be different"}, status_code=400)
+    if len(admin_password) < 4 or len(user_password) < 4:
+        return JSONResponse({"error": "Passwords must be at least 4 characters"}, status_code=400)
+
+    existing = cfg.sb.table("internal_assistants").select("id").eq("slug", slug).execute()
+    if existing.data:
+        return JSONResponse({"error": "This slug is already taken"}, status_code=409)
+
+    owner_user_id = _admin_owner_user_id()
+    domain = f"internal-{slug}"
+    try:
+        site_payload = {
+            "domain": domain,
+            "language": language or "en",
+            "is_trial": False,
+            "settings": {"internal_assistant": True, "slug": slug},
+        }
+        if owner_user_id:
+            site_payload["owner_user_id"] = owner_user_id
+        site_resp = cfg.sb.table("sites").insert(site_payload).execute()
+    except Exception as e:
+        if "duplicate" in str(e).lower():
+            return JSONResponse({"error": "An assistant with a similar name already exists"}, status_code=409)
+        raise
+
+    site_id = site_resp.data[0]["id"]
+    admin_hash = bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode()
+    user_hash = bcrypt.hashpw(user_password.encode(), bcrypt.gensalt()).decode()
+
+    assistant_payload = {
+        "slug": slug,
+        "name": name,
+        "site_id": site_id,
+        "admin_password": admin_hash,
+        "user_password": user_hash,
+        "created_by": created_by or cfg.APP_ADMIN_EMAIL or "admin",
+        "settings": {"language": language or "en"},
+    }
+    if owner_user_id:
+        assistant_payload["owner_user_id"] = owner_user_id
+    cfg.sb.table("internal_assistants").insert(assistant_payload).execute()
+
+    public_url = os.environ.get("PUBLIC_URL", "https://wrs.kz")
+    cfg.log.info(f"Admin created internal assistant: {name} (slug={slug}, site_id={site_id})")
+    return {"success": True, "slug": slug, "site_id": site_id, "url": f"{public_url}/assistant/{slug}"}
 
 
 # ── Admin: Analytics ────────────────────────────────────────────────────────
