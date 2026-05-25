@@ -11,6 +11,7 @@ import socket
 import time
 import threading
 from collections import deque, defaultdict
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from fastapi import Request
@@ -207,3 +208,80 @@ def verify_internal(request: Request, slug: str, require_admin: bool = False) ->
     if require_admin and session["role"] != "admin":
         return None
     return session
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def verify_user_token(token: str) -> dict | None:
+    """Resolve an app user session token into a user/session dict."""
+    if not token:
+        return None
+
+    from scripts.config import sb
+    if sb is None:
+        return None
+
+    try:
+        session_resp = (
+            sb.table("app_sessions")
+            .select("token, user_id, expires_at, created_at")
+            .eq("token", token)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return None
+
+    if not session_resp.data:
+        return None
+
+    session = session_resp.data[0]
+    expires_at = _parse_iso_datetime(session.get("expires_at"))
+    if expires_at is None or expires_at <= datetime.now(timezone.utc):
+        try:
+            sb.table("app_sessions").delete().eq("token", token).execute()
+        except Exception:
+            pass
+        return None
+
+    try:
+        user_resp = (
+            sb.table("app_users")
+            .select("id, email, name, role, status, created_at, last_login_at")
+            .eq("id", session["user_id"])
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return None
+
+    if not user_resp.data:
+        return None
+
+    user = user_resp.data[0]
+    return {
+        "token": token,
+        "user_id": user["id"],
+        "email": user.get("email", ""),
+        "name": user.get("name", ""),
+        "role": user.get("role", "client"),
+        "status": user.get("status", "active"),
+        "expires_at": session.get("expires_at"),
+    }
+
+
+def verify_user(request: Request, require_active: bool = True) -> dict | None:
+    """Check X-User-Token against app_sessions and return the current user."""
+    user = verify_user_token(request.headers.get("x-user-token", ""))
+    if not user:
+        return None
+    if require_active and user.get("status") != "active":
+        return None
+    return user

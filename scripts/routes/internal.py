@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pypdf import PdfReader
 
 import scripts.config as cfg
-from scripts.utils import rate_limit_check, verify_internal, is_url_safe, is_valid_pdf
+from scripts.utils import rate_limit_check, verify_internal, verify_user, is_url_safe, is_valid_pdf
 from scripts.indexer import chunk_text, content_hash
 from scripts.routes.trial import run_trial_indexing
 
@@ -36,6 +36,7 @@ async def setup_internal_assistant(request: Request):
     blocked = rate_limit_check(request, "internal_setup", 3, 3600)
     if blocked:
         return blocked
+    current_user = verify_user(request, require_active=True)
 
     body = await request.json()
     code = body.get("code", "").strip()
@@ -46,13 +47,16 @@ async def setup_internal_assistant(request: Request):
     language = body.get("language", "").strip()
     created_by = body.get("email", "").strip()
 
-    if not code or not name or not slug or not admin_password or not user_password:
-        return JSONResponse({"error": "All fields are required: code, name, slug, admin_password, user_password"}, status_code=400)
+    if not name or not slug or not admin_password or not user_password:
+        return JSONResponse({"error": "All fields are required: name, slug, admin_password, user_password"}, status_code=400)
 
-    if not cfg.INTERNAL_SETUP_CODE:
-        return JSONResponse({"error": "Internal assistant setup not configured"}, status_code=503)
-    if code != cfg.INTERNAL_SETUP_CODE:
-        return JSONResponse({"error": "Invalid setup code"}, status_code=403)
+    if not current_user:
+        if not code:
+            return JSONResponse({"error": "Setup code is required"}, status_code=400)
+        if not cfg.INTERNAL_SETUP_CODE:
+            return JSONResponse({"error": "Internal assistant setup not configured"}, status_code=503)
+        if code != cfg.INTERNAL_SETUP_CODE:
+            return JSONResponse({"error": "Invalid setup code"}, status_code=403)
 
     if not re.match(r'^[a-z0-9][a-z0-9\-]{1,48}[a-z0-9]$', slug):
         return JSONResponse({"error": "Slug must be 3-50 chars, lowercase letters, numbers, and hyphens only"}, status_code=400)
@@ -71,6 +75,7 @@ async def setup_internal_assistant(request: Request):
     try:
         site_resp = cfg.sb.table("sites").insert({
             "domain": domain, "language": language or "en", "is_trial": False,
+            "owner_user_id": current_user["user_id"] if current_user else None,
             "settings": {"internal_assistant": True, "slug": slug},
         }).execute()
     except Exception as e:
@@ -85,7 +90,9 @@ async def setup_internal_assistant(request: Request):
     cfg.sb.table("internal_assistants").insert({
         "slug": slug, "name": name, "site_id": site_id,
         "admin_password": admin_hash, "user_password": user_hash,
-        "created_by": created_by or None, "settings": {"language": language or "en"},
+        "created_by": created_by or (current_user["email"] if current_user else None),
+        "owner_user_id": current_user["user_id"] if current_user else None,
+        "settings": {"language": language or "en"},
     }).execute()
 
     public_url = os.environ.get("PUBLIC_URL", "https://wrs.kz")

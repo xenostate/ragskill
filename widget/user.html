@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRAG Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #f6f6f6;
+            --surface: #ffffff;
+            --border: #dcdce0;
+            --text: #47464d;
+            --text2: #7a7a85;
+            --accent: #fb742d;
+            --accent-hover: #fc8a4f;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --radius: 12px;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .auth-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 32px;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.06);
+        }
+        .auth-title {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 8px;
+        }
+        .auth-sub {
+            color: var(--text2);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 22px;
+        }
+        .auth-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text2);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .auth-tab.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .auth-panel { display: none; }
+        .auth-panel.active { display: block; }
+        .field { margin-bottom: 14px; }
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: var(--text2);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-bottom: 6px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font: inherit;
+            color: var(--text);
+            background: #fff;
+            outline: none;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--accent);
+        }
+        textarea { min-height: 120px; resize: vertical; }
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-outline {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+        }
+        .btn-danger {
+            border: 1px solid var(--red);
+            background: #fff;
+            color: var(--red);
+        }
+        .btn-sm { padding: 7px 12px; font-size: 13px; }
+        .err, .status-msg {
+            margin-top: 12px;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 13px;
+            display: none;
+        }
+        .err.on, .status-msg.on { display: block; }
+        .err { background: #fff1f2; border: 1px solid #fecdd3; color: #be123c; }
+        .status-msg.info { display: block; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+        .status-msg.success { display: block; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .status-msg.error { display: block; background: #fff1f2; border: 1px solid #fecdd3; color: #be123c; }
+
+        .dashboard { display: none; }
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+        .brand span { color: var(--accent); }
+        .topbar-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: var(--text2);
+            font-size: 13px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        .card h2, .card h3 {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+        }
+        .card p {
+            color: var(--text2);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+        .inline-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .stat {
+            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+        .stat-label {
+            color: var(--text2);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            margin-top: 6px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .tab-btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text2);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .site-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 12px;
+            cursor: pointer;
+        }
+        .site-row:hover {
+            border-color: #cfcfd5;
+        }
+        .site-domain {
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .site-meta {
+            font-size: 12px;
+            color: var(--text2);
+            margin-top: 4px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .badge-active { background: #dcfce7; color: #166534; }
+        .badge-trial { background: #fef3c7; color: #92400e; }
+        .empty-state {
+            padding: 26px;
+            border-radius: 14px;
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            color: var(--text2);
+            text-align: center;
+        }
+        .detail { margin-top: 18px; }
+        .back-btn {
+            border: none;
+            background: none;
+            color: var(--text2);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 14px;
+        }
+        .site-header {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 22px;
+            margin-bottom: 18px;
+        }
+        .site-header h2 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 8px;
+        }
+        .site-header-actions {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .file-input-wrap { position: relative; overflow: hidden; display: inline-flex; }
+        .file-input-wrap input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .doc-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .doc-header {
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            cursor: pointer;
+            align-items: center;
+        }
+        .doc-header h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .doc-header-meta, code {
+            font-size: 12px;
+            color: var(--text2);
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+        .doc-chunks {
+            display: none;
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            background: #fafafa;
+        }
+        .doc-chunks.open { display: block; }
+        .chunk-item {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 10px 0;
+            border-bottom: 1px solid #ececec;
+        }
+        .chunk-item:last-child { border-bottom: none; }
+        .chunk-idx {
+            min-width: 34px;
+            padding-top: 2px;
+            color: var(--text2);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .chunk-text {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--text);
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .form-row .field, .form-row .form-group { flex: 1; min-width: 180px; }
+        .loading { color: var(--text2); padding: 18px 0; }
+        @media (max-width: 860px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+            .site-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="auth-shell" id="auth-shell">
+    <div class="auth-card">
+        <div class="auth-title">WebRAG Portal</div>
+        <div class="auth-sub">Create your account or sign in to manage your assistants. You can explore the dashboard right away, then unlock paid assistants with your activation code.</div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-auth-tab="login" onclick="switchAuthTab('login')">Login</button>
+            <button class="auth-tab" data-auth-tab="signup" onclick="switchAuthTab('signup')">Sign up</button>
+        </div>
+
+        <div class="auth-panel active" id="auth-login">
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="you@example.com">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="Enter your password">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+            <div class="err" id="login-err"></div>
+        </div>
+
+        <div class="auth-panel" id="auth-signup">
+            <div class="field">
+                <label>Name</label>
+                <input type="text" id="signup-name" placeholder="Your name">
+            </div>
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="signup-email" placeholder="you@example.com">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="signup-password" placeholder="At least 6 characters">
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="doSignup()">Create account</button>
+            <div class="err" id="signup-err"></div>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard" id="dashboard">
+    <div class="topbar">
+        <div class="brand">Web<span>RAG</span> Portal</div>
+        <div class="topbar-right">
+            <span id="user-pill"></span>
+            <button class="btn btn-sm btn-outline" onclick="window.location.href='/trial'">Open Trial Wizard</button>
+            <button class="btn btn-sm btn-outline" onclick="doLogout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="hero-grid">
+            <div class="card">
+                <h2>Activate a paid assistant</h2>
+                <p>Enter your site URL and activation code to create or unlock a production website assistant under your account.</p>
+                <div class="form-row">
+                    <div class="field">
+                        <label>Website URL</label>
+                        <input type="url" id="activate-url" placeholder="https://your-site.com">
+                    </div>
+                    <div class="field">
+                        <label>Activation code</label>
+                        <input type="text" id="activate-code" placeholder="Enter your code">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>Max pages</label>
+                        <select id="activate-pages">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="150">150</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Language</label>
+                        <select id="activate-language">
+                            <option value="" selected>Auto</option>
+                            <option value="ru">Russian</option>
+                            <option value="en">English</option>
+                            <option value="kk">Kazakh</option>
+                            <option value="ko">Korean</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;">
+                        <input type="checkbox" id="activate-playwright" style="width:auto;">
+                        Use Playwright for JavaScript-heavy sites
+                    </label>
+                </div>
+                <div class="inline-actions">
+                    <button class="btn btn-primary" onclick="activateAssistant()">Activate</button>
+                </div>
+                <div class="status-msg" id="activate-status"></div>
+            </div>
+
+            <div class="card">
+                <h2>Your workspace</h2>
+                <p>You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.</p>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value" id="stat-sites">0</div>
+                        <div class="stat-label">Owned sites</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="stat-assistants">0</div>
+                        <div class="stat-label">Internal assistants</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="sites" onclick="switchTab('sites')">My Sites</button>
+            <button class="tab-btn" data-tab="assistants" onclick="switchTab('assistants')">My Assistants</button>
+        </div>
+
+        <div class="tab-content active" id="tab-sites">
+            <div id="sites-list"><div class="loading">Loading your sites...</div></div>
+        </div>
+        <div class="tab-content" id="tab-assistants">
+            <div class="card" style="margin-bottom:18px;">
+                <h3>Create an internal assistant</h3>
+                <p>Spin up a private knowledge assistant under your account. Your team will use one admin password for management and one user password for everyday access.</p>
+                <div class="form-row">
+                    <div class="field">
+                        <label>Assistant name</label>
+                        <input type="text" id="ia-name" placeholder="Korean School Team Assistant">
+                    </div>
+                    <div class="field">
+                        <label>Slug</label>
+                        <input type="text" id="ia-slug" placeholder="korean-school-team">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label>Admin password</label>
+                        <input type="password" id="ia-admin-password" placeholder="At least 4 characters">
+                    </div>
+                    <div class="field">
+                        <label>User password</label>
+                        <input type="password" id="ia-user-password" placeholder="At least 4 characters">
+                    </div>
+                    <div class="field">
+                        <label>Language</label>
+                        <select id="ia-language">
+                            <option value="en">English</option>
+                            <option value="ru">Russian</option>
+                            <option value="kk">Kazakh</option>
+                            <option value="ko">Korean</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="inline-actions">
+                    <button class="btn btn-primary" onclick="createInternalAssistant()">Create assistant</button>
+                </div>
+                <div class="status-msg" id="ia-status"></div>
+            </div>
+            <div id="assistants-list"><div class="loading">Loading your assistants...</div></div>
+        </div>
+        <div class="tab-content" id="tab-site-detail"></div>
+    </div>
+</div>
+
+<script>
+const API = window.location.origin;
+let userToken = localStorage.getItem("wr_user_token") || "";
+let currentUser = null;
+let currentSiteId = null;
+
+function esc(value) {
+    return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function switchAuthTab(tab) {
+    document.querySelectorAll(".auth-tab").forEach((el) => el.classList.toggle("active", el.dataset.authTab === tab));
+    document.querySelectorAll(".auth-panel").forEach((el) => el.classList.remove("active"));
+    document.getElementById("auth-" + tab).classList.add("active");
+}
+
+function authHeaders(json = true) {
+    const headers = { "X-User-Token": userToken };
+    if (json) headers["Content-Type"] = "application/json";
+    return headers;
+}
+
+function showAuth() {
+    document.getElementById("auth-shell").style.display = "flex";
+    document.getElementById("dashboard").style.display = "none";
+}
+
+function showDashboard() {
+    document.getElementById("auth-shell").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+}
+
+function showErr(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message;
+    el.classList.add("on");
+}
+
+function hideErr(id) {
+    const el = document.getElementById(id);
+    el.textContent = "";
+    el.classList.remove("on");
+}
+
+function setStatus(id, tone, message) {
+    const el = document.getElementById(id);
+    el.className = `status-msg ${tone}`;
+    el.textContent = message;
+}
+
+async function doSignup() {
+    hideErr("signup-err");
+    const name = document.getElementById("signup-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    try {
+        const resp = await fetch(API + "/api/user/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            showErr("signup-err", data.error || "Failed to sign up");
+            return;
+        }
+        userToken = data.token;
+        localStorage.setItem("wr_user_token", userToken);
+        await bootstrap();
+    } catch (e) {
+        showErr("signup-err", "Network error: " + e.message);
+    }
+}
+
+async function doLogin() {
+    hideErr("login-err");
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    try {
+        const resp = await fetch(API + "/api/user/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            showErr("login-err", data.error || "Failed to login");
+            return;
+        }
+        userToken = data.token;
+        localStorage.setItem("wr_user_token", userToken);
+        await bootstrap();
+    } catch (e) {
+        showErr("login-err", "Network error: " + e.message);
+    }
+}
+
+async function doLogout() {
+    if (userToken) {
+        try {
+            await fetch(API + "/api/user/logout", { method: "POST", headers: authHeaders() });
+        } catch (e) {}
+    }
+    userToken = "";
+    currentUser = null;
+    localStorage.removeItem("wr_user_token");
+    showAuth();
+}
+
+async function bootstrap() {
+    if (!userToken) {
+        showAuth();
+        return;
+    }
+    const resp = await fetch(API + "/api/user/me", { headers: authHeaders(false) });
+    if (resp.status === 401) {
+        await doLogout();
+        return;
+    }
+    const data = await resp.json();
+    currentUser = data.user;
+    document.getElementById("user-pill").textContent = `${currentUser.name} · ${currentUser.email}`;
+    document.getElementById("stat-sites").textContent = data.stats.sites || 0;
+    document.getElementById("stat-assistants").textContent = data.stats.assistants || 0;
+    showDashboard();
+    loadSites();
+    loadAssistants();
+}
+
+function switchTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
+    document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
+    const pane = document.getElementById("tab-" + tab);
+    if (pane) pane.classList.add("active");
+}
+
+async function activateAssistant() {
+    setStatus("activate-status", "info", "Starting activation...");
+    const fd = new FormData();
+    fd.append("url", document.getElementById("activate-url").value.trim());
+    fd.append("code", document.getElementById("activate-code").value.trim());
+    fd.append("max_pages", document.getElementById("activate-pages").value);
+    fd.append("language", document.getElementById("activate-language").value);
+    fd.append("use_playwright", document.getElementById("activate-playwright").checked ? "1" : "0");
+
+    try {
+        const resp = await fetch(API + "/api/quick-activate", {
+            method: "POST",
+            headers: { "X-User-Token": userToken },
+            body: fd,
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            setStatus("activate-status", "error", data.error || "Activation failed");
+            return;
+        }
+        setStatus("activate-status", "success", `Assistant activated for site #${data.site_id}. Refreshing your workspace...`);
+        await Promise.all([loadSites(), loadAssistants(), refreshStats()]);
+    } catch (e) {
+        setStatus("activate-status", "error", "Network error: " + e.message);
+    }
+}
+
+async function createInternalAssistant() {
+    setStatus("ia-status", "info", "Creating internal assistant...");
+    const payload = {
+        name: document.getElementById("ia-name").value.trim(),
+        slug: document.getElementById("ia-slug").value.trim().toLowerCase(),
+        admin_password: document.getElementById("ia-admin-password").value,
+        user_password: document.getElementById("ia-user-password").value,
+        language: document.getElementById("ia-language").value,
+        email: currentUser ? currentUser.email : "",
+        code: "",
+    };
+
+    try {
+        const resp = await fetch(API + "/api/internal/setup", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (resp.status === 401) { await doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            setStatus("ia-status", "error", data.error || "Failed to create assistant");
+            return;
+        }
+        setStatus("ia-status", "success", `Assistant created at ${data.url}`);
+        document.getElementById("ia-name").value = "";
+        document.getElementById("ia-slug").value = "";
+        document.getElementById("ia-admin-password").value = "";
+        document.getElementById("ia-user-password").value = "";
+        await Promise.all([loadAssistants(), loadSites(), refreshStats()]);
+        switchTab("assistants");
+    } catch (e) {
+        setStatus("ia-status", "error", "Network error: " + e.message);
+    }
+}
+
+async function refreshStats() {
+    const resp = await fetch(API + "/api/user/me", { headers: authHeaders(false) });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    document.getElementById("stat-sites").textContent = data.stats.sites || 0;
+    document.getElementById("stat-assistants").textContent = data.stats.assistants || 0;
+}
+
+async function loadSites() {
+    const list = document.getElementById("sites-list");
+    list.innerHTML = '<div class="loading">Loading your sites...</div>';
+    const resp = await fetch(API + "/api/user/sites", { headers: authHeaders(false) });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    const sites = data.sites || [];
+    if (sites.length === 0) {
+        list.innerHTML = '<div class="empty-state">No owned sites yet. Use an activation code or open the trial wizard to create your first project.</div>';
+        return;
+    }
+    list.innerHTML = sites.map((site) => {
+        const badge = site.is_trial
+            ? '<span class="badge badge-trial">Trial</span>'
+            : '<span class="badge badge-active">Active</span>';
+        return `
+            <div class="site-row" onclick="openSiteDetail(${site.id})">
+                <div>
+                    <div class="site-domain">${esc(site.domain)} ${badge}</div>
+                    <div class="site-meta">Site ID: ${site.id} · ${site.doc_count} document(s) · Language: ${site.language || 'auto'}</div>
+                </div>
+                <div class="inline-actions" onclick="event.stopPropagation()">
+                    <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${site.id})">Manage</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id}, '${esc(site.domain)}')">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+async function loadAssistants() {
+    const list = document.getElementById("assistants-list");
+    list.innerHTML = '<div class="loading">Loading your assistants...</div>';
+    const resp = await fetch(API + "/api/user/internal-assistants", { headers: authHeaders(false) });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    const assistants = data.assistants || [];
+    if (assistants.length === 0) {
+        list.innerHTML = '<div class="empty-state">No internal assistants under your account yet.</div>';
+        return;
+    }
+    list.innerHTML = assistants.map((a) => `
+        <div class="site-row" style="cursor:default">
+            <div>
+                <div class="site-domain">${esc(a.name)} <span class="badge badge-active">Active</span></div>
+                <div class="site-meta">Slug: ${esc(a.slug)} · Site ID: ${a.site_id} · ${a.doc_count} document(s)</div>
+                <div class="site-meta" style="margin-top:4px">
+                    URL: <a href="${esc(a.url)}" target="_blank" style="color:var(--accent)">${esc(a.url)}</a>
+                </div>
+            </div>
+            <div class="inline-actions">
+                <a class="btn btn-sm btn-outline" href="${esc(a.url)}" target="_blank" style="text-decoration:none">Open</a>
+            </div>
+        </div>
+    `).join("");
+}
+
+async function openSiteDetail(siteId) {
+    currentSiteId = siteId;
+    switchTab("site-detail");
+    let pane = document.getElementById("tab-site-detail");
+    if (!pane) {
+        pane = document.createElement("div");
+        pane.id = "tab-site-detail";
+        pane.className = "tab-content active";
+        document.querySelector(".container").appendChild(pane);
+    }
+    pane.innerHTML = '<div class="loading">Loading site details...</div>';
+
+    const resp = await fetch(API + `/api/user/sites/${siteId}/documents`, { headers: authHeaders(false) });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok) {
+        pane.innerHTML = '<div class="empty-state">Failed to load site details.</div>';
+        return;
+    }
+
+    const site = data.site;
+    const docs = data.documents || [];
+    const settings = site.settings || {};
+    const sourceUrl = settings.source_url || `https://${site.domain}`;
+    const assistantJson = esc(JSON.stringify(settings.assistant || getAssistantConfigTemplate(), null, 2));
+    const badge = site.is_trial
+        ? '<span class="badge badge-trial">Trial</span>'
+        : '<span class="badge badge-active">Active</span>';
+    const totalChunks = docs.reduce((sum, doc) => sum + doc.chunk_count, 0);
+    const widgetSnippet = `<script src="${API}/widget.js" data-site-id="${site.id}" data-api="${API}"></` + `script>`;
+
+    pane.innerHTML = `
+        <button class="back-btn" onclick="switchTab('sites')">&larr; Back to my sites</button>
+        <div class="site-header">
+            <h2>${esc(site.domain)} ${badge}</h2>
+            <div class="site-meta">Site ID: ${site.id} · ${docs.length} document(s) · ${totalChunks} chunk(s) · Language: ${site.language || 'auto'}</div>
+            <div class="site-meta" style="margin-top:6px">
+                Source URL: <a href="${esc(sourceUrl)}" target="_blank" style="color:var(--accent)">${esc(sourceUrl)}</a>
+                · Widget code: <code>${esc(widgetSnippet)}</code>
+            </div>
+            <div class="site-header-actions">
+                <button class="btn btn-sm btn-outline" onclick="showRecrawlForm()">Re-crawl</button>
+                <div class="file-input-wrap">
+                    <button class="btn btn-sm btn-primary">Upload PDF</button>
+                    <input type="file" accept=".pdf" onchange="uploadPdf(this.files[0])">
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="recrawl-form" style="display:none;margin-bottom:18px;">
+            <h3>Re-crawl site</h3>
+            <p>This deletes existing documents and chunks, then re-indexes from the source URL.</p>
+            <div class="form-row">
+                <div class="field">
+                    <label>Source URL</label>
+                    <input type="text" id="recrawl-url" value="${esc(sourceUrl)}">
+                </div>
+                <div class="field">
+                    <label>Max pages</label>
+                    <input type="number" id="recrawl-pages" value="100" min="1" max="300">
+                </div>
+            </div>
+            <div class="inline-actions">
+                <button class="btn btn-primary" id="recrawl-btn" onclick="doRecrawl()">Start re-crawl</button>
+                <button class="btn btn-outline" onclick="document.getElementById('recrawl-form').style.display='none'">Cancel</button>
+            </div>
+            <div class="status-msg" id="recrawl-status"></div>
+        </div>
+
+        <div class="status-msg" id="upload-status"></div>
+
+        <div class="card" style="margin-bottom:18px;">
+            <h3>Assistant configuration</h3>
+            <p>Update greeting, buttons, forms, and intent rules for this site.</p>
+            <div class="field">
+                <label>Assistant JSON</label>
+                <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
+            </div>
+            <div class="inline-actions">
+                <button class="btn btn-primary" onclick="saveAssistantConfig()">Save config</button>
+                <button class="btn btn-outline" onclick="formatAssistantConfig()">Format JSON</button>
+                <button class="btn btn-outline" onclick="loadAssistantConfigTemplate()">Load template</button>
+            </div>
+            <div class="status-msg" id="assistant-config-status"></div>
+        </div>
+
+        <h3 style="margin: 18px 0 12px; font-size: 16px;">Documents and chunks</h3>
+        <div id="site-docs-list">
+            ${docs.length === 0 ? '<div class="empty-state">No indexed documents yet.</div>' : docs.map((doc) => renderDocSection(doc, site.id)).join("")}
+        </div>
+    `;
+}
+
+function renderDocSection(doc, siteId) {
+    const chunks = doc.chunks || [];
+    return `
+        <div class="doc-section">
+            <div class="doc-header" onclick="toggleDocChunks(this)" id="doc-header-${doc.id}">
+                <div>
+                    <h4>${esc(doc.title)}</h4>
+                    <div class="doc-header-meta">${esc(doc.url)} · ${doc.chunk_count} chunk(s) ${doc.last_crawled ? '· Crawled: ' + new Date(doc.last_crawled).toLocaleDateString() : ''}</div>
+                </div>
+                <span class="doc-header-meta">${chunks.length > 0 ? 'Click to expand' : 'No chunks'}</span>
+            </div>
+            <div class="doc-chunks" id="doc-chunks-${doc.id}">
+                ${chunks.map((chunk) => `
+                    <div class="chunk-item" id="chunk-${chunk.id}">
+                        <span class="chunk-idx">#${chunk.chunk_index}</span>
+                        <div class="chunk-text">${esc(chunk.preview)}</div>
+                        <button class="btn btn-sm btn-danger" onclick="deleteChunk(${siteId}, ${chunk.id})">Delete</button>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function toggleDocChunks(headerEl) {
+    const docId = headerEl.id.replace("doc-header-", "");
+    const chunksEl = document.getElementById("doc-chunks-" + docId);
+    chunksEl.classList.toggle("open");
+}
+
+function showRecrawlForm() {
+    document.getElementById("recrawl-form").style.display = "block";
+}
+
+function getAssistantConfigTemplate() {
+    return {
+        display: { title: "", input_placeholder: "" },
+        language_switch: {
+            enabled: false,
+            default: "",
+            options: [{ code: "ru", label: "RU" }, { code: "en", label: "EN" }]
+        },
+        greeting: { enabled: false, message: "", show_once: true, delay_ms: 0 },
+        starters: [
+            { id: "example_info", label: "Ask about the program", action: "send_message", message: "Can you tell me about your main program and how it works?" },
+            { id: "example_form", label: "Leave my details", action: "open_form", form_id: "contact_form" }
+        ],
+        forms: [{
+            id: "contact_form",
+            title: "Contact request",
+            description: "Leave your details and our team can follow up.",
+            submit_label: "Send",
+            success_message: "Thanks. Your request has been sent.",
+            fields: [
+                { name: "name", label: "Name", type: "text", required: true, placeholder: "Your name" },
+                { name: "phone", label: "Phone", type: "tel", required: true, placeholder: "+82 10 1234 5678" }
+            ],
+            destinations: { email: [], telegram_chat_ids: [], whatsapp_numbers: [] }
+        }]
+    };
+}
+
+function formatAssistantConfig() {
+    const textarea = document.getElementById("assistant-config");
+    try {
+        const parsed = JSON.parse(textarea.value);
+        textarea.value = JSON.stringify(parsed, null, 2);
+        setStatus("assistant-config-status", "success", "JSON formatted.");
+    } catch (e) {
+        setStatus("assistant-config-status", "error", "Invalid JSON: " + e.message);
+    }
+}
+
+function loadAssistantConfigTemplate() {
+    const textarea = document.getElementById("assistant-config");
+    textarea.value = JSON.stringify(getAssistantConfigTemplate(), null, 2);
+    setStatus("assistant-config-status", "info", "Starter template loaded.");
+}
+
+async function saveAssistantConfig() {
+    const textarea = document.getElementById("assistant-config");
+    let parsed;
+    try {
+        parsed = JSON.parse(textarea.value);
+    } catch (e) {
+        setStatus("assistant-config-status", "error", "Invalid JSON: " + e.message);
+        return;
+    }
+    setStatus("assistant-config-status", "info", "Saving assistant config...");
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/assistant-config`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ assistant: parsed }),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        setStatus("assistant-config-status", "error", data.error || "Failed to save assistant config");
+        return;
+    }
+    textarea.value = JSON.stringify(data.assistant || parsed, null, 2);
+    setStatus("assistant-config-status", "success", "Assistant config saved.");
+}
+
+async function doRecrawl() {
+    if (!confirm("This will delete existing documents/chunks and re-crawl the site. Continue?")) return;
+    setStatus("recrawl-status", "info", "Starting re-crawl...");
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/recrawl`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+            url: document.getElementById("recrawl-url").value.trim(),
+            max_pages: parseInt(document.getElementById("recrawl-pages").value || "100", 10),
+        }),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        setStatus("recrawl-status", "error", data.error || "Failed to start re-crawl");
+        return;
+    }
+    setStatus("recrawl-status", "success", "Re-crawl started. Waiting for progress...");
+    pollProgress(currentSiteId, "recrawl-status");
+}
+
+function pollProgress(siteId, statusId) {
+    try {
+        const evtSource = new EventSource(API + `/api/trial/progress/${siteId}`);
+        evtSource.onmessage = (event) => {
+            const progress = JSON.parse(event.data);
+            if (progress.error) {
+                setStatus(statusId, "error", progress.error);
+                evtSource.close();
+                return;
+            }
+            setStatus(statusId, "info", progress.message || "Processing...");
+            if (progress.done) {
+                setStatus(statusId, "success", progress.message || "Done!");
+                evtSource.close();
+                setTimeout(() => openSiteDetail(siteId), 800);
+            }
+        };
+        evtSource.onerror = () => evtSource.close();
+    } catch (e) {}
+}
+
+async function uploadPdf(file) {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("pdf", file);
+    setStatus("upload-status", "info", `Uploading "${file.name}"...`);
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/upload-pdf`, {
+        method: "POST",
+        headers: { "X-User-Token": userToken },
+        body: formData,
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        setStatus("upload-status", "error", data.error || "Failed to upload PDF");
+        return;
+    }
+    setStatus("upload-status", "success", `Uploaded "${data.filename}" — ${data.chunks} chunk(s) indexed.`);
+    setTimeout(() => openSiteDetail(currentSiteId), 400);
+}
+
+async function deleteChunk(siteId, chunkId) {
+    if (!confirm("Delete this chunk?")) return;
+    const resp = await fetch(API + `/api/user/sites/${siteId}/chunks/${chunkId}`, {
+        method: "DELETE",
+        headers: authHeaders(false),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        alert(data.error || "Failed to delete chunk");
+        return;
+    }
+    const el = document.getElementById("chunk-" + chunkId);
+    if (el) el.remove();
+}
+
+async function deleteSite(siteId, domain) {
+    if (!confirm(`Delete site "${domain}" and all its documents/chunks?`)) return;
+    const resp = await fetch(API + `/api/user/sites/${siteId}`, {
+        method: "DELETE",
+        headers: authHeaders(false),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        alert(data.error || "Failed to delete site");
+        return;
+    }
+    await loadSites();
+    await refreshStats();
+    switchTab("sites");
+}
+
+bootstrap();
+</script>
+</body>
+</html>

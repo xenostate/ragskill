@@ -13,10 +13,15 @@ from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 
 import scripts.config as cfg
-from scripts.utils import rate_limit_check, is_url_safe
+from scripts.utils import rate_limit_check, is_url_safe, verify_user
 from scripts.routes.trial import run_trial_indexing
 
 router = APIRouter()
+
+
+def _widget_snippet(site_id: int) -> str:
+    public_url = os.environ.get("PUBLIC_URL", "https://wrs.kz").rstrip("/")
+    return f'<script src="{public_url}/widget.js" data-site-id="{site_id}" data-api="{public_url}"></script>'
 
 
 @router.post("/api/register")
@@ -60,12 +65,16 @@ async def activate(request: Request):
     token = body.get("token", "").strip()
     max_pages = min(int(body.get("max_pages", 100)), 300)
 
-    if not code or not site_id or not token:
+    current_user = verify_user(request, require_active=True)
+    if not code or not site_id or (not token and not current_user):
         return JSONResponse({"error": "Code, site_id, and token are required"}, status_code=400)
 
-    reg = cfg.sb.table("registrations").select("email").eq("token", token).execute()
-    if not reg.data:
+    reg_email = current_user["email"] if current_user else None
+    reg = cfg.sb.table("registrations").select("email").eq("token", token).execute() if token else None
+    if token and (not reg or not reg.data):
         return JSONResponse({"error": "Invalid session"}, status_code=401)
+    if reg and reg.data:
+        reg_email = reg.data[0]["email"]
 
     if not cfg.ACTIVATION_CODE:
         return JSONResponse({"error": "Activation not configured"}, status_code=503)
@@ -88,13 +97,22 @@ async def activate(request: Request):
     # site.  If it was set, the activating token must match.
     site_settings = site_data.get("settings") or {}
     owner_token = site_settings.get("owner_token")
-    if owner_token and owner_token != token:
+    owner_user_id = site_data.get("owner_user_id")
+    if current_user and owner_user_id and owner_user_id != current_user["user_id"] and current_user.get("role") != "admin":
+        cfg.log.warning(f"Activate denied: user mismatch for site {site_id}")
+        return JSONResponse({"error": "You are not the owner of this trial"}, status_code=403)
+    if owner_token and not token and not current_user:
+        return JSONResponse({"error": "You are not the owner of this trial"}, status_code=403)
+    if owner_token and token and owner_token != token:
         cfg.log.warning(f"Activate denied: token mismatch for site {site_id}")
         return JSONResponse({"error": "You are not the owner of this trial"}, status_code=403)
 
     source_url = site_settings.get("source_url", "")
 
-    cfg.sb.table("sites").update({"is_trial": False, "expires_at": None}).eq("id", site_id).execute()
+    update_payload = {"is_trial": False, "expires_at": None}
+    if current_user:
+        update_payload["owner_user_id"] = current_user["user_id"]
+    cfg.sb.table("sites").update(update_payload).eq("id", site_id).execute()
 
     if source_url and max_pages > 0:
         cfg.trial_progress[site_id] = {
@@ -111,12 +129,12 @@ async def activate(request: Request):
 
         asyncio.get_event_loop().create_task(asyncio.to_thread(reindex))
 
-    cfg.log.info(f"Site {site_id} activated by {reg.data[0]['email']} — re-indexing {max_pages} pages")
+    cfg.log.info(f"Site {site_id} activated by {reg_email or 'unknown'} — re-indexing {max_pages} pages")
 
     return {
         "success": True,
         "site_id": site_id,
-        "widget_code": f'<script src="{os.environ.get("PUBLIC_URL", "https://wrs.kz")}/widget.js" data-site-id="{site_id}"></script>',
+        "widget_code": _widget_snippet(site_id),
         "source_url": source_url,
     }
 
@@ -135,6 +153,8 @@ async def quick_activate(
     blocked = rate_limit_check(request, "quick_activate", 3, 3600)
     if blocked:
         return blocked
+
+    current_user = verify_user(request, require_active=True)
 
     code = code.strip()
     url = url.strip()
@@ -171,10 +191,25 @@ async def quick_activate(
         pdf_data.append({"filename": pdf.filename, "content": content})
 
     # Check if site exists
-    existing = cfg.sb.table("sites").select("id").eq("domain", domain).execute()
+    existing = cfg.sb.table("sites").select("id, settings").eq("domain", domain).execute()
     if existing.data:
         site_id = existing.data[0]["id"]
-        cfg.sb.table("sites").update({"is_trial": False, "expires_at": None, "language": language or "en"}).eq("id", site_id).execute()
+        existing_settings = existing.data[0].get("settings") or {}
+        existing_site = cfg.sb.table("sites").select("owner_user_id").eq("id", site_id).limit(1).execute()
+        existing_owner = existing_site.data[0].get("owner_user_id") if existing_site.data else None
+        if current_user and existing_owner and existing_owner != current_user["user_id"] and current_user.get("role") != "admin":
+            return JSONResponse({"error": "This domain is already owned by another account"}, status_code=403)
+        existing_settings["source_url"] = url
+        existing_settings["use_playwright"] = use_playwright == "1"
+        update_payload = {
+            "is_trial": False,
+            "expires_at": None,
+            "language": language or "en",
+            "settings": existing_settings,
+        }
+        if current_user:
+            update_payload["owner_user_id"] = current_user["user_id"]
+        cfg.sb.table("sites").update(update_payload).eq("id", site_id).execute()
         # Clear existing documents/chunks so run_trial_indexing can
         # insert fresh ones without hitting unique(site_id, url).
         old_docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
@@ -184,7 +219,8 @@ async def quick_activate(
     else:
         site_resp = cfg.sb.table("sites").insert({
             "domain": domain, "language": language or "en", "is_trial": False,
-            "settings": {"source_url": url},
+            "owner_user_id": current_user["user_id"] if current_user else None,
+            "settings": {"source_url": url, "use_playwright": use_playwright == "1"},
         }).execute()
         site_id = site_resp.data[0]["id"]
 
@@ -200,5 +236,5 @@ async def quick_activate(
     return {
         "success": True,
         "site_id": site_id,
-        "widget_code": f'<script src="{public_url}/widget.js" data-site-id="{site_id}"></script>',
+        "widget_code": _widget_snippet(site_id),
     }

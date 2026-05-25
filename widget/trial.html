@@ -1549,6 +1549,15 @@
     // ── State ──
     const API = window.location.origin;
     let token = localStorage.getItem("wr_token");
+    function getUserToken() {
+        return localStorage.getItem("wr_user_token") || "";
+    }
+    function userHeaders(extra = {}) {
+        const headers = { ...extra };
+        const userToken = getUserToken();
+        if (userToken) headers["X-User-Token"] = userToken;
+        return headers;
+    }
     let siteId = null;
 
     const dots = [1,2,3,4].map(i => document.getElementById("dot-" + i));
@@ -1646,7 +1655,11 @@
         for (const f of document.getElementById("t-pdfs").files) fd.append("pdfs", f);
 
         try {
-            const resp = await fetch(API + "/api/trial/start", { method: "POST", body: fd });
+            const resp = await fetch(API + "/api/trial/start", {
+                method: "POST",
+                headers: userHeaders(),
+                body: fd,
+            });
             const data = await resp.json();
 
             if (!resp.ok) { showErr(err, data.error || t.trialErrNet); btn.disabled = false; return; }
@@ -1788,7 +1801,7 @@
         try {
             const resp = await fetch(API + "/api/activate", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: userHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ code, site_id: siteId, token, max_pages: parseInt(document.getElementById("a-pages").value) }),
             });
             const data = await resp.json();
@@ -2036,7 +2049,10 @@
         for (var i = 0; i < files.length; i++) fd.append("pdfs", files[i]);
 
         try {
-            var resp = await fetch(API + "/api/quick-activate", { method: "POST", body: fd });
+            var userToken = localStorage.getItem("wr_user_token") || "";
+            var headers = {};
+            if (userToken) headers["X-User-Token"] = userToken;
+            var resp = await fetch(API + "/api/quick-activate", { method: "POST", headers: headers, body: fd });
             var data = await resp.json();
 
             if (!resp.ok) { showErr(err, data.error); btn.disabled = false; return; }

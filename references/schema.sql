@@ -4,6 +4,32 @@
 -- Enable pgvector
 create extension if not exists vector;
 
+-- App users (customer accounts + bootstrap admin owner)
+create table if not exists app_users (
+    id              bigint generated always as identity primary key,
+    email           text not null unique,
+    password_hash   text not null,
+    name            text not null,
+    role            text not null default 'client',
+    status          text not null default 'active',
+    last_login_at   timestamptz,
+    created_at      timestamptz default now()
+);
+
+create index if not exists idx_app_users_role on app_users(role);
+
+create table if not exists app_sessions (
+    token           text primary key,
+    user_id         bigint not null references app_users(id) on delete cascade,
+    user_agent      text,
+    ip              text,
+    expires_at      timestamptz not null,
+    created_at      timestamptz default now()
+);
+
+create index if not exists idx_app_sessions_user on app_sessions(user_id);
+create index if not exists idx_app_sessions_expires on app_sessions(expires_at);
+
 -- Sites table
 create table if not exists sites (
     id          bigint generated always as identity primary key,
@@ -12,6 +38,9 @@ create table if not exists sites (
     settings    jsonb default '{}',
     created_at  timestamptz default now()
 );
+
+alter table sites add column if not exists owner_user_id bigint references app_users(id) on delete set null;
+create index if not exists idx_sites_owner_user on sites(owner_user_id);
 
 -- Documents table
 create table if not exists documents (
@@ -128,8 +157,11 @@ create table if not exists internal_assistants (
     created_at      timestamptz default now()
 );
 
+alter table internal_assistants add column if not exists owner_user_id bigint references app_users(id) on delete set null;
+
 create index if not exists idx_internal_assistants_slug on internal_assistants(slug);
 create index if not exists idx_internal_assistants_site on internal_assistants(site_id);
+create index if not exists idx_internal_assistants_owner on internal_assistants(owner_user_id);
 
 -- Chat analytics log (lightweight — query text only, no answers stored)
 create table if not exists chat_logs (

@@ -28,6 +28,7 @@ from scripts.routes.trial import router as trial_router
 from scripts.routes.admin import router as admin_router, setup_landing_site
 from scripts.routes.auth import router as auth_router
 from scripts.routes.internal import router as internal_router
+from scripts.routes.user import router as user_router, bootstrap_app_user_ownership
 from scripts.routes.whatsapp import router as whatsapp_router
 
 
@@ -101,6 +102,13 @@ async def cleanup_expired_trials():
         except Exception as e:
             cfg.log.error(f"Trial progress cleanup error: {e}")
 
+        # Clean expired app sessions
+        try:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cfg.sb.table("app_sessions").delete().lt("expires_at", now_iso).execute()
+        except Exception as e:
+            cfg.log.error(f"App session cleanup error: {e}")
+
 
 # ── App lifespan ────────────────────────────────────────────────────────────
 
@@ -160,6 +168,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         cfg.log.error(f"Landing site setup failed: {e}")
 
+    try:
+        bootstrap_app_user_ownership()
+    except Exception as e:
+        cfg.log.error(f"App user bootstrap failed: {e}")
+
     yield
 
     # Shutdown
@@ -198,7 +211,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Admin-Token", "X-Internal-Token"],
+    allow_headers=["Content-Type", "X-Admin-Token", "X-Internal-Token", "X-User-Token"],
 )
 
 # Register route modules
@@ -207,4 +220,5 @@ app.include_router(trial_router)
 app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(internal_router)
+app.include_router(user_router)
 app.include_router(whatsapp_router)

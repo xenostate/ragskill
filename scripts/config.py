@@ -30,6 +30,10 @@ RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+APP_ADMIN_EMAIL = os.environ.get("APP_ADMIN_EMAIL", "").strip().lower()
+APP_ADMIN_PASSWORD = os.environ.get("APP_ADMIN_PASSWORD", "")
+APP_ADMIN_NAME = os.environ.get("APP_ADMIN_NAME", "Admin").strip() or "Admin"
+APP_SESSION_TTL_HOURS = int(os.environ.get("APP_SESSION_TTL_HOURS", "720"))
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))

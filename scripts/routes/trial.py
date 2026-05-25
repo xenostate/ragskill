@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Stre
 from pypdf import PdfReader
 
 import scripts.config as cfg
-from scripts.utils import rate_limit_check, is_url_safe, is_valid_pdf
+from scripts.utils import rate_limit_check, is_url_safe, is_valid_pdf, verify_user
 from scripts.indexer import (
     clean_html, chunk_text, extract_headings, extract_links,
     content_hash, StaticRenderer, PlaywrightRenderer,
@@ -196,6 +196,7 @@ async def trial_start(
     blocked = rate_limit_check(request, "trial_start", 3, 3600)
     if blocked:
         return blocked
+    current_user = verify_user(request, require_active=True)
 
     parsed = urlparse(url)
     if not parsed.scheme:
@@ -223,6 +224,7 @@ async def trial_start(
         "language": language,
         "is_trial": True,
         "expires_at": expires_at,
+        "owner_user_id": current_user["user_id"] if current_user else None,
         "settings": site_settings,
     }).execute()
     site_id = site_resp.data[0]["id"]

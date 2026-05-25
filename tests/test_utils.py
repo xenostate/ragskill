@@ -20,6 +20,8 @@ from scripts.utils import (
     verify_admin,
     verify_admin_token,
     verify_internal,
+    verify_user,
+    verify_user_token,
 )
 
 
@@ -290,3 +292,131 @@ class TestVerifyInternal:
         req = MagicMock()
         req.headers = {"x-internal-token": ""}
         assert verify_internal(req, "my-assistant") is None
+
+
+class _FakeResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class _FakeQuery:
+    def __init__(self, response):
+        self.response = response
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        return self.response
+
+
+class _FakeDeleteQuery:
+    def __init__(self):
+        self.deleted_token = None
+
+    def eq(self, _field, value):
+        self.deleted_token = value
+        return self
+
+    def execute(self):
+        return _FakeResponse([])
+
+
+class _FakeSupabase:
+    def __init__(self, session_data=None, user_data=None):
+        self.session_data = session_data or []
+        self.user_data = user_data or []
+        self.deleted_token = None
+
+    def table(self, name):
+        if name == "app_sessions":
+            parent = self
+
+            class _SessionTable(_FakeQuery):
+                def __init__(self):
+                    super().__init__(_FakeResponse(parent.session_data))
+
+                def delete(self):
+                    query = _FakeDeleteQuery()
+                    original_execute = query.execute
+
+                    def _execute():
+                        parent.deleted_token = query.deleted_token
+                        return original_execute()
+
+                    query.execute = _execute
+                    return query
+
+            return _SessionTable()
+        if name == "app_users":
+            return _FakeQuery(_FakeResponse(self.user_data))
+        raise AssertionError(f"Unexpected table lookup: {name}")
+
+
+class TestVerifyUser:
+    def test_verify_user_token_returns_active_user(self):
+        cfg.sb = _FakeSupabase(
+            session_data=[{
+                "token": "usr_valid",
+                "user_id": 5,
+                "expires_at": "2099-01-01T00:00:00+00:00",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }],
+            user_data=[{
+                "id": 5,
+                "email": "owner@example.com",
+                "name": "Owner",
+                "role": "client",
+                "status": "active",
+            }],
+        )
+
+        user = verify_user_token("usr_valid")
+        assert user is not None
+        assert user["user_id"] == 5
+        assert user["email"] == "owner@example.com"
+        assert user["role"] == "client"
+
+    def test_verify_user_token_deletes_expired_session(self):
+        cfg.sb = _FakeSupabase(
+            session_data=[{
+                "token": "usr_expired",
+                "user_id": 5,
+                "expires_at": "2000-01-01T00:00:00+00:00",
+                "created_at": "1999-01-01T00:00:00+00:00",
+            }],
+            user_data=[],
+        )
+
+        user = verify_user_token("usr_expired")
+        assert user is None
+        assert cfg.sb.deleted_token == "usr_expired"
+
+    def test_verify_user_reads_header(self):
+        cfg.sb = _FakeSupabase(
+            session_data=[{
+                "token": "usr_header",
+                "user_id": 7,
+                "expires_at": "2099-01-01T00:00:00+00:00",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }],
+            user_data=[{
+                "id": 7,
+                "email": "client@example.com",
+                "name": "Client",
+                "role": "client",
+                "status": "active",
+            }],
+        )
+        req = MagicMock()
+        req.headers = {"x-user-token": "usr_header"}
+
+        user = verify_user(req)
+        assert user is not None
+        assert user["name"] == "Client"
