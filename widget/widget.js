@@ -16,6 +16,7 @@
   const ICON_NAME = normalizeIconName(scriptTag?.getAttribute("data-icon"));
   const FONT_FAMILY = sanitizeFontFamily(scriptTag?.getAttribute("data-font-family"));
   const FONT_URL = sanitizeFontUrl(scriptTag?.getAttribute("data-font-url"));
+  const AUTO_OPEN = scriptTag?.getAttribute("data-auto-open") === "true";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
   const PREVIEW_ADMIN_TOKEN = scriptTag?.getAttribute("data-preview-admin-token") || "";
@@ -1207,7 +1208,7 @@
 
   loadAssistantConfig();
 
-  if (PREVIEW_OPEN) {
+  if (PREVIEW_OPEN || AUTO_OPEN) {
     window.setTimeout(() => {
       if (!isOpen) {
         toggle();

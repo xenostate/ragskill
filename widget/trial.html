@@ -58,6 +58,64 @@
             gap: 10px;
         }
 
+        .account-banner {
+            display: none;
+            position: fixed;
+            top: 74px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99;
+            width: min(820px, calc(100vw - 32px));
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.96);
+            border: 1px solid rgba(251,116,45,0.18);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .account-banner.show {
+            display: flex;
+        }
+
+        .account-banner-text {
+            color: var(--text2);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .account-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .account-banner-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 9px 14px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .account-banner-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         .logo {
             font-size: 18px;
             font-weight: 800;
@@ -826,6 +884,13 @@
             .section-title { font-size: 24px; }
             .field-row { flex-direction: column; gap: 0; }
             .chat-box { height: calc(100vh - 220px); }
+            .account-banner {
+                top: 68px;
+                width: calc(100vw - 20px);
+                padding: 12px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -838,9 +903,17 @@
         <a class="portal-link" href="/app" data-i18n="portalBtn"></a>
         <div class="lang-switch">
             <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
-            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+            <button class="lang-btn" data-lang="en" onclick="setLang('en')">ENG</button>
             <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
         </div>
+    </div>
+</div>
+
+<div class="account-banner" id="account-banner">
+    <div class="account-banner-text" id="account-banner-text"></div>
+    <div class="account-banner-actions">
+        <a class="account-banner-btn" href="/app" id="account-banner-open"></a>
+        <button class="account-banner-btn" type="button" id="account-banner-logout"></button>
     </div>
 </div>
 
@@ -852,19 +925,6 @@
         <h1 data-i18n-html="heroTitle"></h1>
         <p data-i18n="heroSub"></p>
         <div class="hero-account-note" data-i18n="heroAccountNote"></div>
-        <div class="hero-chat" id="hero-chat">
-            <div class="hero-chat-body" id="lc-body">
-                <div class="hero-chat-msg bot" data-i18n="lcWelcome"></div>
-                <div class="hero-chat-typing" id="lc-typing"><span></span><span></span><span></span></div>
-            </div>
-            <div class="hero-chat-foot">
-                <input id="lc-input" data-i18n-ph="lcPlaceholder">
-                <button id="lc-send" onclick="sendLandingChat()">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                </button>
-            </div>
-            <div class="hero-chat-label" data-i18n="lcLabel"></div>
-        </div>
     </section>
 
     <!-- Features -->
@@ -928,21 +988,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
 
-        <div class="quick-activate">
-            <h2 data-i18n="qaTitle"></h2>
-            <button class="hero-cta" onclick="openQaModal()">
-                <span data-i18n="qaBtn"></span>
-            </button>
-            <p class="account-note" data-i18n="qaAccountNote"></p>
-        </div>
-
-        <div class="quick-activate" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
-            <h2 data-i18n="iaTitle"></h2>
-            <p style="font-size:13px;color:var(--text2);margin-bottom:12px;" data-i18n="iaSub"></p>
-            <button class="hero-cta" onclick="openIaModal()">
-                <span data-i18n="iaBtn"></span>
-            </button>
-        </div>
     </section>
 
     <div class="footer">
@@ -1156,6 +1201,9 @@
             heroCta: "Попробовать бесплатно",
             portalBtn: "Личный кабинет",
             heroAccountNote: "Аккаунт клиента нужен для сохранения проектов и активации платных ассистентов. Бесплатный trial можно пройти сразу, а для активации откройте личный кабинет и войдите в него.",
+            accountBanner: "Вы вошли как {email}. Ваши проекты будут сохраняться в личном кабинете.",
+            accountOpen: "Открыть кабинет",
+            accountLogout: "Выйти",
             lcWelcome: "Привет! Я AI-ассистент WebRAG. Задайте мне любой вопрос о нашем продукте.",
             lcPlaceholder: "Спросите что-нибудь о WebRAG...",
             lcLabel: "Это живой пример работы нашего AI-ассистента",
@@ -1272,6 +1320,9 @@
             heroCta: "Try for free",
             portalBtn: "Customer Portal",
             heroAccountNote: "Customer accounts now own activated projects. You can still run a free trial here, but production activation should be completed from the customer portal after signing in.",
+            accountBanner: "Signed in as {email}. Your projects will be saved under this customer account.",
+            accountOpen: "Open dashboard",
+            accountLogout: "Sign out",
             lcWelcome: "Hi! I'm the WebRAG AI assistant. Ask me anything about our product.",
             lcPlaceholder: "Ask something about WebRAG...",
             lcLabel: "This is a live demo of our AI assistant",
@@ -1388,6 +1439,9 @@
             heroCta: "Тегін байқап көру",
             portalBtn: "Жеке кабинет",
             heroAccountNote: "Клиент аккаунты жобаларды сақтау және ақылы ассистенттерді белсендіру үшін керек. Тегін trial-ды осы жерден өте аласыз, ал белсендіру үшін жеке кабинетке кіріңіз.",
+            accountBanner: "Сіз {email} ретінде кірдіңіз. Жобаларыңыз осы клиент аккаунтында сақталады.",
+            accountOpen: "Кабинетті ашу",
+            accountLogout: "Шығу",
             lcWelcome: "Сәлем! Мен WebRAG AI-көмекшісімін. Біздің өнім туралы кез келген сұрақ қойыңыз.",
             lcPlaceholder: "WebRAG туралы сұрақ қойыңыз...",
             lcLabel: "Бұл біздің AI-көмекшінің тікелей демосы",
@@ -1534,6 +1588,7 @@
         currentLang = lang;
         localStorage.setItem("wr_lang", lang);
         applyTranslations();
+        refreshAccountBanner();
     };
 
     // Apply on load
@@ -1552,64 +1607,6 @@
         }
     });
 
-    // ── Landing chat ──
-    let landingSiteId = null;
-
-    // Fetch landing site_id on load
-    fetch(window.location.origin + "/api/landing/config")
-        .then(r => r.json())
-        .then(d => { if (d.site_id) landingSiteId = d.site_id; })
-        .catch(() => {});
-
-    window.sendLandingChat = async function() {
-        const inp = document.getElementById("lc-input");
-        const q = inp.value.trim();
-        if (!q || !landingSiteId) return;
-
-        inp.value = "";
-        document.getElementById("lc-send").disabled = true;
-
-        // Add user message
-        const ud = document.createElement("div");
-        ud.className = "hero-chat-msg user";
-        ud.textContent = q;
-        const body = document.getElementById("lc-body");
-        body.insertBefore(ud, document.getElementById("lc-typing"));
-        document.getElementById("lc-typing").classList.add("on");
-        body.scrollTop = body.scrollHeight;
-
-        try {
-            const resp = await fetch(window.location.origin + "/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ site_id: landingSiteId, query: q }),
-            });
-            const data = await resp.json();
-
-            const bd = document.createElement("div");
-            bd.className = "hero-chat-msg bot";
-            bd.innerHTML = data.answer
-                .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                .replace(/\n/g, "<br>");
-            body.insertBefore(bd, document.getElementById("lc-typing"));
-        } catch (e) {
-            const ed = document.createElement("div");
-            ed.className = "hero-chat-msg bot";
-            ed.textContent = T[currentLang].chatError;
-            body.insertBefore(ed, document.getElementById("lc-typing"));
-        } finally {
-            document.getElementById("lc-typing").classList.remove("on");
-            document.getElementById("lc-send").disabled = false;
-            body.scrollTop = body.scrollHeight;
-            inp.focus();
-        }
-    };
-
-    document.getElementById("lc-input").addEventListener("keydown", e => {
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendLandingChat(); }
-    });
-
     // ── State ──
     const API = window.location.origin;
     let token = localStorage.getItem("wr_token");
@@ -1623,8 +1620,58 @@
         return headers;
     }
     let siteId = null;
+    let landingWidgetLoaded = false;
 
     const dots = [1,2,3,4].map(i => document.getElementById("dot-" + i));
+
+    function ensureLandingWidget() {
+        if (landingWidgetLoaded || document.querySelector('script[data-site-id="42"][data-landing-widget="true"]')) {
+            landingWidgetLoaded = true;
+            return;
+        }
+        const script = document.createElement("script");
+        script.src = API + "/widget.js";
+        script.async = true;
+        script.setAttribute("data-site-id", "42");
+        script.setAttribute("data-api", API);
+        script.setAttribute("data-auto-open", "true");
+        script.setAttribute("data-title", "WebRAG Demo");
+        script.setAttribute("data-color", "#fb742d");
+        script.setAttribute("data-position", "right");
+        script.setAttribute("data-landing-widget", "true");
+        document.body.appendChild(script);
+        landingWidgetLoaded = true;
+    }
+
+    async function refreshAccountBanner() {
+        const banner = document.getElementById("account-banner");
+        const text = document.getElementById("account-banner-text");
+        const openBtn = document.getElementById("account-banner-open");
+        const logoutBtn = document.getElementById("account-banner-logout");
+        const userToken = getUserToken();
+
+        if (!userToken) {
+            banner.classList.remove("show");
+            return;
+        }
+
+        try {
+            const resp = await fetch(API + "/api/user/me", { headers: { "X-User-Token": userToken } });
+            if (!resp.ok) {
+                localStorage.removeItem("wr_user_token");
+                banner.classList.remove("show");
+                return;
+            }
+            const data = await resp.json();
+            const email = (data.user && data.user.email) || "user";
+            text.textContent = (T[currentLang].accountBanner || "").replace("{email}", email);
+            openBtn.textContent = T[currentLang].accountOpen || "Open dashboard";
+            logoutBtn.textContent = T[currentLang].accountLogout || "Sign out";
+            banner.classList.add("show");
+        } catch (e) {
+            banner.classList.remove("show");
+        }
+    }
 
     // ── Navigation ──
     function go(name, step) {
@@ -1659,6 +1706,14 @@
 
     // Auto-login if already registered — go straight to trial on CTA click
     // But stay on landing by default
+
+    document.getElementById("account-banner-logout").addEventListener("click", function() {
+        localStorage.removeItem("wr_user_token");
+        refreshAccountBanner();
+    });
+
+    ensureLandingWidget();
+    refreshAccountBanner();
 
     // ── Step 1: Register ──
     window.doRegister = async function() {

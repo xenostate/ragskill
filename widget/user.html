@@ -139,6 +139,35 @@
         .status-msg.error { display: block; background: #fff1f2; border: 1px solid #fecdd3; color: #be123c; }
 
         .dashboard { display: none; }
+        .global-lang {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 20;
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            backdrop-filter: blur(12px);
+        }
+        .lang-btn {
+            border: none;
+            background: transparent;
+            color: var(--text2);
+            font: inherit;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .lang-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
         .topbar {
             background: var(--surface);
             border-bottom: 1px solid var(--border);
@@ -396,46 +425,55 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+            .global-lang {
+                top: 10px;
+                right: 10px;
+            }
         }
     </style>
 </head>
 <body>
+<div class="global-lang">
+    <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
+    <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">ENG</button>
+</div>
 <div class="auth-shell" id="auth-shell">
     <div class="auth-card">
-        <div class="auth-title">WebRAG Portal</div>
-        <div class="auth-sub">Create your account or sign in to manage your assistants. You can explore the dashboard right away, then unlock paid assistants with your activation code.</div>
+        <div class="auth-title" data-i18n="auth_title">WebRAG Portal</div>
+        <div class="auth-sub" data-i18n="auth_sub">Create your account or sign in to manage your assistants. You can explore the dashboard right away, then unlock paid assistants with your activation code.</div>
         <div class="auth-tabs">
-            <button class="auth-tab active" data-auth-tab="login" onclick="switchAuthTab('login')">Login</button>
-            <button class="auth-tab" data-auth-tab="signup" onclick="switchAuthTab('signup')">Sign up</button>
+            <button class="auth-tab active" data-auth-tab="login" data-i18n="auth_tab_login" onclick="switchAuthTab('login')">Login</button>
+            <button class="auth-tab" data-auth-tab="signup" data-i18n="auth_tab_signup" onclick="switchAuthTab('signup')">Sign up</button>
         </div>
 
         <div class="auth-panel active" id="auth-login">
             <div class="field">
-                <label>Email</label>
-                <input type="email" id="login-email" placeholder="you@example.com">
+                <label data-i18n="field_email">Email</label>
+                <input type="email" id="login-email" data-i18n-ph="ph_email" placeholder="you@example.com">
             </div>
             <div class="field">
-                <label>Password</label>
-                <input type="password" id="login-password" placeholder="Enter your password">
+                <label data-i18n="field_password">Password</label>
+                <input type="password" id="login-password" data-i18n-ph="ph_password_login" placeholder="Enter your password">
             </div>
-            <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+            <button class="btn btn-primary" style="width:100%" data-i18n="login_btn" onclick="doLogin()">Login</button>
             <div class="err" id="login-err"></div>
         </div>
 
         <div class="auth-panel" id="auth-signup">
             <div class="field">
-                <label>Name</label>
-                <input type="text" id="signup-name" placeholder="Your name">
+                <label data-i18n="field_name">Name</label>
+                <input type="text" id="signup-name" data-i18n-ph="ph_name" placeholder="Your name">
             </div>
             <div class="field">
-                <label>Email</label>
-                <input type="email" id="signup-email" placeholder="you@example.com">
+                <label data-i18n="field_email">Email</label>
+                <input type="email" id="signup-email" data-i18n-ph="ph_email" placeholder="you@example.com">
             </div>
             <div class="field">
-                <label>Password</label>
-                <input type="password" id="signup-password" placeholder="At least 6 characters">
+                <label data-i18n="field_password">Password</label>
+                <input type="password" id="signup-password" data-i18n-ph="ph_password_signup" placeholder="At least 6 characters">
             </div>
-            <button class="btn btn-primary" style="width:100%" onclick="doSignup()">Create account</button>
+            <button class="btn btn-primary" style="width:100%" data-i18n="signup_btn" onclick="doSignup()">Create account</button>
             <div class="err" id="signup-err"></div>
         </div>
     </div>
@@ -445,30 +483,32 @@
     <div class="topbar">
         <div class="brand">Web<span>RAG</span> Portal</div>
         <div class="topbar-right">
+            <button class="btn btn-sm btn-outline" data-i18n="top_activate" onclick="focusActivateCard()">Activate Assistant</button>
+            <button class="btn btn-sm btn-outline" data-i18n="top_internal" onclick="focusInternalAssistantCard()">Create Internal Assistant</button>
             <span id="user-pill"></span>
-            <button class="btn btn-sm btn-outline" onclick="window.location.href='/trial'">Open Trial Wizard</button>
-            <button class="btn btn-sm btn-outline" onclick="doLogout()">Logout</button>
+            <button class="btn btn-sm btn-outline" data-i18n="top_trial" onclick="window.location.href='/trial'">Open Trial Wizard</button>
+            <button class="btn btn-sm btn-outline" data-i18n="top_logout" onclick="doLogout()">Logout</button>
         </div>
     </div>
 
     <div class="container">
         <div class="hero-grid">
-            <div class="card">
-                <h2>Activate a paid assistant</h2>
-                <p>Enter your site URL and activation code to create or unlock a production website assistant under your account.</p>
+            <div class="card" id="activate-card">
+                <h2 data-i18n="activate_title">Activate a paid assistant</h2>
+                <p data-i18n="activate_sub">Enter your site URL and activation code to create or unlock a production website assistant under your account.</p>
                 <div class="form-row">
                     <div class="field">
-                        <label>Website URL</label>
-                        <input type="url" id="activate-url" placeholder="https://your-site.com">
+                        <label data-i18n="field_site_url">Website URL</label>
+                        <input type="url" id="activate-url" data-i18n-ph="ph_site_url" placeholder="https://your-site.com">
                     </div>
                     <div class="field">
-                        <label>Activation code</label>
-                        <input type="text" id="activate-code" placeholder="Enter your code">
+                        <label data-i18n="field_activation_code">Activation code</label>
+                        <input type="text" id="activate-code" data-i18n-ph="ph_activation_code" placeholder="Enter your code">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="field">
-                        <label>Max pages</label>
+                        <label data-i18n="field_max_pages">Max pages</label>
                         <select id="activate-pages">
                             <option value="50">50</option>
                             <option value="100" selected>100</option>
@@ -478,7 +518,7 @@
                         </select>
                     </div>
                     <div class="field">
-                        <label>Language</label>
+                        <label data-i18n="field_language">Language</label>
                         <select id="activate-language">
                             <option value="" selected>Auto</option>
                             <option value="ru">Russian</option>
@@ -491,64 +531,64 @@
                 <div class="field">
                     <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;">
                         <input type="checkbox" id="activate-playwright" style="width:auto;">
-                        Use Playwright for JavaScript-heavy sites
+                        <span data-i18n="field_playwright">Use Playwright for JavaScript-heavy sites</span>
                     </label>
                 </div>
                 <div class="inline-actions">
-                    <button class="btn btn-primary" onclick="activateAssistant()">Activate</button>
+                    <button class="btn btn-primary" data-i18n="activate_btn" onclick="activateAssistant()">Activate</button>
                 </div>
                 <div class="status-msg" id="activate-status"></div>
             </div>
 
             <div class="card">
-                <h2>Your workspace</h2>
-                <p>You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.</p>
+                <h2 data-i18n="workspace_title">Your workspace</h2>
+                <p data-i18n="workspace_sub">You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.</p>
                 <div class="stats">
                     <div class="stat">
                         <div class="stat-value" id="stat-sites">0</div>
-                        <div class="stat-label">Owned sites</div>
+                        <div class="stat-label" data-i18n="stat_sites">Owned sites</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value" id="stat-assistants">0</div>
-                        <div class="stat-label">Internal assistants</div>
+                        <div class="stat-label" data-i18n="stat_assistants">Internal assistants</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" data-tab="sites" onclick="switchTab('sites')">My Sites</button>
-            <button class="tab-btn" data-tab="assistants" onclick="switchTab('assistants')">My Assistants</button>
+            <button class="tab-btn active" data-tab="sites" data-i18n="tab_sites" onclick="switchTab('sites')">My Sites</button>
+            <button class="tab-btn" data-tab="assistants" data-i18n="tab_assistants" onclick="switchTab('assistants')">My Assistants</button>
         </div>
 
         <div class="tab-content active" id="tab-sites">
             <div id="sites-list"><div class="loading">Loading your sites...</div></div>
         </div>
         <div class="tab-content" id="tab-assistants">
-            <div class="card" style="margin-bottom:18px;">
-                <h3>Create an internal assistant</h3>
-                <p>Spin up a private knowledge assistant under your account. Your team will use one admin password for management and one user password for everyday access.</p>
+            <div class="card" id="internal-assistant-card" style="margin-bottom:18px;">
+                <h3 data-i18n="internal_title">Create an internal assistant</h3>
+                <p data-i18n="internal_sub">Spin up a private knowledge assistant under your account. Your team will use one admin password for management and one user password for everyday access.</p>
                 <div class="form-row">
                     <div class="field">
-                        <label>Assistant name</label>
-                        <input type="text" id="ia-name" placeholder="Korean School Team Assistant">
+                        <label data-i18n="field_assistant_name">Assistant name</label>
+                        <input type="text" id="ia-name" data-i18n-ph="ph_assistant_name" placeholder="Korean School Team Assistant">
                     </div>
                     <div class="field">
-                        <label>Slug</label>
-                        <input type="text" id="ia-slug" placeholder="korean-school-team">
+                        <label data-i18n="field_slug">Slug</label>
+                        <input type="text" id="ia-slug" data-i18n-ph="ph_slug" placeholder="korean-school-team">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="field">
-                        <label>Admin password</label>
-                        <input type="password" id="ia-admin-password" placeholder="At least 4 characters">
+                        <label data-i18n="field_admin_password">Admin password</label>
+                        <input type="password" id="ia-admin-password" data-i18n-ph="ph_admin_password" placeholder="At least 4 characters">
                     </div>
                     <div class="field">
-                        <label>User password</label>
-                        <input type="password" id="ia-user-password" placeholder="At least 4 characters">
+                        <label data-i18n="field_user_password">User password</label>
+                        <input type="password" id="ia-user-password" data-i18n-ph="ph_user_password" placeholder="At least 4 characters">
                     </div>
                     <div class="field">
-                        <label>Language</label>
+                        <label data-i18n="field_language">Language</label>
                         <select id="ia-language">
                             <option value="en">English</option>
                             <option value="ru">Russian</option>
@@ -558,7 +598,7 @@
                     </div>
                 </div>
                 <div class="inline-actions">
-                    <button class="btn btn-primary" onclick="createInternalAssistant()">Create assistant</button>
+                    <button class="btn btn-primary" data-i18n="internal_btn" onclick="createInternalAssistant()">Create assistant</button>
                 </div>
                 <div class="status-msg" id="ia-status"></div>
             </div>
@@ -573,6 +613,289 @@ const API = window.location.origin;
 let userToken = localStorage.getItem("wr_user_token") || "";
 let currentUser = null;
 let currentSiteId = null;
+let currentLang = localStorage.getItem("wr_lang") || "ru";
+
+const I18N = {
+    ru: {
+        page_title: "WebRAG Личный кабинет",
+        auth_title: "WebRAG Личный кабинет",
+        auth_sub: "Создайте аккаунт или войдите, чтобы управлять ассистентами. Доступ к панели открывается сразу, а платные ассистенты активируются по коду.",
+        auth_tab_login: "Войти",
+        auth_tab_signup: "Регистрация",
+        field_email: "Email",
+        field_password: "Пароль",
+        field_name: "Имя",
+        ph_email: "you@example.com",
+        ph_password_login: "Введите пароль",
+        ph_password_signup: "Минимум 6 символов",
+        ph_name: "Ваше имя",
+        login_btn: "Войти",
+        signup_btn: "Создать аккаунт",
+        top_activate: "Активировать",
+        top_internal: "Внутренний ассистент",
+        top_trial: "Открыть trial",
+        top_logout: "Выйти",
+        activate_title: "Активировать платного ассистента",
+        activate_sub: "Введите URL сайта и код активации, чтобы создать или подключить production-ассистента к вашему аккаунту.",
+        field_site_url: "URL сайта",
+        ph_site_url: "https://your-site.com",
+        field_activation_code: "Код активации",
+        ph_activation_code: "Введите код",
+        field_max_pages: "Макс. страниц",
+        field_language: "Язык",
+        field_playwright: "Использовать Playwright для сайтов с тяжелым JavaScript",
+        activate_btn: "Активировать",
+        workspace_title: "Ваш рабочий кабинет",
+        workspace_sub: "Вы можете пользоваться кабинетом сразу. Чтобы сначала пройти бесплатный crawl-and-chat тест, откройте trial wizard. Production-ассистенты пока остаются за кодом активации.",
+        stat_sites: "Сайтов",
+        stat_assistants: "Внутренних ассистентов",
+        tab_sites: "Мои сайты",
+        tab_assistants: "Мои ассистенты",
+        internal_title: "Создать внутреннего ассистента",
+        internal_sub: "Запустите приватного ассистента знаний под вашим аккаунтом. Команда будет использовать один admin-пароль для управления и один user-пароль для ежедневной работы.",
+        field_assistant_name: "Название ассистента",
+        ph_assistant_name: "Например, Korean School Team Assistant",
+        field_slug: "Slug",
+        ph_slug: "korean-school-team",
+        field_admin_password: "Пароль администратора",
+        ph_admin_password: "Минимум 4 символа",
+        field_user_password: "Пароль пользователя",
+        ph_user_password: "Минимум 4 символа",
+        internal_btn: "Создать ассистента",
+        status_activate_start: "Запускаем активацию...",
+        status_activate_success: "Ассистент активирован для сайта #{siteId}. Обновляем рабочее пространство...",
+        status_activate_error: "Не удалось активировать ассистента",
+        status_internal_start: "Создаем внутреннего ассистента...",
+        status_internal_success: "Ассистент создан: {url}",
+        status_internal_error: "Не удалось создать ассистента",
+        status_network: "Ошибка сети: {message}",
+        err_signup: "Не удалось зарегистрироваться",
+        err_login: "Не удалось войти",
+        sites_loading: "Загружаем ваши сайты...",
+        sites_empty: "У вас пока нет сайтов. Используйте код активации или trial wizard, чтобы создать первый проект.",
+        badge_trial: "Trial",
+        badge_active: "Active",
+        site_meta: "Site ID: {id} · {docs} document(s) · Language: {language}",
+        assistants_loading: "Загружаем ассистентов...",
+        assistants_empty: "У вашего аккаунта пока нет внутренних ассистентов.",
+        assistant_meta: "Slug: {slug} · Site ID: {siteId} · {docs} document(s)",
+        assistant_open: "Открыть",
+        focus_activate_title: "Активировать",
+        focus_internal_title: "Создать",
+        detail_loading: "Загружаем детали сайта...",
+        detail_error: "Не удалось загрузить детали сайта.",
+        detail_back: "← Назад к списку сайтов",
+        detail_meta: "Site ID: {id} · {docs} document(s) · {chunks} chunk(s) · Language: {language}",
+        detail_source: "Source URL",
+        detail_widget: "Widget code",
+        detail_recrawl: "Переобход",
+        detail_upload_pdf: "Загрузить PDF",
+        detail_recrawl_title: "Переиндексация сайта",
+        detail_recrawl_sub: "Это удалит текущие документы и чанки, а затем заново проиндексирует сайт по исходному URL.",
+        detail_assistant_title: "Конфигурация ассистента",
+        detail_assistant_sub: "Обновляйте приветствие, кнопки, формы и intent rules для этого сайта.",
+        detail_docs_title: "Документы и чанки",
+        detail_docs_empty: "Пока нет проиндексированных документов.",
+        assistant_format_success: "JSON отформатирован.",
+        assistant_invalid_json: "Некорректный JSON: {message}",
+        assistant_template_loaded: "Стартовый шаблон загружен.",
+        assistant_saving: "Сохраняем конфиг ассистента...",
+        assistant_save_error: "Не удалось сохранить конфиг ассистента",
+        assistant_save_success: "Конфиг ассистента сохранен.",
+        recrawl_starting: "Запускаем переобход...",
+        recrawl_failed: "Не удалось запустить переобход",
+        recrawl_started: "Переобход запущен. Ждем прогресс...",
+        upload_success: "Файл \"{filename}\" загружен — проиндексировано {chunks} chunk(s).",
+        delete_chunk_confirm: "Удалить этот chunk?",
+        delete_site_confirm: "Удалить сайт \"{domain}\" и все его документы/chunks?",
+    },
+    kk: {
+        page_title: "WebRAG Жеке кабинет",
+        auth_title: "WebRAG Жеке кабинет",
+        auth_sub: "Ассистенттерді басқару үшін аккаунт жасаңыз немесе кіріңіз. Панель бірден қолжетімді, ал ақылы ассистенттер код арқылы белсендіріледі.",
+        auth_tab_login: "Кіру",
+        auth_tab_signup: "Тіркелу",
+        field_email: "Email",
+        field_password: "Құпиясөз",
+        field_name: "Аты",
+        ph_email: "you@example.com",
+        ph_password_login: "Құпиясөзді енгізіңіз",
+        ph_password_signup: "Кемінде 6 таңба",
+        ph_name: "Атыңыз",
+        login_btn: "Кіру",
+        signup_btn: "Аккаунт жасау",
+        top_activate: "Белсендіру",
+        top_internal: "Ішкі ассистент",
+        top_trial: "Trial ашу",
+        top_logout: "Шығу",
+        activate_title: "Ақылы ассистентті белсендіру",
+        activate_sub: "Production-ассистентті аккаунтыңызға қосу үшін сайт URL-ін және белсендіру кодын енгізіңіз.",
+        field_site_url: "Сайт URL-і",
+        ph_site_url: "https://your-site.com",
+        field_activation_code: "Белсендіру коды",
+        ph_activation_code: "Кодты енгізіңіз",
+        field_max_pages: "Макс. беттер",
+        field_language: "Тіл",
+        field_playwright: "JavaScript-heavy сайттар үшін Playwright пайдалану",
+        activate_btn: "Белсендіру",
+        workspace_title: "Жұмыс кеңістігіңіз",
+        workspace_sub: "Панельді бірден пайдалана аласыз. Алдымен тегін crawl-and-chat тестінен өту үшін trial wizard ашыңыз. Production-ассистенттер әзірге активация кодымен ашылады.",
+        stat_sites: "Сайттар",
+        stat_assistants: "Ішкі ассистенттер",
+        tab_sites: "Менің сайттарым",
+        tab_assistants: "Менің ассистенттерім",
+        internal_title: "Ішкі ассистент жасау",
+        internal_sub: "Аккаунтыңыз астында жеке білім ассистентін іске қосыңыз. Команда басқару үшін admin құпиясөзін, күнделікті жұмыс үшін user құпиясөзін пайдаланады.",
+        field_assistant_name: "Ассистент атауы",
+        ph_assistant_name: "Мысалы, Korean School Team Assistant",
+        field_slug: "Slug",
+        ph_slug: "korean-school-team",
+        field_admin_password: "Әкімші құпиясөзі",
+        ph_admin_password: "Кемінде 4 таңба",
+        field_user_password: "Пайдаланушы құпиясөзі",
+        ph_user_password: "Кемінде 4 таңба",
+        internal_btn: "Ассистент жасау",
+        status_activate_start: "Белсендіру басталуда...",
+        status_activate_success: "Ассистент #{siteId} сайты үшін белсендірілді. Жұмыс кеңістігі жаңартылуда...",
+        status_activate_error: "Ассистентті белсендіру сәтсіз аяқталды",
+        status_internal_start: "Ішкі ассистент жасалуда...",
+        status_internal_success: "Ассистент жасалды: {url}",
+        status_internal_error: "Ішкі ассистентті жасау сәтсіз аяқталды",
+        status_network: "Желі қатесі: {message}",
+        err_signup: "Тіркелу сәтсіз аяқталды",
+        err_login: "Кіру сәтсіз аяқталды",
+        sites_loading: "Сайттарыңыз жүктелуде...",
+        sites_empty: "Әзірге сайттарыңыз жоқ. Бірінші жобаны жасау үшін активация кодын немесе trial wizard пайдаланыңыз.",
+        badge_trial: "Trial",
+        badge_active: "Active",
+        site_meta: "Site ID: {id} · {docs} document(s) · Language: {language}",
+        assistants_loading: "Ассистенттер жүктелуде...",
+        assistants_empty: "Аккаунтыңызда әзірге ішкі ассистенттер жоқ.",
+        assistant_meta: "Slug: {slug} · Site ID: {siteId} · {docs} document(s)",
+        assistant_open: "Ашу",
+        focus_activate_title: "Белсендіру",
+        focus_internal_title: "Жасау",
+        detail_loading: "Сайт мәліметтері жүктелуде...",
+        detail_error: "Сайт мәліметтерін жүктеу сәтсіз аяқталды.",
+        detail_back: "← Сайттар тізіміне оралу",
+        detail_meta: "Site ID: {id} · {docs} document(s) · {chunks} chunk(s) · Language: {language}",
+        detail_source: "Source URL",
+        detail_widget: "Widget code",
+        detail_recrawl: "Қайта crawl жасау",
+        detail_upload_pdf: "PDF жүктеу",
+        detail_recrawl_title: "Сайтты қайта индекстеу",
+        detail_recrawl_sub: "Бұл ағымдағы құжаттар мен chunk-тарды жояды, содан кейін сайтты source URL бойынша қайта индекстейді.",
+        detail_assistant_title: "Ассистент конфигурациясы",
+        detail_assistant_sub: "Осы сайт үшін greeting, buttons, forms және intent rules параметрлерін жаңартыңыз.",
+        detail_docs_title: "Құжаттар және chunk-тар",
+        detail_docs_empty: "Әзірге индекстелген құжаттар жоқ.",
+        assistant_format_success: "JSON форматталды.",
+        assistant_invalid_json: "Жарамсыз JSON: {message}",
+        assistant_template_loaded: "Бастапқы шаблон жүктелді.",
+        assistant_saving: "Ассистент конфигі сақталуда...",
+        assistant_save_error: "Ассистент конфигін сақтау сәтсіз аяқталды",
+        assistant_save_success: "Ассистент конфигі сақталды.",
+        recrawl_starting: "Қайта crawl басталуда...",
+        recrawl_failed: "Қайта crawl іске қосылмады",
+        recrawl_started: "Қайта crawl іске қосылды. Прогресс күтілуде...",
+        upload_success: "\"{filename}\" жүктелді — {chunks} chunk(s) индекстелді.",
+        delete_chunk_confirm: "Осы chunk-ты жою керек пе?",
+        delete_site_confirm: "\"{domain}\" сайтын және барлық құжаттары/chunk-тарын жою керек пе?",
+    },
+    en: {
+        page_title: "WebRAG Portal",
+        auth_title: "WebRAG Portal",
+        auth_sub: "Create your account or sign in to manage your assistants. You can explore the dashboard right away, then unlock paid assistants with your activation code.",
+        auth_tab_login: "Login",
+        auth_tab_signup: "Sign up",
+        field_email: "Email",
+        field_password: "Password",
+        field_name: "Name",
+        ph_email: "you@example.com",
+        ph_password_login: "Enter your password",
+        ph_password_signup: "At least 6 characters",
+        ph_name: "Your name",
+        login_btn: "Login",
+        signup_btn: "Create account",
+        top_activate: "Activate Assistant",
+        top_internal: "Create Internal Assistant",
+        top_trial: "Open Trial Wizard",
+        top_logout: "Logout",
+        activate_title: "Activate a paid assistant",
+        activate_sub: "Enter your site URL and activation code to create or unlock a production website assistant under your account.",
+        field_site_url: "Website URL",
+        ph_site_url: "https://your-site.com",
+        field_activation_code: "Activation code",
+        ph_activation_code: "Enter your code",
+        field_max_pages: "Max pages",
+        field_language: "Language",
+        field_playwright: "Use Playwright for JavaScript-heavy sites",
+        activate_btn: "Activate",
+        workspace_title: "Your workspace",
+        workspace_sub: "You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.",
+        stat_sites: "Owned sites",
+        stat_assistants: "Internal assistants",
+        tab_sites: "My Sites",
+        tab_assistants: "My Assistants",
+        internal_title: "Create an internal assistant",
+        internal_sub: "Spin up a private knowledge assistant under your account. Your team will use one admin password for management and one user password for everyday access.",
+        field_assistant_name: "Assistant name",
+        ph_assistant_name: "Korean School Team Assistant",
+        field_slug: "Slug",
+        ph_slug: "korean-school-team",
+        field_admin_password: "Admin password",
+        ph_admin_password: "At least 4 characters",
+        field_user_password: "User password",
+        ph_user_password: "At least 4 characters",
+        internal_btn: "Create assistant",
+        status_activate_start: "Starting activation...",
+        status_activate_success: "Assistant activated for site #{siteId}. Refreshing your workspace...",
+        status_activate_error: "Activation failed",
+        status_internal_start: "Creating internal assistant...",
+        status_internal_success: "Assistant created: {url}",
+        status_internal_error: "Failed to create assistant",
+        status_network: "Network error: {message}",
+        err_signup: "Failed to sign up",
+        err_login: "Failed to login",
+        sites_loading: "Loading your sites...",
+        sites_empty: "No owned sites yet. Use an activation code or open the trial wizard to create your first project.",
+        badge_trial: "Trial",
+        badge_active: "Active",
+        site_meta: "Site ID: {id} · {docs} document(s) · Language: {language}",
+        assistants_loading: "Loading your assistants...",
+        assistants_empty: "No internal assistants under your account yet.",
+        assistant_meta: "Slug: {slug} · Site ID: {siteId} · {docs} document(s)",
+        assistant_open: "Open",
+        focus_activate_title: "Activate",
+        focus_internal_title: "Create",
+        detail_loading: "Loading site details...",
+        detail_error: "Failed to load site details.",
+        detail_back: "← Back to my sites",
+        detail_meta: "Site ID: {id} · {docs} document(s) · {chunks} chunk(s) · Language: {language}",
+        detail_source: "Source URL",
+        detail_widget: "Widget code",
+        detail_recrawl: "Re-crawl",
+        detail_upload_pdf: "Upload PDF",
+        detail_recrawl_title: "Re-crawl site",
+        detail_recrawl_sub: "This deletes existing documents and chunks, then re-indexes from the source URL.",
+        detail_assistant_title: "Assistant configuration",
+        detail_assistant_sub: "Update greeting, buttons, forms, and intent rules for this site.",
+        detail_docs_title: "Documents and chunks",
+        detail_docs_empty: "No indexed documents yet.",
+        assistant_format_success: "JSON formatted.",
+        assistant_invalid_json: "Invalid JSON: {message}",
+        assistant_template_loaded: "Starter template loaded.",
+        assistant_saving: "Saving assistant config...",
+        assistant_save_error: "Failed to save assistant config",
+        assistant_save_success: "Assistant config saved.",
+        recrawl_starting: "Starting re-crawl...",
+        recrawl_failed: "Failed to start re-crawl",
+        recrawl_started: "Re-crawl started. Waiting for progress...",
+        upload_success: "Uploaded \"{filename}\" — {chunks} chunk(s) indexed.",
+        delete_chunk_confirm: "Delete this chunk?",
+        delete_site_confirm: "Delete site \"{domain}\" and all its documents/chunks?",
+    },
+};
 
 function esc(value) {
     return String(value || "")
@@ -580,6 +903,44 @@ function esc(value) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+}
+
+function t(key, vars = {}) {
+    const base = I18N[currentLang] || I18N.en;
+    let text = base[key] || I18N.en[key] || key;
+    Object.entries(vars).forEach(([name, value]) => {
+        text = text.replace(`{${name}}`, String(value));
+    });
+    return text;
+}
+
+function applyTranslations() {
+    document.title = t("page_title");
+    document.documentElement.lang = currentLang === "kk" ? "kk" : currentLang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        el.textContent = t(key);
+    });
+    document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-ph");
+        el.placeholder = t(key);
+    });
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.lang === currentLang);
+    });
+}
+
+function setLang(lang) {
+    currentLang = lang;
+    localStorage.setItem("wr_lang", lang);
+    applyTranslations();
+    if (userToken && document.getElementById("dashboard").style.display === "block") {
+        loadSites();
+        loadAssistants();
+        if (currentSiteId) {
+            openSiteDetail(currentSiteId);
+        }
+    }
 }
 
 function switchAuthTab(tab) {
@@ -622,6 +983,18 @@ function setStatus(id, tone, message) {
     el.textContent = message;
 }
 
+function focusActivateCard() {
+    switchTab("sites");
+    const card = document.getElementById("activate-card");
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function focusInternalAssistantCard() {
+    switchTab("assistants");
+    const card = document.getElementById("internal-assistant-card");
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function doSignup() {
     hideErr("signup-err");
     const name = document.getElementById("signup-name").value.trim();
@@ -635,14 +1008,14 @@ async function doSignup() {
         });
         const data = await resp.json();
         if (!resp.ok) {
-            showErr("signup-err", data.error || "Failed to sign up");
+            showErr("signup-err", data.error || t("err_signup"));
             return;
         }
         userToken = data.token;
         localStorage.setItem("wr_user_token", userToken);
         await bootstrap();
     } catch (e) {
-        showErr("signup-err", "Network error: " + e.message);
+        showErr("signup-err", t("status_network", { message: e.message }));
     }
 }
 
@@ -658,14 +1031,14 @@ async function doLogin() {
         });
         const data = await resp.json();
         if (!resp.ok) {
-            showErr("login-err", data.error || "Failed to login");
+            showErr("login-err", data.error || t("err_login"));
             return;
         }
         userToken = data.token;
         localStorage.setItem("wr_user_token", userToken);
         await bootstrap();
     } catch (e) {
-        showErr("login-err", "Network error: " + e.message);
+        showErr("login-err", t("status_network", { message: e.message }));
     }
 }
 
@@ -709,7 +1082,7 @@ function switchTab(tab) {
 }
 
 async function activateAssistant() {
-    setStatus("activate-status", "info", "Starting activation...");
+    setStatus("activate-status", "info", t("status_activate_start"));
     const fd = new FormData();
     fd.append("url", document.getElementById("activate-url").value.trim());
     fd.append("code", document.getElementById("activate-code").value.trim());
@@ -725,18 +1098,18 @@ async function activateAssistant() {
         });
         const data = await resp.json();
         if (!resp.ok) {
-            setStatus("activate-status", "error", data.error || "Activation failed");
+            setStatus("activate-status", "error", data.error || t("status_activate_error"));
             return;
         }
-        setStatus("activate-status", "success", `Assistant activated for site #${data.site_id}. Refreshing your workspace...`);
+        setStatus("activate-status", "success", t("status_activate_success", { siteId: data.site_id }));
         await Promise.all([loadSites(), loadAssistants(), refreshStats()]);
     } catch (e) {
-        setStatus("activate-status", "error", "Network error: " + e.message);
+        setStatus("activate-status", "error", t("status_network", { message: e.message }));
     }
 }
 
 async function createInternalAssistant() {
-    setStatus("ia-status", "info", "Creating internal assistant...");
+    setStatus("ia-status", "info", t("status_internal_start"));
     const payload = {
         name: document.getElementById("ia-name").value.trim(),
         slug: document.getElementById("ia-slug").value.trim().toLowerCase(),
@@ -756,10 +1129,10 @@ async function createInternalAssistant() {
         if (resp.status === 401) { await doLogout(); return; }
         const data = await resp.json();
         if (!resp.ok || !data.success) {
-            setStatus("ia-status", "error", data.error || "Failed to create assistant");
+            setStatus("ia-status", "error", data.error || t("status_internal_error"));
             return;
         }
-        setStatus("ia-status", "success", `Assistant created at ${data.url}`);
+        setStatus("ia-status", "success", t("status_internal_success", { url: data.url }));
         document.getElementById("ia-name").value = "";
         document.getElementById("ia-slug").value = "";
         document.getElementById("ia-admin-password").value = "";
@@ -767,7 +1140,7 @@ async function createInternalAssistant() {
         await Promise.all([loadAssistants(), loadSites(), refreshStats()]);
         switchTab("assistants");
     } catch (e) {
-        setStatus("ia-status", "error", "Network error: " + e.message);
+        setStatus("ia-status", "error", t("status_network", { message: e.message }));
     }
 }
 
@@ -781,24 +1154,24 @@ async function refreshStats() {
 
 async function loadSites() {
     const list = document.getElementById("sites-list");
-    list.innerHTML = '<div class="loading">Loading your sites...</div>';
+    list.innerHTML = `<div class="loading">${esc(t("sites_loading"))}</div>`;
     const resp = await fetch(API + "/api/user/sites", { headers: authHeaders(false) });
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     const sites = data.sites || [];
     if (sites.length === 0) {
-        list.innerHTML = '<div class="empty-state">No owned sites yet. Use an activation code or open the trial wizard to create your first project.</div>';
+        list.innerHTML = `<div class="empty-state">${esc(t("sites_empty"))}</div>`;
         return;
     }
     list.innerHTML = sites.map((site) => {
         const badge = site.is_trial
-            ? '<span class="badge badge-trial">Trial</span>'
-            : '<span class="badge badge-active">Active</span>';
+            ? `<span class="badge badge-trial">${esc(t("badge_trial"))}</span>`
+            : `<span class="badge badge-active">${esc(t("badge_active"))}</span>`;
         return `
             <div class="site-row" onclick="openSiteDetail(${site.id})">
                 <div>
                     <div class="site-domain">${esc(site.domain)} ${badge}</div>
-                    <div class="site-meta">Site ID: ${site.id} · ${site.doc_count} document(s) · Language: ${site.language || 'auto'}</div>
+                    <div class="site-meta">${esc(t("site_meta", { id: site.id, docs: site.doc_count, language: site.language || "auto" }))}</div>
                 </div>
                 <div class="inline-actions" onclick="event.stopPropagation()">
                     <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${site.id})">Manage</button>
@@ -811,26 +1184,26 @@ async function loadSites() {
 
 async function loadAssistants() {
     const list = document.getElementById("assistants-list");
-    list.innerHTML = '<div class="loading">Loading your assistants...</div>';
+    list.innerHTML = `<div class="loading">${esc(t("assistants_loading"))}</div>`;
     const resp = await fetch(API + "/api/user/internal-assistants", { headers: authHeaders(false) });
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     const assistants = data.assistants || [];
     if (assistants.length === 0) {
-        list.innerHTML = '<div class="empty-state">No internal assistants under your account yet.</div>';
+        list.innerHTML = `<div class="empty-state">${esc(t("assistants_empty"))}</div>`;
         return;
     }
     list.innerHTML = assistants.map((a) => `
         <div class="site-row" style="cursor:default">
             <div>
-                <div class="site-domain">${esc(a.name)} <span class="badge badge-active">Active</span></div>
-                <div class="site-meta">Slug: ${esc(a.slug)} · Site ID: ${a.site_id} · ${a.doc_count} document(s)</div>
+                <div class="site-domain">${esc(a.name)} <span class="badge badge-active">${esc(t("badge_active"))}</span></div>
+                <div class="site-meta">${esc(t("assistant_meta", { slug: a.slug, siteId: a.site_id, docs: a.doc_count }))}</div>
                 <div class="site-meta" style="margin-top:4px">
                     URL: <a href="${esc(a.url)}" target="_blank" style="color:var(--accent)">${esc(a.url)}</a>
                 </div>
             </div>
             <div class="inline-actions">
-                <a class="btn btn-sm btn-outline" href="${esc(a.url)}" target="_blank" style="text-decoration:none">Open</a>
+                <a class="btn btn-sm btn-outline" href="${esc(a.url)}" target="_blank" style="text-decoration:none">${esc(t("assistant_open"))}</a>
             </div>
         </div>
     `).join("");
@@ -846,13 +1219,13 @@ async function openSiteDetail(siteId) {
         pane.className = "tab-content active";
         document.querySelector(".container").appendChild(pane);
     }
-    pane.innerHTML = '<div class="loading">Loading site details...</div>';
+    pane.innerHTML = `<div class="loading">${esc(t("detail_loading"))}</div>`;
 
     const resp = await fetch(API + `/api/user/sites/${siteId}/documents`, { headers: authHeaders(false) });
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok) {
-        pane.innerHTML = '<div class="empty-state">Failed to load site details.</div>';
+        pane.innerHTML = `<div class="empty-state">${esc(t("detail_error"))}</div>`;
         return;
     }
 
@@ -862,35 +1235,35 @@ async function openSiteDetail(siteId) {
     const sourceUrl = settings.source_url || `https://${site.domain}`;
     const assistantJson = esc(JSON.stringify(settings.assistant || getAssistantConfigTemplate(), null, 2));
     const badge = site.is_trial
-        ? '<span class="badge badge-trial">Trial</span>'
-        : '<span class="badge badge-active">Active</span>';
+        ? `<span class="badge badge-trial">${esc(t("badge_trial"))}</span>`
+        : `<span class="badge badge-active">${esc(t("badge_active"))}</span>`;
     const totalChunks = docs.reduce((sum, doc) => sum + doc.chunk_count, 0);
     const widgetSnippet = `<script src="${API}/widget.js" data-site-id="${site.id}" data-api="${API}"></` + `script>`;
 
     pane.innerHTML = `
-        <button class="back-btn" onclick="switchTab('sites')">&larr; Back to my sites</button>
+        <button class="back-btn" onclick="switchTab('sites')">${esc(t("detail_back"))}</button>
         <div class="site-header">
             <h2>${esc(site.domain)} ${badge}</h2>
-            <div class="site-meta">Site ID: ${site.id} · ${docs.length} document(s) · ${totalChunks} chunk(s) · Language: ${site.language || 'auto'}</div>
+            <div class="site-meta">${esc(t("detail_meta", { id: site.id, docs: docs.length, chunks: totalChunks, language: site.language || "auto" }))}</div>
             <div class="site-meta" style="margin-top:6px">
-                Source URL: <a href="${esc(sourceUrl)}" target="_blank" style="color:var(--accent)">${esc(sourceUrl)}</a>
-                · Widget code: <code>${esc(widgetSnippet)}</code>
+                ${esc(t("detail_source"))}: <a href="${esc(sourceUrl)}" target="_blank" style="color:var(--accent)">${esc(sourceUrl)}</a>
+                · ${esc(t("detail_widget"))}: <code>${esc(widgetSnippet)}</code>
             </div>
             <div class="site-header-actions">
-                <button class="btn btn-sm btn-outline" onclick="showRecrawlForm()">Re-crawl</button>
+                <button class="btn btn-sm btn-outline" onclick="showRecrawlForm()">${esc(t("detail_recrawl"))}</button>
                 <div class="file-input-wrap">
-                    <button class="btn btn-sm btn-primary">Upload PDF</button>
+                    <button class="btn btn-sm btn-primary">${esc(t("detail_upload_pdf"))}</button>
                     <input type="file" accept=".pdf" onchange="uploadPdf(this.files[0])">
                 </div>
             </div>
         </div>
 
         <div class="card" id="recrawl-form" style="display:none;margin-bottom:18px;">
-            <h3>Re-crawl site</h3>
-            <p>This deletes existing documents and chunks, then re-indexes from the source URL.</p>
+            <h3>${esc(t("detail_recrawl_title"))}</h3>
+            <p>${esc(t("detail_recrawl_sub"))}</p>
             <div class="form-row">
                 <div class="field">
-                    <label>Source URL</label>
+                    <label>${esc(t("detail_source"))}</label>
                     <input type="text" id="recrawl-url" value="${esc(sourceUrl)}">
                 </div>
                 <div class="field">
@@ -908,8 +1281,8 @@ async function openSiteDetail(siteId) {
         <div class="status-msg" id="upload-status"></div>
 
         <div class="card" style="margin-bottom:18px;">
-            <h3>Assistant configuration</h3>
-            <p>Update greeting, buttons, forms, and intent rules for this site.</p>
+            <h3>${esc(t("detail_assistant_title"))}</h3>
+            <p>${esc(t("detail_assistant_sub"))}</p>
             <div class="field">
                 <label>Assistant JSON</label>
                 <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
@@ -922,9 +1295,9 @@ async function openSiteDetail(siteId) {
             <div class="status-msg" id="assistant-config-status"></div>
         </div>
 
-        <h3 style="margin: 18px 0 12px; font-size: 16px;">Documents and chunks</h3>
+        <h3 style="margin: 18px 0 12px; font-size: 16px;">${esc(t("detail_docs_title"))}</h3>
         <div id="site-docs-list">
-            ${docs.length === 0 ? '<div class="empty-state">No indexed documents yet.</div>' : docs.map((doc) => renderDocSection(doc, site.id)).join("")}
+            ${docs.length === 0 ? `<div class="empty-state">${esc(t("detail_docs_empty"))}</div>` : docs.map((doc) => renderDocSection(doc, site.id)).join("")}
         </div>
     `;
 }
@@ -996,16 +1369,16 @@ function formatAssistantConfig() {
     try {
         const parsed = JSON.parse(textarea.value);
         textarea.value = JSON.stringify(parsed, null, 2);
-        setStatus("assistant-config-status", "success", "JSON formatted.");
+        setStatus("assistant-config-status", "success", t("assistant_format_success"));
     } catch (e) {
-        setStatus("assistant-config-status", "error", "Invalid JSON: " + e.message);
+        setStatus("assistant-config-status", "error", t("assistant_invalid_json", { message: e.message }));
     }
 }
 
 function loadAssistantConfigTemplate() {
     const textarea = document.getElementById("assistant-config");
     textarea.value = JSON.stringify(getAssistantConfigTemplate(), null, 2);
-    setStatus("assistant-config-status", "info", "Starter template loaded.");
+    setStatus("assistant-config-status", "info", t("assistant_template_loaded"));
 }
 
 async function saveAssistantConfig() {
@@ -1014,10 +1387,10 @@ async function saveAssistantConfig() {
     try {
         parsed = JSON.parse(textarea.value);
     } catch (e) {
-        setStatus("assistant-config-status", "error", "Invalid JSON: " + e.message);
+        setStatus("assistant-config-status", "error", t("assistant_invalid_json", { message: e.message }));
         return;
     }
-    setStatus("assistant-config-status", "info", "Saving assistant config...");
+    setStatus("assistant-config-status", "info", t("assistant_saving"));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/assistant-config`, {
         method: "POST",
         headers: authHeaders(),
@@ -1026,16 +1399,16 @@ async function saveAssistantConfig() {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        setStatus("assistant-config-status", "error", data.error || "Failed to save assistant config");
+        setStatus("assistant-config-status", "error", data.error || t("assistant_save_error"));
         return;
     }
     textarea.value = JSON.stringify(data.assistant || parsed, null, 2);
-    setStatus("assistant-config-status", "success", "Assistant config saved.");
+    setStatus("assistant-config-status", "success", t("assistant_save_success"));
 }
 
 async function doRecrawl() {
     if (!confirm("This will delete existing documents/chunks and re-crawl the site. Continue?")) return;
-    setStatus("recrawl-status", "info", "Starting re-crawl...");
+    setStatus("recrawl-status", "info", t("recrawl_starting"));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/recrawl`, {
         method: "POST",
         headers: authHeaders(),
@@ -1047,10 +1420,10 @@ async function doRecrawl() {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        setStatus("recrawl-status", "error", data.error || "Failed to start re-crawl");
+        setStatus("recrawl-status", "error", data.error || t("recrawl_failed"));
         return;
     }
-    setStatus("recrawl-status", "success", "Re-crawl started. Waiting for progress...");
+    setStatus("recrawl-status", "success", t("recrawl_started"));
     pollProgress(currentSiteId, "recrawl-status");
 }
 
@@ -1091,12 +1464,12 @@ async function uploadPdf(file) {
         setStatus("upload-status", "error", data.error || "Failed to upload PDF");
         return;
     }
-    setStatus("upload-status", "success", `Uploaded "${data.filename}" — ${data.chunks} chunk(s) indexed.`);
+    setStatus("upload-status", "success", t("upload_success", { filename: data.filename, chunks: data.chunks }));
     setTimeout(() => openSiteDetail(currentSiteId), 400);
 }
 
 async function deleteChunk(siteId, chunkId) {
-    if (!confirm("Delete this chunk?")) return;
+    if (!confirm(t("delete_chunk_confirm"))) return;
     const resp = await fetch(API + `/api/user/sites/${siteId}/chunks/${chunkId}`, {
         method: "DELETE",
         headers: authHeaders(false),
@@ -1112,7 +1485,7 @@ async function deleteChunk(siteId, chunkId) {
 }
 
 async function deleteSite(siteId, domain) {
-    if (!confirm(`Delete site "${domain}" and all its documents/chunks?`)) return;
+    if (!confirm(t("delete_site_confirm", { domain }))) return;
     const resp = await fetch(API + `/api/user/sites/${siteId}`, {
         method: "DELETE",
         headers: authHeaders(false),
@@ -1128,6 +1501,7 @@ async function deleteSite(siteId, domain) {
     switchTab("sites");
 }
 
+applyTranslations();
 bootstrap();
 </script>
 </body>
