@@ -26,6 +26,7 @@
     }
   }
   const INLINE_MODE = Boolean(mountTarget);
+  const INLINE_START_CLOSED = INLINE_MODE && scriptTag?.getAttribute("data-inline-start-closed") === "true";
   const INLINE_HIDE_HEADER = INLINE_MODE && scriptTag?.getAttribute("data-inline-hide-header") === "true";
   const INLINE_MIN_HEIGHT = clampNumber(scriptTag?.getAttribute("data-inline-min-height"), 420, 240, 760);
   const DARK_THEME = scriptTag?.getAttribute("data-theme") === "dark";
@@ -69,7 +70,8 @@
   let initialContentScheduled = false;
   let greetingRendered = false;
   let startersRendered = false;
-  let isOpen = INLINE_MODE;
+  let isOpen = INLINE_MODE && !INLINE_START_CLOSED;
+  let inlineMounted = INLINE_MODE && !INLINE_START_CLOSED;
   let selectedLanguage = "";
   let debugPanel = null;
   let debugLines = null;
@@ -281,7 +283,9 @@
   host.id = "web-rag-widget";
   if (INLINE_MODE) {
     host.style.cssText = `display:block;flex:1;width:100%;min-width:0;min-height:${INLINE_MIN_HEIGHT}px;`;
-    mountTarget.replaceChildren(host);
+    if (inlineMounted) {
+      mountTarget.replaceChildren(host);
+    }
   } else {
     document.body.appendChild(host);
   }
@@ -1281,8 +1285,17 @@
   }
 
   // ── Actions ────────────────────────────────────────────────────────────
+  function mountInlineHost() {
+    if (!INLINE_MODE || inlineMounted) return;
+    mountTarget.replaceChildren(host);
+    inlineMounted = true;
+  }
+
   function toggle() {
     isOpen = !isOpen;
+    if (isOpen) {
+      mountInlineHost();
+    }
     panel.classList.toggle("open", isOpen);
     debugLog("toggle", { isOpen });
     if (isOpen) {
