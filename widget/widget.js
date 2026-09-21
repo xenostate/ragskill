@@ -26,6 +26,9 @@
     }
   }
   const INLINE_MODE = Boolean(mountTarget);
+  const INLINE_HIDE_HEADER = INLINE_MODE && scriptTag?.getAttribute("data-inline-hide-header") === "true";
+  const INLINE_MIN_HEIGHT = clampNumber(scriptTag?.getAttribute("data-inline-min-height"), 420, 240, 760);
+  const DARK_THEME = scriptTag?.getAttribute("data-theme") === "dark";
   const HIDE_BUBBLE = INLINE_MODE || scriptTag?.getAttribute("data-hide-bubble") === "true";
   const AUTO_OPEN = scriptTag?.getAttribute("data-auto-open") === "true";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
@@ -277,7 +280,7 @@
   const host = document.createElement("div");
   host.id = "web-rag-widget";
   if (INLINE_MODE) {
-    host.style.cssText = "display:block;flex:1;width:100%;min-width:0;min-height:420px;";
+    host.style.cssText = `display:block;flex:1;width:100%;min-width:0;min-height:${INLINE_MIN_HEIGHT}px;`;
     mountTarget.replaceChildren(host);
   } else {
     document.body.appendChild(host);
@@ -621,7 +624,7 @@
     }
 
     ${INLINE_MODE ? `
-      .wr-bubble, .wr-close { display: none; }
+      .wr-bubble, .wr-close${INLINE_HIDE_HEADER ? ", .wr-header" : ""} { display: none; }
       .wr-panel,
       .wr-panel.open {
         position: relative;
@@ -629,7 +632,7 @@
         width: 100%;
         max-width: none;
         height: 100%;
-        min-height: 420px;
+        min-height: ${INLINE_MIN_HEIGHT}px;
         max-height: none;
         border-radius: 0;
         box-shadow: none;
@@ -644,10 +647,26 @@
           width: 100%;
           max-width: none;
           height: 100%;
-          min-height: 420px;
+          min-height: ${INLINE_MIN_HEIGHT}px;
           transform: none;
         }
       }
+    ` : ""}
+
+    ${DARK_THEME ? `
+      .wr-panel { background: transparent; color: #f2f5ef; }
+      .wr-messages { background: #1c242b; }
+      .wr-msg.bot { background: #27313a; color: #f2f5ef; }
+      .wr-input-row { background: #1c242b; border-top-color: #3a4650; }
+      .wr-input {
+        background: #111920;
+        border-color: #58636a;
+        color: #f2f5ef;
+      }
+      .wr-input::placeholder { color: #798681; }
+      .wr-send { color: #101419; }
+      .wr-card-text, .wr-inline-status { color: #b9c4bf; }
+      .wr-chip { background: #202831; border-color: #45534a; }
     ` : ""}
   `;
   shadow.appendChild(style);
