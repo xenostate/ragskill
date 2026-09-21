@@ -1231,6 +1231,14 @@
   if (!HIDE_BUBBLE) {
     bubble.addEventListener("click", toggle);
   }
+  window.addEventListener("web-rag:open", () => {
+    if (!isOpen) {
+      toggle();
+    } else {
+      input.focus();
+      scrollToBottom();
+    }
+  });
   closeBtn.addEventListener("click", toggle);
   sendBtn.addEventListener("click", () => send());
   input.addEventListener("keydown", (event) => {
