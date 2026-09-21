@@ -426,6 +426,71 @@
         }
         .form-row .field, .form-row .form-group { flex: 1; min-width: 180px; }
         .loading { color: var(--text2); padding: 18px 0; }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(31, 30, 35, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-card {
+            width: min(560px, 100%);
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 24px 70px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+        .modal-header h2 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            margin-bottom: 6px;
+        }
+        .modal-header p {
+            color: var(--text2);
+            font-size: 14px;
+            line-height: 1.55;
+        }
+        .modal-close {
+            flex: 0 0 auto;
+            width: 36px;
+            height: 36px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text2);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: var(--text2);
+            font-size: 13px;
+            line-height: 1.45;
+            margin-bottom: 16px;
+        }
+        .checkbox-row input {
+            width: auto;
+            margin-top: 2px;
+        }
         @media (max-width: 860px) {
             .hero-grid {
                 grid-template-columns: 1fr;
@@ -505,6 +570,7 @@
         <div class="brand">Web<span>RAG</span> Portal</div>
         <div class="topbar-right">
             <span id="user-pill"></span>
+            <button class="btn btn-sm btn-primary" data-i18n="top_activate" onclick="openWebsiteAssistantForm()">Create Website Assistant</button>
             <button class="btn btn-sm btn-outline" data-i18n="top_trial" onclick="window.location.href='/trial'">Open Trial Wizard</button>
             <button class="btn btn-sm btn-outline" data-i18n="top_logout" onclick="doLogout()">Logout</button>
         </div>
@@ -543,6 +609,49 @@
     </div>
 </div>
 
+<div class="modal-backdrop" id="create-website-modal" aria-hidden="true" onclick="closeWebsiteAssistantForm(event)">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-website-title">
+        <div class="modal-header">
+            <div>
+                <h2 id="create-website-title" data-i18n="activate_title">Create a website assistant</h2>
+                <p data-i18n="activate_sub">Enter your site URL and activation code to create a production website assistant under your account.</p>
+            </div>
+            <button class="modal-close" type="button" data-i18n-aria="modal_close" aria-label="Close" onclick="closeWebsiteAssistantForm()">&times;</button>
+        </div>
+        <form id="create-website-form" onsubmit="createWebsiteAssistant(event)">
+            <div class="field">
+                <label for="create-website-url" data-i18n="field_site_url">Website URL</label>
+                <input type="url" id="create-website-url" data-i18n-ph="ph_site_url" placeholder="https://your-site.com" required>
+            </div>
+            <div class="field">
+                <label for="create-website-code" data-i18n="field_activation_code">Activation code</label>
+                <input type="password" id="create-website-code" data-i18n-ph="ph_activation_code" placeholder="Enter your code" required>
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label for="create-website-pages" data-i18n="field_max_pages">Max pages</label>
+                    <input type="number" id="create-website-pages" min="1" max="300" value="100" required>
+                </div>
+                <div class="field">
+                    <label for="create-website-language" data-i18n="field_language">Language</label>
+                    <select id="create-website-language">
+                        <option value="" data-i18n="language_auto">Auto detect</option>
+                        <option value="en">English</option>
+                        <option value="ru">Русский</option>
+                        <option value="kk">Қазақша</option>
+                    </select>
+                </div>
+            </div>
+            <label class="checkbox-row">
+                <input type="checkbox" id="create-website-playwright">
+                <span data-i18n="field_playwright">Use Playwright for JavaScript-heavy websites</span>
+            </label>
+            <button class="btn btn-primary" id="create-website-submit" type="submit" data-i18n="activate_btn">Create assistant</button>
+            <div class="status-msg" id="create-website-status" aria-live="polite"></div>
+        </form>
+    </div>
+</div>
+
 <script>
 const API = window.location.origin;
 let userToken = localStorage.getItem("wr_user_token") || "";
@@ -566,12 +675,12 @@ const I18N = {
         ph_name: "Ваше имя",
         login_btn: "Войти",
         signup_btn: "Создать аккаунт",
-        top_activate: "Активировать",
+        top_activate: "Создать ассистента для сайта",
         top_internal: "Внутренний ассистент",
         top_trial: "Открыть trial",
         top_logout: "Выйти",
-        activate_title: "Активировать платного ассистента",
-        activate_sub: "Введите URL сайта и код активации, чтобы создать или подключить production-ассистента к вашему аккаунту.",
+        activate_title: "Создать ассистента для сайта",
+        activate_sub: "Введите URL сайта и код активации, чтобы создать production-ассистента в вашем аккаунте.",
         field_site_url: "URL сайта",
         ph_site_url: "https://your-site.com",
         field_activation_code: "Код активации",
@@ -579,7 +688,9 @@ const I18N = {
         field_max_pages: "Макс. страниц",
         field_language: "Язык",
         field_playwright: "Использовать Playwright для сайтов с тяжелым JavaScript",
-        activate_btn: "Активировать",
+        activate_btn: "Создать ассистента",
+        language_auto: "Определить автоматически",
+        modal_close: "Закрыть",
         workspace_title: "Ваш рабочий кабинет",
         workspace_sub: "Вы можете пользоваться кабинетом сразу. Чтобы сначала пройти бесплатный crawl-and-chat тест, откройте trial wizard. Production-ассистенты пока остаются за кодом активации.",
         stat_sites: "Сайтов",
@@ -659,12 +770,12 @@ const I18N = {
         ph_name: "Атыңыз",
         login_btn: "Кіру",
         signup_btn: "Аккаунт жасау",
-        top_activate: "Белсендіру",
+        top_activate: "Сайт ассистентін жасау",
         top_internal: "Ішкі ассистент",
         top_trial: "Trial ашу",
         top_logout: "Шығу",
-        activate_title: "Ақылы ассистентті белсендіру",
-        activate_sub: "Production-ассистентті аккаунтыңызға қосу үшін сайт URL-ін және белсендіру кодын енгізіңіз.",
+        activate_title: "Сайт ассистентін жасау",
+        activate_sub: "Аккаунтыңызда production-ассистент жасау үшін сайт URL-ін және белсендіру кодын енгізіңіз.",
         field_site_url: "Сайт URL-і",
         ph_site_url: "https://your-site.com",
         field_activation_code: "Белсендіру коды",
@@ -672,7 +783,9 @@ const I18N = {
         field_max_pages: "Макс. беттер",
         field_language: "Тіл",
         field_playwright: "JavaScript-heavy сайттар үшін Playwright пайдалану",
-        activate_btn: "Белсендіру",
+        activate_btn: "Ассистент жасау",
+        language_auto: "Автоматты анықтау",
+        modal_close: "Жабу",
         workspace_title: "Жұмыс кеңістігіңіз",
         workspace_sub: "Панельді бірден пайдалана аласыз. Алдымен тегін crawl-and-chat тестінен өту үшін trial wizard ашыңыз. Production-ассистенттер әзірге активация кодымен ашылады.",
         stat_sites: "Сайттар",
@@ -752,12 +865,12 @@ const I18N = {
         ph_name: "Your name",
         login_btn: "Login",
         signup_btn: "Create account",
-        top_activate: "Activate Assistant",
+        top_activate: "Create Website Assistant",
         top_internal: "Create Internal Assistant",
         top_trial: "Open Trial Wizard",
         top_logout: "Logout",
-        activate_title: "Activate a paid assistant",
-        activate_sub: "Enter your site URL and activation code to create or unlock a production website assistant under your account.",
+        activate_title: "Create a website assistant",
+        activate_sub: "Enter your site URL and activation code to create a production website assistant under your account.",
         field_site_url: "Website URL",
         ph_site_url: "https://your-site.com",
         field_activation_code: "Activation code",
@@ -765,7 +878,9 @@ const I18N = {
         field_max_pages: "Max pages",
         field_language: "Language",
         field_playwright: "Use Playwright for JavaScript-heavy sites",
-        activate_btn: "Activate",
+        activate_btn: "Create assistant",
+        language_auto: "Auto detect",
+        modal_close: "Close",
         workspace_title: "Your workspace",
         workspace_sub: "You can explore the dashboard immediately. To start a free crawl-and-chat test first, open the trial wizard. Production assistants remain gated by activation code for now.",
         stat_sites: "Owned sites",
@@ -860,6 +975,10 @@ function applyTranslations() {
         const key = el.getAttribute("data-i18n-ph");
         el.placeholder = t(key);
     });
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-aria");
+        el.setAttribute("aria-label", t(key));
+    });
     document.querySelectorAll(".lang-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.lang === currentLang);
     });
@@ -916,6 +1035,65 @@ function setStatus(id, tone, message) {
     const el = document.getElementById(id);
     el.className = `status-msg ${tone}`;
     el.textContent = message;
+}
+
+function openWebsiteAssistantForm() {
+    const modal = document.getElementById("create-website-modal");
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.getElementById("create-website-url").focus();
+}
+
+function closeWebsiteAssistantForm(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById("create-website-modal");
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+}
+
+async function createWebsiteAssistant(event) {
+    event.preventDefault();
+    const statusId = "create-website-status";
+    const submit = document.getElementById("create-website-submit");
+    const formData = new FormData();
+    formData.append("url", document.getElementById("create-website-url").value.trim());
+    formData.append("code", document.getElementById("create-website-code").value.trim());
+    formData.append("max_pages", document.getElementById("create-website-pages").value || "100");
+    formData.append("language", document.getElementById("create-website-language").value);
+    formData.append("use_playwright", document.getElementById("create-website-playwright").checked ? "1" : "0");
+
+    submit.disabled = true;
+    setStatus(statusId, "info", t("status_activate_start"));
+    try {
+        const resp = await fetch(API + "/api/quick-activate", {
+            method: "POST",
+            headers: { "X-User-Token": userToken },
+            body: formData,
+        });
+        if (resp.status === 401) {
+            closeWebsiteAssistantForm();
+            await doLogout();
+            return;
+        }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            setStatus(statusId, "error", data.error || t("status_activate_error"));
+            return;
+        }
+
+        document.getElementById("create-website-form").reset();
+        setStatus(statusId, "success", t("status_activate_success", { siteId: data.site_id }));
+        await Promise.all([loadSites(), refreshStats()]);
+        switchTab("sites");
+        pollProgress(data.site_id, statusId, () => {
+            closeWebsiteAssistantForm();
+            openSiteDetail(data.site_id);
+        });
+    } catch (e) {
+        setStatus(statusId, "error", t("status_network", { message: e.message }));
+    } finally {
+        submit.disabled = false;
+    }
 }
 
 async function doSignup() {
@@ -1287,7 +1465,7 @@ async function doRecrawl() {
     pollProgress(currentSiteId, "recrawl-status");
 }
 
-function pollProgress(siteId, statusId) {
+function pollProgress(siteId, statusId, onDone = null) {
     try {
         const evtSource = new EventSource(API + `/api/trial/progress/${siteId}`);
         evtSource.onmessage = (event) => {
@@ -1301,7 +1479,13 @@ function pollProgress(siteId, statusId) {
             if (progress.done) {
                 setStatus(statusId, "success", progress.message || "Done!");
                 evtSource.close();
-                setTimeout(() => openSiteDetail(siteId), 800);
+                setTimeout(() => {
+                    if (onDone) {
+                        onDone();
+                    } else {
+                        openSiteDetail(siteId);
+                    }
+                }, 800);
             }
         };
         evtSource.onerror = () => evtSource.close();
@@ -1360,6 +1544,10 @@ async function deleteSite(siteId, domain) {
     await refreshStats();
     switchTab("sites");
 }
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeWebsiteAssistantForm();
+});
 
 applyTranslations();
 bootstrap();
