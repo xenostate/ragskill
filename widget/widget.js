@@ -16,7 +16,17 @@
   const ICON_NAME = normalizeIconName(scriptTag?.getAttribute("data-icon"));
   const FONT_FAMILY = sanitizeFontFamily(scriptTag?.getAttribute("data-font-family"));
   const FONT_URL = sanitizeFontUrl(scriptTag?.getAttribute("data-font-url"));
-  const HIDE_BUBBLE = scriptTag?.getAttribute("data-hide-bubble") === "true";
+  const MOUNT_SELECTOR = scriptTag?.getAttribute("data-container") || "";
+  let mountTarget = null;
+  if (MOUNT_SELECTOR) {
+    try {
+      mountTarget = document.querySelector(MOUNT_SELECTOR);
+    } catch (e) {
+      console.warn("web-rag widget invalid data-container selector:", MOUNT_SELECTOR);
+    }
+  }
+  const INLINE_MODE = Boolean(mountTarget);
+  const HIDE_BUBBLE = INLINE_MODE || scriptTag?.getAttribute("data-hide-bubble") === "true";
   const AUTO_OPEN = scriptTag?.getAttribute("data-auto-open") === "true";
   const PREVIEW_OPEN = scriptTag?.getAttribute("data-preview-open") === "true";
   const PREVIEW_RESET_GREETING = scriptTag?.getAttribute("data-preview-reset-greeting") === "true";
@@ -56,7 +66,7 @@
   let initialContentScheduled = false;
   let greetingRendered = false;
   let startersRendered = false;
-  let isOpen = false;
+  let isOpen = INLINE_MODE;
   let selectedLanguage = "";
   let debugPanel = null;
   let debugLines = null;
@@ -266,7 +276,12 @@
   // ── Create shadow DOM container ────────────────────────────────────────
   const host = document.createElement("div");
   host.id = "web-rag-widget";
-  document.body.appendChild(host);
+  if (INLINE_MODE) {
+    host.style.cssText = "display:block;flex:1;width:100%;min-width:0;min-height:420px;";
+    mountTarget.replaceChildren(host);
+  } else {
+    document.body.appendChild(host);
+  }
   const shadow = host.attachShadow({ mode: "closed" });
 
   if (FONT_URL) {
@@ -604,6 +619,36 @@
       }
       .wr-msg { max-width: 94%; }
     }
+
+    ${INLINE_MODE ? `
+      .wr-bubble, .wr-close { display: none; }
+      .wr-panel,
+      .wr-panel.open {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        min-height: 420px;
+        max-height: none;
+        border-radius: 0;
+        box-shadow: none;
+        display: flex;
+        transform: none;
+      }
+      @media (max-width: 560px) {
+        .wr-panel,
+        .wr-panel.open {
+          position: relative;
+          inset: auto;
+          width: 100%;
+          max-width: none;
+          height: 100%;
+          min-height: 420px;
+          transform: none;
+        }
+      }
+    ` : ""}
   `;
   shadow.appendChild(style);
 
