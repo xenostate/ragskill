@@ -21,7 +21,7 @@ from scripts.assistant_features import (
     submit_assistant_form,
 )
 from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent, verify_admin_token
-from scripts.rag_core import do_rag_sync, get_site_language_cached
+from scripts.rag_core import do_rag_sync, get_site_language_cached, resolve_response_language
 
 router = APIRouter()
 
@@ -135,7 +135,11 @@ async def chat(req: ChatRequest, request: Request):
         return error
 
     t0 = time.time()
-    language = (req.response_language or "").strip().lower() or get_site_language_cached(req.site_id)
+    language = resolve_response_language(
+        req.query,
+        req.response_language,
+        get_site_language_cached(req.site_id),
+    )
     assistant_config = get_assistant_config(site.get("settings") or {})
     intent_result = match_intent_actions(assistant_config, req.query)
 

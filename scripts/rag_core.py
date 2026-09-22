@@ -33,6 +33,10 @@ LANGUAGE_NAMES = {
     "uk": "Ukrainian",
 }
 
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
+_KAZAKH_SPECIFIC_RE = re.compile(r"[ӘәҒғҚқҢңӨөҰұҮүҺһІі]")
+_UKRAINIAN_SPECIFIC_RE = re.compile(r"[ЄєЇїҐґ]")
+
 
 def get_system_prompt(language: str | None = None) -> str:
     """Return system prompt, optionally with strict language enforcement."""
@@ -44,6 +48,38 @@ def get_system_prompt(language: str | None = None) -> str:
             f"must be in {lang_name}. No exceptions.\n"
         )
     return SYSTEM_PROMPT
+
+
+def detect_query_language(query: str | None) -> str | None:
+    """Detect supported Cyrillic languages strongly enough to override site defaults."""
+    text = str(query or "").strip()
+    if not text:
+        return None
+    if _KAZAKH_SPECIFIC_RE.search(text):
+        return "kk"
+    if _UKRAINIAN_SPECIFIC_RE.search(text):
+        return "uk"
+    if len(_CYRILLIC_RE.findall(text)) >= 2:
+        return "ru"
+    return None
+
+
+def resolve_response_language(query: str | None, requested: str | None,
+                              site_language: str | None) -> str | None:
+    """Prefer an explicit UI choice, then query detection, then the site default."""
+    explicit = str(requested or "").strip().lower().replace("-", "_")
+    if explicit:
+        base = explicit.split("_", 1)[0]
+        if base in LANGUAGE_NAMES:
+            return base
+
+    detected = detect_query_language(query)
+    if detected:
+        return detected
+
+    fallback = str(site_language or "").strip().lower().replace("-", "_")
+    base_fallback = fallback.split("_", 1)[0]
+    return base_fallback if base_fallback in LANGUAGE_NAMES else None
 
 
 # ── Retrieval ───────────────────────────────────────────────────────────────
