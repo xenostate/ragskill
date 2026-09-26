@@ -177,6 +177,20 @@ create table if not exists chat_logs (
 create index if not exists idx_chat_logs_site    on chat_logs(site_id);
 create index if not exists idx_chat_logs_created on chat_logs(created_at desc);
 
+-- Anonymous thumbs-up/down feedback for assistant responses.
+create table if not exists assistant_feedback (
+    id          bigint generated always as identity primary key,
+    site_id     bigint references sites(id) on delete cascade,
+    session_id  text,
+    rating      text not null check (rating in ('up', 'down')),
+    message_id  text,
+    page_url    text,
+    created_at  timestamptz default now()
+);
+
+create index if not exists idx_assistant_feedback_site on assistant_feedback(site_id);
+create index if not exists idx_assistant_feedback_created on assistant_feedback(created_at desc);
+
 -- Widget visitor page-view log (sent as a beacon from widget.js on every page load)
 create table if not exists visitor_logs (
     id          bigint generated always as identity primary key,

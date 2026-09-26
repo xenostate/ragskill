@@ -6,7 +6,9 @@
   const SITE_ID = scriptTag?.getAttribute("data-site-id") || "1";
   const API_URL = scriptTag?.getAttribute("data-api") || window.location.origin;
   const TITLE = scriptTag?.getAttribute("data-title") || "Ask a question";
-  const COLOR = scriptTag?.getAttribute("data-color") || "#2f4be5";
+  const COLOR = normalizeHexColor(scriptTag?.getAttribute("data-color"), "#2F4BE5");
+  const SECONDARY_COLOR = normalizeHexColor(scriptTag?.getAttribute("data-secondary-color"), "#EEF1FF");
+  const EMBED_PRESET = normalizePreset(scriptTag?.getAttribute("data-preset"));
   const POSITION = normalizePosition(scriptTag?.getAttribute("data-position"));
   const BUBBLE_SIZE = clampNumber(scriptTag?.getAttribute("data-bubble-size"), 56, 44, 96);
   const PANEL_WIDTH = clampNumber(scriptTag?.getAttribute("data-panel-width"), 380, 320, 520);
@@ -38,6 +40,11 @@
   const DEBUG_PANEL = scriptTag?.getAttribute("data-debug-panel") === "true";
   const DEFAULT_PLACEHOLDER = "Type your question...";
   const titleLocked = Boolean(scriptTag?.hasAttribute("data-title"));
+  const colorLocked = Boolean(scriptTag?.hasAttribute("data-color"));
+  const secondaryColorLocked = Boolean(scriptTag?.hasAttribute("data-secondary-color"));
+  const presetLocked = Boolean(scriptTag?.hasAttribute("data-preset"));
+  const positionLocked = Boolean(scriptTag?.hasAttribute("data-position"));
+  const iconLocked = Boolean(scriptTag?.hasAttribute("data-icon"));
 
   // ── Session ────────────────────────────────────────────────────────────
   const SESSION_KEY = `wr_session_${SITE_ID}`;
@@ -61,8 +68,21 @@
 
   // ── Assistant config state ─────────────────────────────────────────────
   let assistantConfig = {
+    appearance: {
+      preset: "professional",
+      brand_color: COLOR,
+      secondary_color: SECONDARY_COLOR,
+      logo_url: "",
+      logo_alt: "",
+      launcher_icon: ICON_NAME,
+      launcher_position: POSITION,
+      mobile_fullscreen: true,
+    },
     display: {},
     greeting: { enabled: false, message: "", show_once: true, delay_ms: 0 },
+    contact: { enabled: false },
+    feedback: { enabled: true },
+    sources: { mode: "compact", label: "Sources" },
     starters: [],
     forms: [],
   };
@@ -75,6 +95,9 @@
   let selectedLanguage = "";
   let debugPanel = null;
   let debugLines = null;
+  let lastFocusedElement = null;
+  let responseSequence = 0;
+  let formSequence = 0;
 
   function clampNumber(value, fallback, min, max) {
     const num = parseInt(value || "", 10);
@@ -82,6 +105,20 @@
       return fallback;
     }
     return Math.min(max, Math.max(min, num));
+  }
+
+  function normalizeHexColor(value, fallback) {
+    const color = String(value || "").trim();
+    if (/^#[0-9a-f]{6}$/i.test(color)) return color.toUpperCase();
+    if (/^#[0-9a-f]{3}$/i.test(color)) {
+      return ("#" + color.slice(1).split("").map((char) => char + char).join("")).toUpperCase();
+    }
+    return fallback;
+  }
+
+  function normalizePreset(value) {
+    const preset = String(value || "").trim().toLowerCase();
+    return ["professional", "friendly", "minimal"].includes(preset) ? preset : "professional";
   }
 
   function normalizeBubbleShape(value) {
@@ -162,7 +199,7 @@
     return `bottom: ${BUBBLE_SIZE + 36}px; right: 24px;`;
   }
 
-  function getBubbleIconMarkup() {
+  function getBubbleIconMarkup(iconName = ICON_NAME) {
     const icons = {
       chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -191,7 +228,7 @@
         <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>
       </svg>`
     };
-    return icons[ICON_NAME] || icons.chat;
+    return icons[iconName] || icons.chat;
   }
 
   function setupDebugPanel() {
@@ -281,6 +318,10 @@
   // ── Create shadow DOM container ────────────────────────────────────────
   const host = document.createElement("div");
   host.id = "web-rag-widget";
+  host.dataset.position = POSITION;
+  host.dataset.preset = "professional";
+  host.dataset.mobileFullscreen = INLINE_MODE ? "false" : "true";
+  if (INLINE_MODE) host.dataset.inline = "true";
   if (INLINE_MODE) {
     host.style.cssText = `display:block;flex:1;width:100%;min-width:0;min-height:${INLINE_MIN_HEIGHT}px;`;
     if (inlineMounted) {
@@ -681,43 +722,349 @@
   `;
   shadow.appendChild(style);
 
+  // The public design surface is intentionally small: three presets plus two
+  // brand colors. Legacy embed attributes still work as safe fallbacks.
+  const designStyle = document.createElement("style");
+  designStyle.textContent = `
+    :host {
+      --wr-brand: ${COLOR};
+      --wr-secondary: ${SECONDARY_COLOR};
+      --wr-on-brand: #fff;
+      --wr-accent-ink: ${COLOR};
+      --wr-ink: #17181c;
+      --wr-muted: #667085;
+      --wr-surface: #fff;
+      --wr-canvas: #f7f8fb;
+      --wr-line: #e5e7eb;
+      --wr-panel-radius: 18px;
+      --wr-card-radius: 14px;
+      --wr-control-radius: 11px;
+      --wr-shadow: 0 24px 70px rgba(16, 24, 40, .20), 0 4px 14px rgba(16, 24, 40, .08);
+    }
+    button, input, textarea, select { font-family: inherit; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--wr-brand) 42%, white);
+      outline-offset: 2px;
+    }
+    .wr-sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+    .wr-bubble {
+      background: var(--wr-brand);
+      color: var(--wr-on-brand);
+      border: 0;
+      border-radius: 50%;
+      box-shadow: 0 10px 30px color-mix(in srgb, var(--wr-brand) 32%, transparent);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .wr-bubble:hover { box-shadow: 0 14px 34px color-mix(in srgb, var(--wr-brand) 42%, transparent); }
+    :host([data-position="left"]) .wr-bubble { left: 24px !important; right: auto !important; transform: none; }
+    :host([data-position="right"]) .wr-bubble { right: 24px !important; left: auto !important; transform: none; }
+    :host([data-position="left"]) .wr-panel { left: 24px !important; right: auto !important; transform: none; }
+    :host([data-position="right"]) .wr-panel { right: 24px !important; left: auto !important; transform: none; }
+    :host([data-position="center"]) .wr-bubble { left: 50% !important; right: auto !important; transform: translateX(-50%); }
+    :host([data-position="center"]) .wr-bubble:hover { transform: translateX(-50%) scale(1.08); }
+    :host([data-position="center"]) .wr-panel { top: 50% !important; bottom: auto !important; left: 50% !important; right: auto !important; transform: translate(-50%, -50%); }
+    .wr-panel {
+      background: var(--wr-surface);
+      color: var(--wr-ink);
+      border: 1px solid var(--wr-line);
+      border-radius: var(--wr-panel-radius);
+      box-shadow: var(--wr-shadow);
+    }
+    .wr-header {
+      position: relative;
+      padding: 17px 16px;
+      background: var(--wr-brand);
+      color: var(--wr-on-brand);
+      border: 0;
+      align-items: center;
+    }
+    .wr-header-brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .wr-logo {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 12px;
+      background: rgba(255,255,255,.18);
+      color: var(--wr-on-brand);
+      font-weight: 800;
+      font-size: 15px;
+      border: 1px solid rgba(255,255,255,.24);
+    }
+    .wr-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .wr-header-main { min-width: 0; }
+    .wr-header-title { font-size: 15px; font-weight: 720; letter-spacing: -.015em; }
+    .wr-header-subtitle { margin-top: 3px; font-size: 11px; line-height: 1.3; opacity: .82; }
+    .wr-close {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 34px;
+      border-radius: 9px;
+      color: var(--wr-on-brand);
+      opacity: .86;
+    }
+    .wr-close:hover { background: rgba(255,255,255,.14); }
+    .wr-lang-switch { margin-top: 8px; }
+    .wr-lang-btn { border-radius: 7px; }
+    .wr-lang-btn.active { color: var(--wr-accent-ink); }
+    .wr-contact {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: color-mix(in srgb, var(--wr-secondary) 60%, white);
+      border-bottom: 1px solid var(--wr-line);
+    }
+    .wr-contact.visible { display: flex; }
+    .wr-contact-avatar {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--wr-brand);
+      color: var(--wr-on-brand);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .wr-contact-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .wr-contact-copy { min-width: 0; flex: 1; }
+    .wr-contact-name { font-size: 12px; font-weight: 720; color: var(--wr-ink); }
+    .wr-contact-role { margin-top: 1px; font-size: 11px; color: var(--wr-muted); }
+    .wr-contact-action {
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid color-mix(in srgb, var(--wr-brand) 28%, transparent);
+      border-radius: 9px;
+      background: var(--wr-surface);
+      color: var(--wr-accent-ink);
+      font-size: 11px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .wr-messages {
+      padding: 18px 16px;
+      gap: 14px;
+      background: color-mix(in srgb, var(--wr-secondary) 20%, white);
+      overscroll-behavior: contain;
+    }
+    .wr-msg { max-width: 88%; padding: 11px 13px; border-radius: var(--wr-card-radius); line-height: 1.55; }
+    .wr-msg.user {
+      background: var(--wr-brand);
+      color: var(--wr-on-brand);
+      border: 0;
+      border-bottom-right-radius: 5px;
+    }
+    .wr-msg.bot {
+      background: var(--wr-surface);
+      color: var(--wr-ink);
+      border: 1px solid var(--wr-line);
+      border-bottom-left-radius: 5px;
+      box-shadow: 0 3px 10px rgba(16,24,40,.04);
+    }
+    .wr-msg.bot a, .wr-sources a { color: var(--wr-accent-ink); }
+    .wr-card-title { color: var(--wr-ink); font-weight: 720; }
+    .wr-card-text, .wr-inline-status { color: var(--wr-muted); }
+    .wr-actions { gap: 7px; }
+    .wr-chip {
+      border: 1px solid color-mix(in srgb, var(--wr-brand) 24%, var(--wr-line));
+      border-radius: var(--wr-control-radius);
+      background: color-mix(in srgb, var(--wr-secondary) 52%, white);
+      color: var(--wr-accent-ink);
+    }
+    .wr-chip:hover { background: var(--wr-brand); color: var(--wr-on-brand); border-color: var(--wr-brand); }
+    .wr-field input, .wr-field textarea, .wr-field select {
+      border: 1px solid var(--wr-line);
+      border-radius: var(--wr-control-radius);
+      background: var(--wr-surface);
+      color: var(--wr-ink);
+    }
+    .wr-field input:focus, .wr-field textarea:focus, .wr-field select:focus {
+      border-color: var(--wr-brand);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--wr-brand) 14%, transparent);
+    }
+    .wr-submit {
+      min-height: 40px;
+      border-radius: var(--wr-control-radius);
+      background: var(--wr-brand);
+      color: var(--wr-on-brand);
+    }
+    .wr-typing { background: var(--wr-surface); border: 1px solid var(--wr-line); border-radius: var(--wr-card-radius); }
+    .wr-sources { margin-top: 10px; padding-top: 9px; border-top-color: var(--wr-line); color: var(--wr-muted); }
+    .wr-sources summary { cursor: pointer; color: var(--wr-muted); font-size: 11px; font-weight: 700; }
+    .wr-sources-list { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
+    .wr-sources a { display: flex; align-items: flex-start; gap: 6px; margin: 0; text-decoration: none; }
+    .wr-sources a:hover { text-decoration: underline; }
+    .wr-feedback { display: flex; align-items: center; gap: 5px; margin-top: 9px; color: var(--wr-muted); font-size: 11px; }
+    .wr-feedback-prompt { margin-right: 2px; }
+    .wr-feedback button {
+      width: 29px;
+      height: 29px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--wr-line);
+      border-radius: 8px;
+      background: var(--wr-surface);
+      color: var(--wr-muted);
+      cursor: pointer;
+    }
+    .wr-feedback button:hover, .wr-feedback button.selected { color: var(--wr-accent-ink); border-color: var(--wr-brand); background: var(--wr-secondary); }
+    .wr-feedback svg { width: 14px; height: 14px; }
+    .wr-input-row { padding: 11px 12px; border-top: 1px solid var(--wr-line); background: var(--wr-surface); }
+    .wr-input { min-width: 0; border: 1px solid var(--wr-line); border-radius: var(--wr-control-radius); background: var(--wr-canvas); color: var(--wr-ink); }
+    .wr-input:focus { border-color: var(--wr-brand); }
+    .wr-send { border: 0; border-radius: var(--wr-control-radius); background: var(--wr-brand); color: var(--wr-on-brand); }
+
+    .wr-panel[data-preset="friendly"] {
+      --wr-panel-radius: 26px;
+      --wr-card-radius: 18px;
+      --wr-control-radius: 999px;
+      --wr-shadow: 0 26px 80px rgba(56, 35, 93, .22);
+    }
+    .wr-panel[data-preset="friendly"] .wr-header { padding: 19px 17px; background: linear-gradient(135deg, var(--wr-brand), color-mix(in srgb, var(--wr-brand) 72%, #8b5cf6)); }
+    .wr-panel[data-preset="friendly"] .wr-logo { border-radius: 50%; }
+    .wr-panel[data-preset="friendly"] .wr-msg.user { border-bottom-right-radius: 7px; }
+    .wr-panel[data-preset="friendly"] .wr-msg.bot { border-bottom-left-radius: 7px; }
+    .wr-panel[data-preset="friendly"] .wr-feedback button { border-radius: 50%; }
+
+    .wr-panel[data-preset="minimal"] {
+      --wr-panel-radius: 5px;
+      --wr-card-radius: 4px;
+      --wr-control-radius: 3px;
+      --wr-shadow: 7px 7px 0 var(--wr-ink);
+      border-color: var(--wr-ink);
+    }
+    .wr-panel[data-preset="minimal"] .wr-header { border-bottom: 1px solid var(--wr-ink); }
+    .wr-panel[data-preset="minimal"] .wr-logo { border-radius: 2px; }
+    .wr-panel[data-preset="minimal"] .wr-msg.bot,
+    .wr-panel[data-preset="minimal"] .wr-msg.user,
+    .wr-panel[data-preset="minimal"] .wr-input-row,
+    .wr-panel[data-preset="minimal"] .wr-contact { border-color: color-mix(in srgb, var(--wr-ink) 45%, transparent); }
+    :host([data-preset="minimal"]) .wr-bubble { border: 1px solid var(--wr-ink); border-radius: 5px; box-shadow: 4px 4px 0 var(--wr-ink); }
+
+    @media (max-width: 560px) {
+      .wr-bubble.panel-open { display: none !important; }
+      :host([data-position="left"]) .wr-bubble { left: 14px !important; }
+      :host([data-position="right"]) .wr-bubble { right: 14px !important; }
+      :host([data-mobile-fullscreen="false"]) .wr-panel {
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        height: min(76vh, ${PANEL_HEIGHT}px) !important;
+        top: auto !important;
+        bottom: ${Math.max(BUBBLE_SIZE + 26, 82)}px !important;
+      }
+      :host([data-mobile-fullscreen="false"][data-position="left"]) .wr-panel { left: 12px !important; }
+      :host([data-mobile-fullscreen="false"][data-position="right"]) .wr-panel { right: 12px !important; }
+      :host([data-mobile-fullscreen="true"]) .wr-panel {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        max-width: none !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-height: none !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+      }
+      :host([data-mobile-fullscreen="true"]) .wr-header { padding-top: max(17px, env(safe-area-inset-top)); }
+      :host([data-mobile-fullscreen="true"]) .wr-input-row { padding-bottom: max(11px, env(safe-area-inset-bottom)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wr-bubble, .wr-lang-btn, .wr-chip, .wr-typing span { transition: none !important; animation: none !important; }
+    }
+  `;
+  shadow.appendChild(designStyle);
+
   // ── HTML ───────────────────────────────────────────────────────────────
   const bubble = document.createElement("button");
+  bubble.type = "button";
   bubble.className = "wr-bubble";
   bubble.innerHTML = getBubbleIconMarkup();
+  bubble.setAttribute("aria-label", "Open chat assistant");
+  bubble.setAttribute("aria-expanded", "false");
+  bubble.setAttribute("aria-controls", `wr-panel-${SITE_ID}`);
   shadow.appendChild(bubble);
 
   const panel = document.createElement("div");
   panel.className = "wr-panel";
+  panel.id = `wr-panel-${SITE_ID}`;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", INLINE_MODE ? "false" : "true");
+  panel.setAttribute("aria-labelledby", `wr-title-${SITE_ID}`);
+  panel.setAttribute("tabindex", "-1");
   panel.innerHTML = `
     <div class="wr-header">
-      <div class="wr-header-main">
-        <div class="wr-header-title">${escapeHtml(TITLE)}</div>
-        <div class="wr-lang-switch" style="display:none"></div>
+      <div class="wr-header-brand">
+        <div class="wr-logo"><span aria-hidden="true">AI</span></div>
+        <div class="wr-header-main">
+          <div class="wr-header-title" id="wr-title-${SITE_ID}">${escapeHtml(TITLE)}</div>
+          <div class="wr-header-subtitle"></div>
+          <div class="wr-lang-switch" style="display:none" aria-label="Language"></div>
+        </div>
       </div>
-      <button class="wr-close">&times;</button>
+      <button type="button" class="wr-close" aria-label="Close chat assistant">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
-    <div class="wr-messages">
-      <div class="wr-typing"><span></span><span></span><span></span></div>
+    <div class="wr-contact">
+      <div class="wr-contact-avatar" aria-hidden="true"><span>?</span></div>
+      <div class="wr-contact-copy">
+        <div class="wr-contact-name"></div>
+        <div class="wr-contact-role"></div>
+      </div>
+      <button type="button" class="wr-contact-action"></button>
+    </div>
+    <div class="wr-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Chat messages">
+      <div class="wr-typing" role="status" aria-label="Assistant is typing"><span></span><span></span><span></span></div>
     </div>
     <div class="wr-input-row">
-      <input class="wr-input" placeholder="${escapeHtml(DEFAULT_PLACEHOLDER)}" />
-      <button class="wr-send">
+      <label class="wr-sr-only" for="wr-input-${SITE_ID}">Message</label>
+      <input id="wr-input-${SITE_ID}" class="wr-input" aria-label="Message" autocomplete="off" placeholder="${escapeHtml(DEFAULT_PLACEHOLDER)}" />
+      <button type="button" class="wr-send" aria-label="Send message">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
         </svg>
       </button>
     </div>
+    <div class="wr-live wr-sr-only" aria-live="polite" aria-atomic="true"></div>
   `;
   shadow.appendChild(panel);
 
   const headerTitle = panel.querySelector(".wr-header-title");
+  const headerSubtitle = panel.querySelector(".wr-header-subtitle");
+  const logo = panel.querySelector(".wr-logo");
   const langSwitch = panel.querySelector(".wr-lang-switch");
+  const contactBar = panel.querySelector(".wr-contact");
+  const contactAvatar = panel.querySelector(".wr-contact-avatar");
+  const contactName = panel.querySelector(".wr-contact-name");
+  const contactRole = panel.querySelector(".wr-contact-role");
+  const contactAction = panel.querySelector(".wr-contact-action");
   const messages = panel.querySelector(".wr-messages");
   const typing = panel.querySelector(".wr-typing");
   const input = panel.querySelector(".wr-input");
   const sendBtn = panel.querySelector(".wr-send");
   const closeBtn = panel.querySelector(".wr-close");
+  const liveRegion = panel.querySelector(".wr-live");
+  panel.setAttribute("aria-hidden", String(!isOpen));
+  bubble.setAttribute("aria-expanded", String(isOpen));
   if (HIDE_BUBBLE) {
     closeBtn.style.display = "none";
   }
@@ -748,7 +1095,8 @@
   }
 
   function getUiLanguage() {
-    return selectedLanguage || getDefaultLanguage() || "ru";
+    const pageLanguage = String(document.documentElement.lang || navigator.language || "en").toLowerCase().split(/[-_]/)[0];
+    return selectedLanguage || getDefaultLanguage() || pageLanguage || "en";
   }
 
   function getGreetingStorageKey() {
@@ -787,6 +1135,13 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
+  function announce(text) {
+    liveRegion.textContent = "";
+    window.setTimeout(() => {
+      liveRegion.textContent = String(text || "");
+    }, 30);
+  }
+
   function safeSourceUrl(url) {
     try {
       const parsed = new URL(url, window.location.origin);
@@ -795,6 +1150,128 @@
       }
     } catch (e) {}
     return "#";
+  }
+
+  function safeAssetUrl(url) {
+    const safe = safeSourceUrl(url);
+    return safe === "#" ? "" : safe;
+  }
+
+  function readableTextColor(hex) {
+    const color = normalizeHexColor(hex, "#2F4BE5").slice(1);
+    const channels = [0, 2, 4].map((index) => {
+      const value = parseInt(color.slice(index, index + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    });
+    const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    return luminance > 0.48 ? "#17181C" : "#FFFFFF";
+  }
+
+  function accessibleAccentColor(hex) {
+    const normalized = normalizeHexColor(hex, "#2F4BE5");
+    let channels = [1, 3, 5].map((index) => parseInt(normalized.slice(index, index + 2), 16));
+    const luminance = (rgb) => {
+      const linear = rgb.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    while ((1.05 / (luminance(channels) + 0.05)) < 4.5) {
+      channels = channels.map((value) => Math.max(0, Math.round(value * 0.86)));
+    }
+    return `#${channels.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  function initials(value, fallback = "AI") {
+    const words = String(value || "").trim().split(/\s+/).filter((word) => /[a-z0-9]/i.test(word[0] || ""));
+    if (!words.length) return fallback;
+    return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  }
+
+  function renderAvatar(container, imageUrl, alt, fallbackText) {
+    container.replaceChildren();
+    const safeUrl = safeAssetUrl(imageUrl);
+    if (safeUrl) {
+      const image = document.createElement("img");
+      image.src = safeUrl;
+      image.alt = String(alt || "");
+      image.addEventListener("error", () => {
+        container.replaceChildren();
+      const fallback = document.createElement("span");
+      fallback.textContent = fallbackText;
+      fallback.setAttribute("aria-hidden", "true");
+        container.appendChild(fallback);
+      }, { once: true });
+      container.appendChild(image);
+      return;
+    }
+    const fallback = document.createElement("span");
+    fallback.textContent = fallbackText;
+    fallback.setAttribute("aria-hidden", "true");
+    container.appendChild(fallback);
+  }
+
+  function applyAppearanceConfig() {
+    const appearance = assistantConfig.appearance || {};
+    const preset = presetLocked ? EMBED_PRESET : normalizePreset(appearance.preset);
+    const brand = colorLocked ? COLOR : normalizeHexColor(appearance.brand_color, COLOR);
+    const secondary = secondaryColorLocked ? SECONDARY_COLOR : normalizeHexColor(appearance.secondary_color, SECONDARY_COLOR);
+    const configuredPosition = ["left", "right"].includes(appearance.launcher_position)
+      ? appearance.launcher_position
+      : POSITION === "left" ? "left" : "right";
+    const position = positionLocked ? POSITION : configuredPosition;
+    const icon = iconLocked ? ICON_NAME : normalizeIconName(appearance.launcher_icon || ICON_NAME);
+    const title = resolveText(assistantConfig.display?.title, getUiLanguage()) || TITLE;
+
+    host.dataset.position = position;
+    host.dataset.preset = preset;
+    host.dataset.mobileFullscreen = INLINE_MODE ? "false" : String(appearance.mobile_fullscreen !== false);
+    host.style.setProperty("--wr-brand", brand);
+    host.style.setProperty("--wr-secondary", secondary);
+    host.style.setProperty("--wr-on-brand", readableTextColor(brand));
+    host.style.setProperty("--wr-accent-ink", accessibleAccentColor(brand));
+    panel.dataset.preset = preset;
+    bubble.innerHTML = getBubbleIconMarkup(icon);
+    renderAvatar(
+      logo,
+      appearance.logo_url,
+      resolveText(appearance.logo_alt, getUiLanguage()) || `${title} logo`,
+      initials(title)
+    );
+  }
+
+  function renderContact() {
+    const contact = assistantConfig.contact || {};
+    const name = resolveText(contact.name, getUiLanguage());
+    const role = resolveText(contact.role, getUiLanguage());
+    const label = resolveText(contact.action_label, getUiLanguage()) || (contact.action === "open_form" ? "Contact" : "WhatsApp");
+    const hasWhatsApp = contact.action === "whatsapp" && String(contact.whatsapp_number || "").replace(/\D/g, "");
+    const hasForm = contact.action === "open_form" && getConfiguredForm(contact.form_id);
+
+    if (!contact.enabled || (!hasWhatsApp && !hasForm)) {
+      contactBar.classList.remove("visible");
+      return;
+    }
+
+    contactName.textContent = name || resolveText({ ru: "Связаться с нами", en: "Talk to our team", ko: "담당자에게 문의" }, getUiLanguage());
+    contactRole.textContent = role;
+    contactRole.style.display = role ? "block" : "none";
+    contactAction.textContent = label;
+    contactAction.setAttribute("aria-label", label);
+    renderAvatar(contactAvatar, contact.avatar_url, name, initials(name, "?"));
+    contactBar.classList.add("visible");
+
+    contactAction.onclick = () => {
+      if (contact.action === "open_form") {
+        openForm(contact.form_id);
+        return;
+      }
+      const phone = String(contact.whatsapp_number || "").replace(/\D/g, "");
+      const message = resolveText(contact.prefilled_message, getUiLanguage());
+      const url = `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    };
   }
 
   function renderBotHtml(text, sources, confidence) {
@@ -814,29 +1291,94 @@
       })
       .replace(/\n/g, "<br>");
 
-    if (PREVIEW_OPEN && sources && sources.length > 0) {
-      html += `<div class="wr-sources"><strong>Sources:</strong>`;
-      sources.forEach((source, index) => {
-        html += `<a href="${safeSourceUrl(source.url)}" target="_blank" rel="noopener">[${index + 1}] ${escapeHtml(source.title)}</a>`;
+    const sourceConfig = assistantConfig.sources || {};
+    const sourceMode = sourceConfig.mode || "compact";
+    const safeSources = (Array.isArray(sources) ? sources : []).filter((source) => safeSourceUrl(source?.url) !== "#");
+    if (sourceMode !== "hidden" && safeSources.length > 0) {
+      const label = resolveText(sourceConfig.label, getUiLanguage()) || "Sources";
+      const open = sourceMode === "expanded" ? " open" : "";
+      html += `<details class="wr-sources"${open}><summary>${escapeHtml(label)} · ${safeSources.length}</summary><div class="wr-sources-list">`;
+      safeSources.forEach((source, index) => {
+        const sourceTitle = source.title || (() => {
+          try { return new URL(source.url).hostname; } catch (e) { return `Source ${index + 1}`; }
+        })();
+        html += `<a href="${safeSourceUrl(source.url)}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span><span>${escapeHtml(sourceTitle)}</span></a>`;
       });
-      html += `</div>`;
+      html += `</div></details>`;
     }
 
     return html;
   }
 
-  function addMessage(text, type, sources, confidence) {
+  function appendFeedback(message, messageId) {
+    const feedback = assistantConfig.feedback || {};
+    if (!feedback.enabled) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "wr-feedback";
+    const prompt = document.createElement("span");
+    prompt.className = "wr-feedback-prompt";
+    prompt.textContent = resolveText(feedback.prompt, getUiLanguage()) || "Was this helpful?";
+    wrap.appendChild(prompt);
+
+    const icon = (direction) => direction === "up"
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H3V10h4Zm0 9h10.2a2 2 0 0 0 2-1.6l1.3-7A2 2 0 0 0 18.5 8H14l.6-3A2.4 2.4 0 0 0 12.2 2L7 10Z"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14V3H3v11h4Zm0-9h10.2a2 2 0 0 1 2 1.6l1.3 7a2 2 0 0 1-2 2.4H14l.6 3a2.4 2.4 0 0 1-2.4 3L7 14Z"/></svg>`;
+
+    ["up", "down"].forEach((rating) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-label", rating === "up" ? "Helpful" : "Not helpful");
+      button.setAttribute("aria-pressed", "false");
+      button.innerHTML = icon(rating);
+      button.addEventListener("click", async () => {
+        wrap.querySelectorAll("button").forEach((item) => {
+          const selected = item === button;
+          item.classList.toggle("selected", selected);
+          item.setAttribute("aria-pressed", String(selected));
+          item.disabled = true;
+        });
+        const thanks = resolveText(feedback.thanks_message, getUiLanguage()) || "Thanks for your feedback.";
+        prompt.textContent = thanks;
+        announce(thanks);
+        try {
+          await fetch(`${API_URL}/api/widget/feedback`, {
+            method: "POST",
+            headers: requestHeaders(true),
+            body: JSON.stringify({
+              site_id: parseInt(SITE_ID, 10),
+              session_id: sessionId,
+              rating,
+              message_id: messageId,
+              page_url: window.location.href,
+            }),
+          });
+        } catch (e) {}
+      }, { once: true });
+      wrap.appendChild(button);
+    });
+    message.appendChild(wrap);
+  }
+
+  function addMessage(text, type, sources, confidence, options = {}) {
     const msg = document.createElement("div");
     msg.className = `wr-msg ${type}`;
 
     if (type === "bot") {
       msg.innerHTML = renderBotHtml(resolveText(text, getUiLanguage()), sources, confidence);
+      if (options.feedback) {
+        responseSequence += 1;
+        appendFeedback(msg, `response_${responseSequence}`);
+      }
     } else {
       msg.textContent = resolveText(text, getUiLanguage());
     }
 
     messages.insertBefore(msg, typing);
     scrollToBottom();
+    if (type === "bot" && options.announce !== false) {
+      announce(`Assistant: ${resolveText(text, getUiLanguage())}`);
+    }
     return msg;
   }
 
@@ -903,7 +1445,14 @@
     if (!titleLocked && resolvedTitle) {
       headerTitle.textContent = resolvedTitle;
     }
-    input.placeholder = resolveText(display.input_placeholder, getUiLanguage()) || DEFAULT_PLACEHOLDER;
+    const subtitle = resolveText(display.subtitle, getUiLanguage());
+    headerSubtitle.textContent = subtitle;
+    headerSubtitle.style.display = subtitle ? "block" : "none";
+    const placeholder = resolveText(display.input_placeholder, getUiLanguage()) || DEFAULT_PLACEHOLDER;
+    input.placeholder = placeholder;
+    input.setAttribute("aria-label", placeholder);
+    applyAppearanceConfig();
+    renderContact();
     renderLanguageSwitch();
   }
 
@@ -924,6 +1473,8 @@
       btn.type = "button";
       btn.className = `wr-lang-btn${selectedLanguage === option.code ? " active" : ""}`;
       btn.textContent = resolveText(option.label, option.code) || option.code.toUpperCase();
+      btn.setAttribute("aria-pressed", String(selectedLanguage === option.code));
+      btn.setAttribute("aria-label", `Use ${btn.textContent}`);
       btn.addEventListener("click", () => {
         selectedLanguage = option.code;
         localStorage.setItem(LANGUAGE_KEY, selectedLanguage);
@@ -1137,9 +1688,12 @@
       return;
     }
 
-    addBotCard((card) => {
+    formSequence += 1;
+    const instanceId = `wr-form-${formSequence}`;
+    const result = addBotCard((card) => {
       const title = document.createElement("div");
       title.className = "wr-card-title";
+      title.id = `${instanceId}-title`;
       title.textContent = resolveText(formDef.title, getUiLanguage()) || "Form";
       card.appendChild(title);
 
@@ -1152,6 +1706,7 @@
 
       const formEl = document.createElement("form");
       formEl.className = "wr-form";
+      formEl.setAttribute("aria-labelledby", title.id);
       const fieldRefs = {};
 
       (formDef.fields || []).forEach((field) => {
@@ -1159,12 +1714,17 @@
         wrap.className = "wr-field";
 
         const label = document.createElement("label");
+        const fieldId = `${instanceId}-${field.name}`;
+        const errorId = `${fieldId}-error`;
+        label.htmlFor = fieldId;
         label.textContent = `${resolveText(field.label, getUiLanguage())}${field.required ? " *" : ""}`;
         wrap.appendChild(label);
 
         const inputEl = createInputForField(field);
+        inputEl.id = fieldId;
         inputEl.name = field.name;
         inputEl.placeholder = resolveText(field.placeholder, getUiLanguage()) || "";
+        inputEl.setAttribute("aria-describedby", errorId);
         if (field.required) {
           inputEl.required = true;
         }
@@ -1172,6 +1732,8 @@
 
         const error = document.createElement("div");
         error.className = "wr-error-text";
+        error.id = errorId;
+        error.setAttribute("aria-live", "polite");
         wrap.appendChild(error);
 
         fieldRefs[field.name] = { field, inputEl, error };
@@ -1180,6 +1742,7 @@
 
       const status = document.createElement("div");
       status.className = "wr-inline-status";
+      status.setAttribute("role", "status");
       formEl.appendChild(status);
 
       const submitBtn = document.createElement("button");
@@ -1192,6 +1755,7 @@
         event.preventDefault();
         Object.values(fieldRefs).forEach((ref) => {
           ref.error.textContent = "";
+          ref.inputEl.removeAttribute("aria-invalid");
         });
         status.textContent = "";
         submitBtn.disabled = true;
@@ -1222,9 +1786,12 @@
             Object.keys(errors).forEach((name) => {
               if (fieldRefs[name]) {
                 fieldRefs[name].error.textContent = errors[name];
+                fieldRefs[name].inputEl.setAttribute("aria-invalid", "true");
               }
             });
             status.textContent = data.error || "Please check the form and try again.";
+            const firstInvalid = Object.keys(errors).map((name) => fieldRefs[name]?.inputEl).find(Boolean);
+            if (firstInvalid) firstInvalid.focus();
             return;
           }
 
@@ -1242,6 +1809,7 @@
 
       card.appendChild(formEl);
     });
+    window.setTimeout(() => result.card.querySelector("input, textarea, select")?.focus(), 0);
   }
 
   // ── Chat sending ───────────────────────────────────────────────────────
@@ -1255,6 +1823,7 @@
     sendBtn.disabled = true;
     addMessage((visibleText || query).trim(), "user");
     typing.classList.add("active");
+    announce("Assistant is typing");
     scrollToBottom();
 
     try {
@@ -1275,7 +1844,7 @@
       if (!resp.ok) {
         throw new Error(data.error || "Request failed");
       }
-      addMessage(data.answer, "bot", data.sources, data.confidence);
+      addMessage(data.answer, "bot", data.sources, data.confidence, { feedback: true });
       renderResponseActions(data.actions || []);
     } catch (err) {
       addMessage("Sorry, something went wrong. Please try again.", "bot");
@@ -1297,18 +1866,38 @@
     inlineMounted = true;
   }
 
-  function toggle() {
-    isOpen = !isOpen;
+  function setOpen(nextOpen, options = {}) {
+    const shouldOpen = Boolean(nextOpen);
+    if (shouldOpen === isOpen && !options.force) return;
+    if (shouldOpen && !isOpen) {
+      lastFocusedElement = shadow.activeElement || document.activeElement;
+    }
+    isOpen = shouldOpen;
     if (isOpen) {
       mountInlineHost();
     }
     panel.classList.toggle("open", isOpen);
+    bubble.classList.toggle("panel-open", isOpen);
+    panel.setAttribute("aria-hidden", String(!isOpen));
+    bubble.setAttribute("aria-expanded", String(isOpen));
+    bubble.setAttribute("aria-label", isOpen ? "Close chat assistant" : "Open chat assistant");
     debugLog("toggle", { isOpen });
     if (isOpen) {
       scheduleInitialContent();
-      input.focus();
+      window.setTimeout(() => input.focus(), 0);
       scrollToBottom();
+      announce("Chat assistant opened");
+    } else {
+      announce("Chat assistant closed");
+      if (!options.skipFocusReturn) {
+        if (!HIDE_BUBBLE) bubble.focus();
+        else if (lastFocusedElement && typeof lastFocusedElement.focus === "function") lastFocusedElement.focus();
+      }
     }
+  }
+
+  function toggle() {
+    setOpen(!isOpen);
   }
 
   if (!HIDE_BUBBLE) {
@@ -1323,6 +1912,31 @@
     }
   });
   closeBtn.addEventListener("click", toggle);
+  panel.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isOpen && (!HIDE_BUBBLE || INLINE_START_CLOSED)) {
+      event.preventDefault();
+      setOpen(false);
+      return;
+    }
+    if (event.key !== "Tab" || INLINE_MODE) return;
+    const focusable = Array.from(panel.querySelectorAll(
+      'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+    )).filter((element) => element.getClientRects().length > 0);
+    if (!focusable.length) {
+      event.preventDefault();
+      panel.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && shadow.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && shadow.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
   sendBtn.addEventListener("click", () => send());
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {

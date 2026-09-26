@@ -37,12 +37,46 @@ class TestAssistantConfig:
         }
 
         config = normalize_assistant_config(raw)
-        assert config["version"] == 1
+        assert config["version"] == 2
         assert config["display"]["title"] == "School Bot"
         assert config["greeting"]["enabled"] is True
         assert config["starters"][0]["action"] == "send_message"
         assert config["starters"][1]["form_id"] == "lead_form"
         assert config["forms"][0]["destinations"]["email"] == ["sales@example.com"]
+
+    def test_design_system_config_is_limited_and_sanitized(self):
+        config = normalize_assistant_config({
+            "appearance": {
+                "preset": "friendly",
+                "brand_color": "#f60",
+                "secondary_color": "not-a-color",
+                "logo_url": "javascript:alert(1)",
+                "launcher_icon": "rocket",
+                "launcher_position": "bottom_left",
+                "mobile_fullscreen": False,
+            },
+            "display": {"subtitle": "Support team"},
+            "contact": {
+                "enabled": True,
+                "action": "whatsapp",
+                "whatsapp_number": "+7 (701) 123-45-67",
+            },
+            "sources": {"mode": "expanded"},
+        })
+
+        assert config["appearance"] == {
+            "preset": "friendly",
+            "brand_color": "#FF6600",
+            "secondary_color": "#EEF1FF",
+            "logo_url": "",
+            "logo_alt": "",
+            "launcher_icon": "chat",
+            "launcher_position": "left",
+            "mobile_fullscreen": False,
+        }
+        assert config["display"]["subtitle"] == "Support team"
+        assert config["contact"]["whatsapp_number"] == "77011234567"
+        assert config["sources"]["mode"] == "expanded"
 
     def test_public_config_hides_destinations(self):
         settings = {
@@ -59,6 +93,8 @@ class TestAssistantConfig:
         }
         public = get_public_assistant_config(settings)
         assert "destinations" not in public["forms"][0]
+        assert public["appearance"]["preset"] == "professional"
+        assert public["feedback"]["enabled"] is True
 
     def test_template_is_reusable_copy(self):
         template = assistant_config_template()

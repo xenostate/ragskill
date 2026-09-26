@@ -201,9 +201,13 @@ Each site can store an `assistant` JSON object inside `sites.settings`. This add
 
 Supported features:
 
-- `display` — widget title and input placeholder
+- `appearance` — one of three presets, brand colors, company logo, launcher icon/position, and mobile mode
+- `display` — widget title, subtitle, and input placeholder
 - `greeting` — first assistant message shown when the widget opens
 - `starters` — quick action buttons
+- `contact` — named contact with WhatsApp or lead-form action
+- `feedback` — thumbs-up/down prompt and acknowledgement
+- `sources` — hidden, compact, or expanded citation links
 - `forms` — structured in-chat forms
 - `destinations` — where form submissions should be forwarded
 
@@ -219,8 +223,19 @@ The assistant config is managed from the Admin page for each site:
 
 ```json
 {
+  "appearance": {
+    "preset": "professional",
+    "brand_color": "#2F4BE5",
+    "secondary_color": "#EEF1FF",
+    "logo_url": "https://example.com/logo.png",
+    "logo_alt": "Example Company",
+    "launcher_icon": "chat",
+    "launcher_position": "right",
+    "mobile_fullscreen": true
+  },
   "display": {
     "title": "Assistant title",
+    "subtitle": "Online · Usually replies instantly",
     "input_placeholder": "Type your question"
   },
   "greeting": {
@@ -228,6 +243,26 @@ The assistant config is managed from the Admin page for each site:
     "message": "Hello! How can I help?",
     "show_once": true,
     "delay_ms": 700
+  },
+  "contact": {
+    "enabled": true,
+    "name": "Amina",
+    "role": "Customer care",
+    "avatar_url": "https://example.com/amina.jpg",
+    "action": "whatsapp",
+    "action_label": "WhatsApp",
+    "whatsapp_number": "77011234567",
+    "prefilled_message": "Hello, I need some help.",
+    "form_id": "contact_form"
+  },
+  "feedback": {
+    "enabled": true,
+    "prompt": "Was this helpful?",
+    "thanks_message": "Thanks for your feedback."
+  },
+  "sources": {
+    "mode": "compact",
+    "label": "Sources"
   },
   "starters": [
     {
@@ -275,6 +310,10 @@ The assistant config is managed from the Admin page for each site:
   ]
 }
 ```
+
+The design surface is deliberately constrained. `appearance.preset` accepts only `professional`, `friendly`, or `minimal`; launcher icons accept `chat`, `message`, `sparkles`, or `question`; launcher positions accept `left` or `right`. Existing embed attributes remain valid as fallbacks, so older installations do not need to change their script tag.
+
+Run the latest `references/schema.sql` migration before enabling feedback analytics. If the optional `assistant_feedback` table is not present yet, feedback remains non-blocking for visitors and the widget continues normally.
 
 ### Starter Actions
 

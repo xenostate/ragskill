@@ -1091,8 +1091,16 @@ async function openSiteDetail(siteId) {
         <div class="add-form">
             <h3>Assistant Configuration</h3>
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
-                Configure greeting, quick actions, and generic forms as JSON. This is stored per site and automatically used by future widgets for this tenant.
+                Choose one of three polished presets, then configure branding, greeting, quick actions, contact, forms, feedback, and sources in JSON.
             </p>
+            <div class="form-group">
+                <label>Design preset</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn btn-sm btn-outline" onclick="setAssistantPreset('professional')">Professional</button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="setAssistantPreset('friendly')">Friendly</button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="setAssistantPreset('minimal')">Minimal</button>
+                </div>
+            </div>
             <div class="form-group">
                 <label>Assistant JSON</label>
                 <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
@@ -1184,8 +1192,19 @@ function showRecrawlForm() {
 
 function getAssistantConfigTemplate() {
     return {
+        appearance: {
+            preset: "professional",
+            brand_color: "#2F4BE5",
+            secondary_color: "#EEF1FF",
+            logo_url: "",
+            logo_alt: "",
+            launcher_icon: "chat",
+            launcher_position: "right",
+            mobile_fullscreen: true
+        },
         display: {
             title: "",
+            subtitle: "",
             input_placeholder: ""
         },
         language_switch: {
@@ -1201,6 +1220,26 @@ function getAssistantConfigTemplate() {
             message: "",
             show_once: true,
             delay_ms: 0
+        },
+        contact: {
+            enabled: false,
+            name: "",
+            role: "",
+            avatar_url: "",
+            action: "whatsapp",
+            action_label: "WhatsApp",
+            whatsapp_number: "",
+            prefilled_message: "",
+            form_id: "contact_form"
+        },
+        feedback: {
+            enabled: true,
+            prompt: "Was this helpful?",
+            thanks_message: "Thanks for your feedback."
+        },
+        sources: {
+            mode: "compact",
+            label: "Sources"
         },
         starters: [
             {
@@ -1272,6 +1311,23 @@ function getAssistantConfigTemplate() {
     };
 }
 
+function setAssistantPreset(preset) {
+    const textarea = document.getElementById("assistant-config");
+    const status = document.getElementById("assistant-config-status");
+    if (!textarea || !status) return;
+    try {
+        const config = JSON.parse(textarea.value || "{}");
+        const defaults = getAssistantConfigTemplate().appearance;
+        config.appearance = { ...defaults, ...(config.appearance || {}), preset };
+        textarea.value = JSON.stringify(config, null, 2);
+        status.className = "status-msg info";
+        status.textContent = `Preset set to ${preset}. Save the config to publish it.`;
+    } catch (e) {
+        status.className = "status-msg error";
+        status.textContent = "Invalid JSON: " + e.message;
+    }
+}
+
 // ── Site actions ──
 
 function renderWidgetPreview(siteId) {
@@ -1291,7 +1347,6 @@ function renderWidgetPreview(siteId) {
             script.setAttribute("data-preview-open", "true");
             script.setAttribute("data-preview-reset-greeting", "true");
             script.setAttribute("data-preview-admin-token", adminToken);
-            script.setAttribute("data-debug-panel", "true");
             doc.body.appendChild(script);
         } catch (e) {
             console.error("Failed to attach widget preview script:", e);

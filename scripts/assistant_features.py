@@ -12,6 +12,7 @@ import json
 import re
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import urlparse
 
 import requests as http_requests
 
@@ -22,8 +23,19 @@ SAFE_ID_RE = re.compile(r"[^a-z0-9_]+")
 DEFAULT_TEXT_FALLBACK_LANG = "ru"
 
 ASSISTANT_CONFIG_TEMPLATE = {
+    "appearance": {
+        "preset": "professional",
+        "brand_color": "#2F4BE5",
+        "secondary_color": "#EEF1FF",
+        "logo_url": "",
+        "logo_alt": "",
+        "launcher_icon": "chat",
+        "launcher_position": "right",
+        "mobile_fullscreen": True,
+    },
     "display": {
         "title": "",
+        "subtitle": "",
         "input_placeholder": "",
     },
     "language_switch": {
@@ -39,6 +51,26 @@ ASSISTANT_CONFIG_TEMPLATE = {
         "message": "",
         "show_once": True,
         "delay_ms": 0,
+    },
+    "contact": {
+        "enabled": False,
+        "name": "",
+        "role": "",
+        "avatar_url": "",
+        "action": "whatsapp",
+        "action_label": "WhatsApp",
+        "whatsapp_number": "",
+        "prefilled_message": "",
+        "form_id": "contact_form",
+    },
+    "feedback": {
+        "enabled": True,
+        "prompt": "Was this helpful?",
+        "thanks_message": "Thanks for your feedback.",
+    },
+    "sources": {
+        "mode": "compact",
+        "label": "Sources",
     },
     "starters": [
         {
@@ -148,6 +180,30 @@ def _clean_text_value(value, max_len: int = 500):
                 cleaned[code] = label
         return cleaned or ""
     return _clean_str(value, max_len)
+
+
+def _clean_hex_color(value, fallback: str) -> str:
+    candidate = _clean_str(value, 20).upper()
+    if re.fullmatch(r"#[0-9A-F]{6}", candidate):
+        return candidate
+    if re.fullmatch(r"#[0-9A-F]{3}", candidate):
+        return "#" + "".join(char * 2 for char in candidate[1:])
+    return fallback
+
+
+def _clean_public_url(value) -> str:
+    candidate = _clean_str(value, 1000)
+    if not candidate:
+        return ""
+    try:
+        parsed = urlparse(candidate)
+    except ValueError:
+        return ""
+    return candidate if parsed.scheme in ("http", "https") and parsed.netloc else ""
+
+
+def _clean_phone(value) -> str:
+    return "".join(char for char in _clean_str(value, 40) if char.isdigit())[:20]
 
 
 def resolve_text_value(value, lang: str | None = None, fallback: str = DEFAULT_TEXT_FALLBACK_LANG) -> str:
@@ -266,15 +322,50 @@ def _normalize_action(item: dict, fallback_id: str) -> dict | None:
 def normalize_assistant_config(raw: dict | None) -> dict:
     """Normalize tenant assistant config into a safe, predictable shape."""
     raw = raw or {}
+    appearance = raw.get("appearance") if isinstance(raw.get("appearance"), dict) else {}
     display = raw.get("display") if isinstance(raw.get("display"), dict) else {}
     language_switch = raw.get("language_switch") if isinstance(raw.get("language_switch"), dict) else {}
     greeting = raw.get("greeting") if isinstance(raw.get("greeting"), dict) else {}
+    contact = raw.get("contact") if isinstance(raw.get("contact"), dict) else {}
+    feedback = raw.get("feedback") if isinstance(raw.get("feedback"), dict) else {}
+    sources = raw.get("sources") if isinstance(raw.get("sources"), dict) else {}
     language_options = _normalize_language_options(language_switch.get("options"))
 
+    preset = _clean_str(appearance.get("preset"), 24).lower()
+    if preset not in ("professional", "friendly", "minimal"):
+        preset = "professional"
+    launcher_icon = _clean_str(appearance.get("launcher_icon"), 24).lower()
+    if launcher_icon not in ("chat", "message", "sparkles", "question"):
+        launcher_icon = "chat"
+    launcher_position = _clean_str(appearance.get("launcher_position"), 24).lower()
+    launcher_position = {
+        "bottom_left": "left",
+        "bottom_right": "right",
+    }.get(launcher_position, launcher_position)
+    if launcher_position not in ("left", "right"):
+        launcher_position = "right"
+    contact_action = _clean_str(contact.get("action"), 24).lower()
+    if contact_action not in ("whatsapp", "open_form"):
+        contact_action = "whatsapp"
+    source_mode = _clean_str(sources.get("mode"), 24).lower()
+    if source_mode not in ("hidden", "compact", "expanded"):
+        source_mode = "compact"
+
     config = {
-        "version": 1,
+        "version": 2,
+        "appearance": {
+            "preset": preset,
+            "brand_color": _clean_hex_color(appearance.get("brand_color"), "#2F4BE5"),
+            "secondary_color": _clean_hex_color(appearance.get("secondary_color"), "#EEF1FF"),
+            "logo_url": _clean_public_url(appearance.get("logo_url")),
+            "logo_alt": _clean_text_value(appearance.get("logo_alt"), 120),
+            "launcher_icon": launcher_icon,
+            "launcher_position": launcher_position,
+            "mobile_fullscreen": bool(appearance.get("mobile_fullscreen", True)),
+        },
         "display": {
             "title": _clean_text_value(display.get("title"), 80),
+            "subtitle": _clean_text_value(display.get("subtitle"), 120),
             "input_placeholder": _clean_text_value(display.get("input_placeholder"), 120),
         },
         "language_switch": {
@@ -287,6 +378,26 @@ def normalize_assistant_config(raw: dict | None) -> dict:
             "message": _clean_text_value(greeting.get("message"), 1200),
             "show_once": bool(greeting.get("show_once", True)),
             "delay_ms": max(0, min(int(greeting.get("delay_ms", 0) or 0), 10000)),
+        },
+        "contact": {
+            "enabled": bool(contact.get("enabled", False)),
+            "name": _clean_text_value(contact.get("name"), 80),
+            "role": _clean_text_value(contact.get("role"), 100),
+            "avatar_url": _clean_public_url(contact.get("avatar_url")),
+            "action": contact_action,
+            "action_label": _clean_text_value(contact.get("action_label"), 40) or "WhatsApp",
+            "whatsapp_number": _clean_phone(contact.get("whatsapp_number")),
+            "prefilled_message": _clean_text_value(contact.get("prefilled_message"), 500),
+            "form_id": _safe_id(contact.get("form_id"), "contact_form"),
+        },
+        "feedback": {
+            "enabled": bool(feedback.get("enabled", True)),
+            "prompt": _clean_text_value(feedback.get("prompt"), 80) or "Was this helpful?",
+            "thanks_message": _clean_text_value(feedback.get("thanks_message"), 160) or "Thanks for your feedback.",
+        },
+        "sources": {
+            "mode": source_mode,
+            "label": _clean_text_value(sources.get("label"), 40) or "Sources",
         },
         "starters": [],
         "forms": [],
@@ -420,9 +531,13 @@ def get_public_assistant_config(site_settings: dict | None) -> dict:
         })
     return {
         "version": config["version"],
+        "appearance": config["appearance"],
         "display": config["display"],
         "language_switch": config["language_switch"],
         "greeting": config["greeting"],
+        "contact": config["contact"],
+        "feedback": config["feedback"],
+        "sources": config["sources"],
         "starters": config["starters"],
         "forms": public_forms,
     }

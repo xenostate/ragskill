@@ -1323,6 +1323,14 @@ async function openSiteDetail(siteId) {
             <h3>${esc(t("detail_assistant_title"))}</h3>
             <p>${esc(t("detail_assistant_sub"))}</p>
             <div class="field">
+                <label>Design preset</label>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('professional')">Professional</button>
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('friendly')">Friendly</button>
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('minimal')">Minimal</button>
+                </div>
+            </div>
+            <div class="field">
                 <label>Assistant JSON</label>
                 <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
             </div>
@@ -1377,13 +1385,36 @@ function showRecrawlForm() {
 
 function getAssistantConfigTemplate() {
     return {
-        display: { title: "", input_placeholder: "" },
+        appearance: {
+            preset: "professional",
+            brand_color: "#2F4BE5",
+            secondary_color: "#EEF1FF",
+            logo_url: "",
+            logo_alt: "",
+            launcher_icon: "chat",
+            launcher_position: "right",
+            mobile_fullscreen: true
+        },
+        display: { title: "", subtitle: "", input_placeholder: "" },
         language_switch: {
             enabled: false,
             default: "",
             options: [{ code: "ru", label: "RU" }, { code: "en", label: "EN" }]
         },
         greeting: { enabled: false, message: "", show_once: true, delay_ms: 0 },
+        contact: {
+            enabled: false,
+            name: "",
+            role: "",
+            avatar_url: "",
+            action: "whatsapp",
+            action_label: "WhatsApp",
+            whatsapp_number: "",
+            prefilled_message: "",
+            form_id: "contact_form"
+        },
+        feedback: { enabled: true, prompt: "Was this helpful?", thanks_message: "Thanks for your feedback." },
+        sources: { mode: "compact", label: "Sources" },
         starters: [
             { id: "example_info", label: "Ask about the program", action: "send_message", message: "Can you tell me about your main program and how it works?" },
             { id: "example_form", label: "Leave my details", action: "open_form", form_id: "contact_form" }
@@ -1401,6 +1432,20 @@ function getAssistantConfigTemplate() {
             destinations: { email: [], telegram_chat_ids: [], whatsapp_numbers: [] }
         }]
     };
+}
+
+function setAssistantPreset(preset) {
+    const textarea = document.getElementById("assistant-config");
+    if (!textarea) return;
+    try {
+        const config = JSON.parse(textarea.value || "{}");
+        const defaults = getAssistantConfigTemplate().appearance;
+        config.appearance = { ...defaults, ...(config.appearance || {}), preset };
+        textarea.value = JSON.stringify(config, null, 2);
+        setStatus("assistant-config-status", "info", `Preset set to ${preset}. Save the config to publish it.`);
+    } catch (e) {
+        setStatus("assistant-config-status", "error", t("assistant_invalid_json", { message: e.message }));
+    }
 }
 
 function formatAssistantConfig() {

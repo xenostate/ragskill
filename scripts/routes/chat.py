@@ -61,6 +61,14 @@ class FormSubmitRequest(BaseModel):
     response_language: str | None = Field(default=None, max_length=12)
 
 
+class FeedbackRequest(BaseModel):
+    site_id: int
+    session_id: str | None = Field(default=None, max_length=128)
+    rating: str = Field(..., pattern="^(up|down)$")
+    message_id: str | None = Field(default=None, max_length=128)
+    page_url: str | None = Field(default=None, max_length=2000)
+
+
 @router.get("/health")
 async def health():
     return {
@@ -215,6 +223,33 @@ async def submit_widget_form(req: FormSubmitRequest, request: Request):
             status_code=result.get("status_code", 400),
         )
     return result
+
+
+@router.post("/api/widget/feedback")
+async def submit_widget_feedback(req: FeedbackRequest, request: Request):
+    blocked = rate_limit_check(request, "widget_feedback", 30, 300)
+    if blocked:
+        return blocked
+
+    site, error = _authorize_site_request(req.site_id, request)
+    if error:
+        return error
+
+    try:
+        await asyncio.to_thread(
+            lambda: cfg.sb.table("assistant_feedback").insert({
+                "site_id": req.site_id,
+                "session_id": req.session_id,
+                "rating": req.rating,
+                "message_id": req.message_id,
+                "page_url": req.page_url,
+            }).execute()
+        )
+    except Exception as exc:
+        # Feedback must never interrupt the visitor's conversation. This also
+        # keeps deployments compatible until the optional table is migrated.
+        cfg.log.debug(f"assistant_feedback insert failed: {exc}")
+    return {"success": True}
 
 
 async def _log_query(site_id: int, query: str, confidence: str, response_ms: int, chunk_count: int) -> None:
