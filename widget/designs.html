@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Four visual directions for the WebRAG Systems landing page">
+    <title>WebRAG — Landing page concepts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; min-height: 100vh; }
+        button, a { font: inherit; }
+        a { color: inherit; }
+        svg { display: block; }
+        ::selection { background: #806dff; color: #fff; }
+
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+        }
+
+        /* Comparison controls */
+        .concept-switcher {
+            position: fixed; z-index: 1000; left: 50%; bottom: 22px; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 5px; padding: 6px;
+            border: 1px solid rgba(255,255,255,.24); border-radius: 999px;
+            background: rgba(14,15,22,.82); color: #fff;
+            box-shadow: 0 18px 60px rgba(0,0,0,.28); backdrop-filter: blur(18px);
+        }
+        .concept-switcher a {
+            display: flex; align-items: center; justify-content: center; height: 38px;
+            min-width: 38px; padding: 0 13px; border-radius: 999px; text-decoration: none;
+            color: rgba(255,255,255,.64); font: 600 12px/1 'DM Sans', sans-serif;
+            transition: .2s ease;
+        }
+        .concept-switcher a:hover { color: #fff; background: rgba(255,255,255,.1); }
+        .concept-switcher a.active { color: #11121a; background: #fff; }
+        .concept-switcher .gallery-link { gap: 7px; padding-left: 14px; border-right: 1px solid rgba(255,255,255,.14); border-radius: 999px 6px 6px 999px; }
+
+        /* Gallery */
+        .gallery {
+            min-height: 100vh; padding: 44px clamp(20px, 5vw, 72px) 80px;
+            color: #e9e8f3; background:
+                radial-gradient(circle at 12% 12%, rgba(105,84,255,.22), transparent 26%),
+                radial-gradient(circle at 85% 4%, rgba(39,217,192,.14), transparent 22%),
+                #111119; font-family: 'DM Sans', sans-serif;
+        }
+        .gallery-shell { width: min(1320px, 100%); margin: 0 auto; }
+        .gallery-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .gallery-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.03em; }
+        .gallery-logo-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: #7d6aff; color: #fff; }
+        .gallery-meta { color: #898896; font-size: 13px; }
+        .gallery-intro { max-width: 840px; padding: 100px 0 54px; }
+        .gallery-kicker { color: #9d8fff; text-transform: uppercase; letter-spacing: .16em; font-size: 12px; font-weight: 700; }
+        .gallery h1 { margin: 18px 0 20px; font: 600 clamp(42px, 7vw, 86px)/.98 'Space Grotesk', sans-serif; letter-spacing: -.065em; }
+        .gallery-intro p { max-width: 650px; margin: 0; color: #a8a7b5; font-size: clamp(16px, 2vw, 19px); line-height: 1.65; }
+        .concept-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+        .concept-card {
+            min-height: 430px; position: relative; overflow: hidden; display: flex; flex-direction: column;
+            padding: 26px; border: 1px solid rgba(255,255,255,.11); border-radius: 26px;
+            color: #fff; text-decoration: none; background: #1b1b25; isolation: isolate;
+            transition: transform .35s ease, border-color .35s ease;
+        }
+        .concept-card:hover { transform: translateY(-6px); border-color: rgba(255,255,255,.28); }
+        .concept-card-top { display: flex; justify-content: space-between; gap: 20px; position: relative; z-index: 2; }
+        .concept-number { color: rgba(255,255,255,.46); font: 500 12px/1 'IBM Plex Mono', monospace; }
+        .concept-arrow { width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.25); border-radius: 50%; display: grid; place-items: center; transition: .25s ease; }
+        .concept-card:hover .concept-arrow { transform: rotate(45deg); background: #fff; color: #111; }
+        .concept-preview { flex: 1; min-height: 230px; position: relative; margin: 20px 0 14px; border-radius: 18px; overflow: hidden; }
+        .concept-info { position: relative; z-index: 2; }
+        .concept-info h2 { margin: 0 0 7px; font: 600 26px/1.1 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+        .concept-info p { margin: 0; color: rgba(255,255,255,.57); font-size: 13px; line-height: 1.5; }
+        .preview-1 { background: radial-gradient(circle at 70% 35%, rgba(108,95,255,.48), transparent 24%), linear-gradient(140deg,#07101e,#131942); }
+        .preview-1::before { content: ''; position: absolute; inset: 22% 8%; border: 1px solid rgba(109,220,255,.35); border-radius: 50%; transform: rotate(-12deg); box-shadow: 0 0 45px rgba(111,91,255,.22); }
+        .preview-1::after { content: ''; position: absolute; width: 90px; height: 90px; border-radius: 50%; top: 50%; left: 60%; transform: translate(-50%,-50%); background: radial-gradient(circle at 35% 30%,#dffffc,#55dfd0 20%,#6e5cff 62%,transparent 64%); filter: drop-shadow(0 0 30px #765fff); }
+        .preview-2 { background: #f4f0e8; }
+        .preview-2::before { content: 'YOUR SITE, NOW\A AN INTELLIGENT\A SERVICE.'; white-space: pre; position: absolute; left: 26px; top: 28px; color: #151515; font: 700 clamp(24px, 4vw, 48px)/.87 'Space Grotesk', sans-serif; letter-spacing: -.08em; }
+        .preview-2::after { content: 'AI'; position: absolute; right: 22px; bottom: 18px; width: 74px; height: 74px; display: grid; place-items: center; background: #2f48e9; color: #fff; border-radius: 50%; font: 700 20px 'Space Grotesk'; }
+        .preview-3 { background-color: #090d0b; background-image: linear-gradient(rgba(118,255,174,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(118,255,174,.07) 1px,transparent 1px); background-size: 26px 26px; }
+        .preview-3::before { content: 'AGENT NETWORK  /  ONLINE'; position: absolute; top: 24px; left: 24px; color: #8bffa8; font: 500 11px 'IBM Plex Mono'; }
+        .preview-3::after { content: '●  CRAWL\A ●  RETRIEVE\A ●  RESPOND'; white-space: pre; position: absolute; right: 26px; bottom: 24px; padding: 20px 24px; border: 1px solid rgba(139,255,168,.28); color: #b8ffc9; background: rgba(5,15,9,.78); font: 500 13px/2 'IBM Plex Mono'; }
+        .preview-4 { background: linear-gradient(145deg,#fbfbff,#ebe8ff); }
+        .preview-4::before { content: ''; position: absolute; width: 170px; height: 170px; left: 50%; top: 50%; transform: translate(-50%,-50%) rotate(20deg); border-radius: 46px; background: linear-gradient(135deg,#ff805a,#9f80ff 55%,#5cdbdd); box-shadow: -85px 45px 0 -48px #fff, 98px -40px 0 -55px #fff; }
+        .preview-4::after { content: 'One intelligence layer'; position: absolute; left: 26px; bottom: 22px; padding: 9px 13px; color: #3a3256; background: rgba(255,255,255,.78); border: 1px solid rgba(94,76,150,.15); border-radius: 12px; backdrop-filter: blur(12px); font: 600 12px 'DM Sans'; }
+
+        /* Shared concept pieces */
+        .concept-page { min-height: 100vh; overflow: hidden; }
+        .concept-nav { display: flex; align-items: center; justify-content: space-between; width: min(1240px, calc(100% - 40px)); margin: 0 auto; padding: 22px 0; position: relative; z-index: 20; }
+        .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; letter-spacing: -.04em; }
+        .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; }
+        .nav-links { display: flex; align-items: center; gap: 30px; }
+        .nav-links a { text-decoration: none; font-size: 13px; font-weight: 600; }
+        .nav-actions { display: flex; align-items: center; gap: 9px; }
+        .nav-lang { display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 999px; }
+        .nav-lang button { border: 0; background: transparent; cursor: pointer; padding: 7px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+        .button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; text-decoration: none; font-size: 13px; font-weight: 700; transition: .22s ease; }
+        .button:hover { transform: translateY(-2px); }
+        .button svg { width: 17px; height: 17px; }
+        .section-eyebrow { display: flex; align-items: center; gap: 9px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; }
+        .section-eyebrow::before { content: ''; width: 28px; height: 1px; background: currentColor; }
+
+        /* Concept 1: Neural Atlas */
+        .c1 { color: #f5f6ff; background: #070a12; font-family: 'DM Sans', sans-serif; }
+        .c1 .c1-bg { position: absolute; inset: 0 0 auto; height: 900px; pointer-events: none; background: radial-gradient(circle at 78% 30%,rgba(80,59,255,.22),transparent 27%),radial-gradient(circle at 64% 12%,rgba(64,224,218,.12),transparent 22%); }
+        .c1 .concept-nav { border-bottom: 1px solid rgba(255,255,255,.08); }
+        .c1 .brand-mark { background: linear-gradient(135deg,#69f2d4,#8067ff); color: #07100f; box-shadow: 0 0 25px rgba(102,235,210,.24); }
+        .c1 .nav-links a { color: #9298ad; }
+        .c1 .nav-links a:hover { color: #fff; }
+        .c1 .nav-lang { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+        .c1 .nav-lang button { color: #777f96; }
+        .c1 .nav-lang .active { color: #080b14; background: #6be3d2; }
+        .c1 .nav-portal { color: #eef0ff; border: 1px solid rgba(255,255,255,.13); background: rgba(255,255,255,.04); }
+        .c1-hero { width: min(1240px, calc(100% - 40px)); min-height: 720px; margin: 0 auto; display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: 50px; position: relative; }
+        .c1-copy { position: relative; z-index: 3; padding: 85px 0 110px; }
+        .c1 .section-eyebrow { color: #69e7d1; }
+        .c1 h1 { max-width: 760px; margin: 23px 0 26px; font: 600 clamp(54px,7vw,94px)/.93 'Space Grotesk',sans-serif; letter-spacing: -.072em; }
+        .c1 h1 span { color: #7d72ff; }
+        .c1-copy > p { max-width: 570px; color: #9298ad; font-size: 17px; line-height: 1.7; }
+        .c1-ctas { display: flex; align-items: center; gap: 12px; margin-top: 36px; }
+        .c1 .button-primary { color: #08100f; background: #73ead5; box-shadow: 0 12px 38px rgba(78,221,198,.15); }
+        .c1 .button-secondary { color: #dce0ee; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.12); }
+        .micro-proof { display: flex; align-items: center; gap: 14px; margin-top: 36px; color: #747b91; font-size: 12px; }
+        .avatar-stack { display: flex; }
+        .avatar-stack i { width: 25px; height: 25px; margin-left: -6px; border: 2px solid #080b13; border-radius: 50%; background: linear-gradient(135deg,#fca56b,#8a6bff); }
+        .avatar-stack i:nth-child(2) { background: linear-gradient(135deg,#6be8d2,#5b7cff); }
+        .avatar-stack i:nth-child(3) { background: linear-gradient(135deg,#f38ac7,#745dff); }
+        .c1-visual { min-height: 570px; position: relative; display: grid; place-items: center; }
+        .atlas-orbit { width: min(530px, 43vw); aspect-ratio: 1; position: relative; border: 1px solid rgba(111,205,255,.13); border-radius: 50%; animation: orbitFloat 8s ease-in-out infinite; }
+        .atlas-orbit::before,.atlas-orbit::after { content:''; position:absolute; border:1px solid rgba(119,100,255,.16); border-radius:50%; }
+        .atlas-orbit::before { inset: 14%; }
+        .atlas-orbit::after { inset: 31%; box-shadow: 0 0 70px rgba(97,80,255,.2); }
+        .orbit-line { position:absolute; inset:8%; border:1px solid rgba(100,234,217,.16); border-radius:50%; transform:rotate(58deg) scaleY(.42); }
+        .atlas-core { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:150px; height:150px; display:grid; place-items:center; border-radius:44px; background:radial-gradient(circle at 30% 22%,#ecfffb 0 5%,#6fe7d2 6% 24%,#6755f4 58%,#181844 73%); box-shadow:0 0 0 13px rgba(106,93,255,.06),0 0 80px rgba(98,76,255,.45); }
+        .atlas-core svg { width: 48px; color:#fff; filter:drop-shadow(0 0 9px rgba(255,255,255,.8)); }
+        .orbit-node { position:absolute; display:flex; align-items:center; gap:9px; padding:9px 12px; border:1px solid rgba(255,255,255,.11); border-radius:11px; color:#cdd2e7; background:rgba(17,21,36,.77); box-shadow:0 12px 30px rgba(0,0,0,.3); backdrop-filter:blur(12px); font-size:11px; font-weight:600; }
+        .orbit-node i { width:7px; height:7px; border-radius:50%; background:#6ce7d1; box-shadow:0 0 12px #6ce7d1; }
+        .node-1 { top:11%; left:7%; }.node-2 { top:27%; right:-2%; }.node-3 { bottom:17%; right:4%; }.node-4 { bottom:8%; left:10%; }
+        .c1-status { position:absolute; right:6%; bottom:4%; width:220px; padding:16px; border:1px solid rgba(255,255,255,.11); border-radius:15px; background:rgba(12,15,26,.8); backdrop-filter:blur(16px); }
+        .c1-status-top { display:flex; justify-content:space-between; color:#777f94; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+        .c1-status-top span:last-child { color:#6ce6d0; }
+        .wave { display:flex; align-items:end; gap:3px; height:36px; margin-top:12px; }
+        .wave i { flex:1; height:var(--h); border-radius:4px; background:linear-gradient(#6be7d0,#6c5ffc); opacity:.75; animation:wave 1.8s ease-in-out infinite alternate; }
+        .c1-proof { width:min(1240px,calc(100% - 40px)); margin:0 auto 100px; padding:30px; display:grid; grid-template-columns:1.3fr repeat(3,1fr); align-items:center; border:1px solid rgba(255,255,255,.08); border-radius:20px; background:rgba(255,255,255,.025); }
+        .c1-proof p { margin:0; color:#7f8699; font-size:12px; text-transform:uppercase; letter-spacing:.1em; }
+        .c1-stat { padding:6px 28px; border-left:1px solid rgba(255,255,255,.08); }
+        .c1-stat strong { display:block; color:#f2f4ff; font:600 28px 'Space Grotesk'; }
+        .c1-stat span { color:#777e91; font-size:11px; }
+        .c1-workflow { padding:120px max(20px,calc((100% - 1240px)/2)); background:#0a0e18; border-top:1px solid rgba(255,255,255,.06); }
+        .c1-workflow-head { display:flex; justify-content:space-between; align-items:end; gap:30px; margin-bottom:42px; }
+        .c1-workflow h2 { max-width:650px; margin:12px 0 0; font:600 clamp(36px,5vw,62px)/1 'Space Grotesk'; letter-spacing:-.055em; }
+        .c1-workflow-head > p { max-width:390px; color:#7f8698; font-size:14px; line-height:1.6; }
+        .flow-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+        .flow-card { min-height:230px; padding:22px; position:relative; border:1px solid rgba(255,255,255,.08); border-radius:17px; background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.015)); }
+        .flow-card::after { content:''; position:absolute; top:35px; right:-13px; width:25px; height:1px; background:#4e5362; z-index:3; }
+        .flow-card:last-child::after { display:none; }
+        .flow-num { color:#6fe4d0; font:500 10px 'IBM Plex Mono'; }
+        .flow-icon { width:46px; height:46px; display:grid; place-items:center; margin:35px 0 24px; border-radius:13px; background:rgba(111,101,255,.13); color:#8e81ff; }
+        .flow-icon svg { width:21px; }
+        .flow-card h3 { margin:0 0 8px; font:600 16px 'Space Grotesk'; }
+        .flow-card p { margin:0; color:#737b8e; font-size:12px; line-height:1.55; }
+
+        /* Concept 2: Editorial Intelligence */
+        .c2 { color:#181817; background:#f0ede5; font-family:'DM Sans',sans-serif; }
+        .c2 .concept-nav { border-bottom:1px solid #cbc6ba; }
+        .c2 .brand { font:700 18px 'Space Grotesk'; text-transform:uppercase; }
+        .c2 .brand-mark { background:#2e4bea; color:#fff; border-radius:0; }
+        .c2 .nav-links a { color:#605e58; }
+        .c2 .nav-lang { border:1px solid #bdb9ae; }
+        .c2 .nav-lang button { color:#6c6a64; }
+        .c2 .nav-lang .active { color:#fff; background:#181817; }
+        .c2 .nav-portal { color:#fff; background:#181817; border-radius:0; }
+        .c2-hero { width:min(1240px,calc(100% - 40px)); margin:0 auto; padding:75px 0 0; }
+        .c2-title-row { display:grid; grid-template-columns:1.25fr .75fr; gap:55px; align-items:end; }
+        .c2 .section-eyebrow { color:#2d49e5; }
+        .c2 h1 { margin:22px 0 0; font:700 clamp(62px,9.4vw,136px)/.78 'Space Grotesk',sans-serif; letter-spacing:-.09em; text-transform:uppercase; }
+        .c2 h1 em { color:#2f4be5; font-style:normal; }
+        .c2-sidecopy { padding-bottom:8px; }
+        .c2-sidecopy p { margin:0 0 30px; font-size:17px; line-height:1.65; color:#54524d; }
+        .c2 .button-primary { background:#2f4be5; color:#fff; border-radius:0; box-shadow:8px 8px 0 #181817; }
+        .c2 .button-primary:hover { box-shadow:4px 4px 0 #181817; transform:translate(4px,4px); }
+        .editorial-board { margin-top:65px; display:grid; grid-template-columns:1.2fr .8fr; min-height:440px; border-top:1px solid #aaa69b; border-bottom:1px solid #aaa69b; }
+        .editorial-visual { position:relative; overflow:hidden; display:flex; align-items:end; padding:28px; background:#2948e9; color:#fff; }
+        .editorial-visual::before { content:''; position:absolute; width:430px; height:430px; top:-150px; right:-70px; border:1px solid rgba(255,255,255,.38); border-radius:50%; box-shadow:0 0 0 55px rgba(255,255,255,.06),0 0 0 110px rgba(255,255,255,.04); }
+        .editorial-visual::after { content:'W'; position:absolute; right:30px; bottom:-70px; color:rgba(255,255,255,.08); font:700 320px/1 'Space Grotesk'; }
+        .visual-caption { position:relative; z-index:2; max-width:470px; }
+        .visual-label { font:500 11px 'IBM Plex Mono'; letter-spacing:.08em; text-transform:uppercase; }
+        .visual-caption h2 { margin:18px 0 0; font:600 clamp(32px,4.5vw,64px)/.95 'Space Grotesk'; letter-spacing:-.06em; }
+        .editorial-feed { background:#dedacf; border-left:1px solid #aaa69b; }
+        .feed-head { display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid #aaa69b; font:600 11px 'IBM Plex Mono'; text-transform:uppercase; }
+        .live-dot { display:flex; align-items:center; gap:7px; color:#2f4be5; }
+        .live-dot::before { content:''; width:7px; height:7px; border-radius:50%; background:#2f4be5; }
+        .feed-item { display:grid; grid-template-columns:50px 1fr auto; gap:12px; align-items:center; padding:24px 22px; border-bottom:1px solid #b8b3a7; }
+        .feed-item:last-child { border:0; }
+        .feed-icon { width:43px; height:43px; display:grid; place-items:center; color:#2f4be5; border:1px solid #aaa69b; }
+        .feed-icon svg { width:19px; }
+        .feed-item strong { display:block; font-size:13px; }
+        .feed-item small { color:#6e6b64; font-size:11px; }
+        .feed-time { color:#77736c; font:500 10px 'IBM Plex Mono'; }
+        .c2-metrics { display:grid; grid-template-columns:repeat(4,1fr); width:min(1240px,calc(100% - 40px)); margin:0 auto; border-left:1px solid #aaa69b; }
+        .c2-metric { padding:36px 25px; border-right:1px solid #aaa69b; }
+        .c2-metric strong { display:block; font:700 38px 'Space Grotesk'; letter-spacing:-.06em; }
+        .c2-metric span { color:#66635c; font-size:11px; }
+        .c2-process { padding:130px max(20px,calc((100% - 1240px)/2)); background:#181817; color:#f2efe8; }
+        .c2-process-head { display:grid; grid-template-columns:1fr 1fr; align-items:end; gap:40px; margin-bottom:56px; }
+        .c2-process h2 { margin:15px 0 0; font:600 clamp(42px,6vw,76px)/.92 'Space Grotesk'; letter-spacing:-.07em; text-transform:uppercase; }
+        .c2-process-head p { max-width:500px; margin:0 0 8px; color:#97938a; font-size:15px; line-height:1.7; }
+        .editorial-steps { display:grid; grid-template-columns:repeat(2,1fr); border-top:1px solid #4b4945; border-left:1px solid #4b4945; }
+        .editorial-step { min-height:260px; padding:30px; border-right:1px solid #4b4945; border-bottom:1px solid #4b4945; position:relative; }
+        .editorial-step b { position:absolute; right:25px; top:20px; color:#53514c; font:500 44px 'Space Grotesk'; }
+        .step-symbol { width:44px; height:44px; display:grid; place-items:center; background:#2e49e5; color:#fff; }
+        .step-symbol svg { width:20px; }
+        .editorial-step h3 { margin:48px 0 10px; font:600 22px 'Space Grotesk'; }
+        .editorial-step p { max-width:430px; margin:0; color:#8d8981; font-size:13px; line-height:1.6; }
+
+        /* Concept 3: Command Center */
+        .c3 { color:#e9ffed; background:#070a08; font-family:'IBM Plex Mono',monospace; }
+        .c3::before { content:''; position:fixed; inset:0; pointer-events:none; opacity:.34; background-image:linear-gradient(rgba(111,255,151,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(111,255,151,.035) 1px,transparent 1px); background-size:38px 38px; }
+        .c3 .concept-nav { width:min(1320px,calc(100% - 32px)); padding:15px 0; border-bottom:1px solid rgba(133,255,165,.18); }
+        .c3 .brand { font-size:13px; letter-spacing:.01em; text-transform:uppercase; }
+        .c3 .brand-mark { width:28px; height:28px; color:#061008; background:#85ffa4; border-radius:3px; }
+        .c3 .nav-links a { color:#66836d; font-size:11px; text-transform:uppercase; }
+        .c3 .nav-links a:hover { color:#9dffb4; }
+        .c3 .nav-lang { border:1px solid rgba(133,255,165,.2); border-radius:3px; }
+        .c3 .nav-lang button { color:#57725e; border-radius:2px; }
+        .c3 .nav-lang .active { color:#071009; background:#85ffa4; }
+        .c3 .nav-portal { min-height:38px; border:1px solid rgba(133,255,165,.32); border-radius:3px; color:#8fffaa; background:rgba(133,255,165,.04); font-size:10px; text-transform:uppercase; }
+        .terminal-hero { width:min(1320px,calc(100% - 32px)); margin:0 auto; display:grid; grid-template-columns:1.04fr .96fr; min-height:700px; border-left:1px solid rgba(133,255,165,.16); border-right:1px solid rgba(133,255,165,.16); }
+        .terminal-copy { padding:95px clamp(28px,5vw,70px); border-right:1px solid rgba(133,255,165,.16); }
+        .terminal-tag { display:inline-flex; align-items:center; gap:9px; padding:7px 10px; color:#83ffa2; border:1px solid rgba(133,255,165,.24); background:rgba(133,255,165,.035); font-size:10px; text-transform:uppercase; }
+        .terminal-tag i { width:6px; height:6px; border-radius:50%; background:#85ffa4; box-shadow:0 0 12px #85ffa4; animation:blink 1.4s infinite; }
+        .c3 h1 { margin:34px 0 26px; max-width:720px; color:#edfff1; font:500 clamp(46px,6vw,84px)/.95 'Space Grotesk',sans-serif; letter-spacing:-.06em; }
+        .c3 h1 span { display:block; color:#75f597; }
+        .terminal-copy > p { max-width:610px; color:#6f8875; font:400 13px/1.8 'IBM Plex Mono'; }
+        .terminal-ctas { display:flex; gap:10px; margin-top:34px; }
+        .c3 .button { border-radius:3px; text-transform:uppercase; font-size:10px; }
+        .c3 .button-primary { color:#071009; background:#85ffa4; box-shadow:0 0 36px rgba(133,255,164,.14); }
+        .c3 .button-secondary { color:#8ba991; border:1px solid rgba(133,255,165,.2); }
+        .terminal-note { margin-top:58px; color:#49604f; font-size:9px; text-transform:uppercase; letter-spacing:.12em; }
+        .terminal-note span { color:#86ffa5; }
+        .agent-console { display:flex; flex-direction:column; background:rgba(4,10,6,.54); }
+        .console-head { display:flex; justify-content:space-between; padding:14px 16px; color:#536b59; border-bottom:1px solid rgba(133,255,165,.16); font-size:9px; text-transform:uppercase; }
+        .console-head span:last-child { color:#70e88e; }
+        .console-body { flex:1; padding:32px; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+        .console-line { display:grid; grid-template-columns:56px 1fr auto; gap:12px; padding:15px 14px; border:1px solid rgba(133,255,165,.12); background:rgba(133,255,165,.025); font-size:10px; }
+        .console-time { color:#405646; }.console-text { color:#91ad98; }.console-ok { color:#77f797; }
+        .console-line.highlight { border-color:rgba(133,255,165,.35); background:rgba(133,255,165,.065); }
+        .console-map { height:180px; position:relative; margin-top:6px; overflow:hidden; border:1px solid rgba(133,255,165,.13); background-image:linear-gradient(rgba(133,255,165,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(133,255,165,.05) 1px,transparent 1px); background-size:24px 24px; }
+        .map-path { position:absolute; height:1px; background:#65dd83; transform-origin:left; opacity:.48; }
+        .map-path.p1 { width:45%; left:15%; top:50%; transform:rotate(-18deg); }.map-path.p2 { width:33%; left:49%; top:34%; transform:rotate(31deg); }.map-path.p3 { width:42%; left:26%; top:68%; transform:rotate(8deg); }
+        .map-node { position:absolute; width:10px; height:10px; border:2px solid #84ffa3; border-radius:50%; background:#071009; box-shadow:0 0 13px #6fe98d; }
+        .map-node.n1 { left:14%; top:55%; }.map-node.n2 { left:49%; top:31%; }.map-node.n3 { right:16%; top:58%; }.map-node.n4 { left:63%; bottom:21%; }
+        .terminal-stats { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid rgba(133,255,165,.16); }
+        .terminal-stat { padding:18px; border-right:1px solid rgba(133,255,165,.16); }
+        .terminal-stat:last-child { border-right:0; }
+        .terminal-stat strong { display:block; color:#8fffaa; font-size:18px; font-weight:500; }
+        .terminal-stat span { color:#4d6554; font-size:8px; text-transform:uppercase; }
+        .c3-modules { padding:105px max(16px,calc((100% - 1320px)/2)); border-top:1px solid rgba(133,255,165,.16); }
+        .module-head { display:flex; align-items:end; justify-content:space-between; gap:30px; margin-bottom:40px; }
+        .module-head h2 { max-width:720px; margin:14px 0 0; font:500 clamp(36px,5vw,64px)/1 'Space Grotesk'; letter-spacing:-.05em; }
+        .module-head .section-eyebrow { color:#76f496; }
+        .module-index { color:#405647; font-size:10px; }
+        .module-grid { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid rgba(133,255,165,.18); border-left:1px solid rgba(133,255,165,.18); }
+        .module-card { min-height:280px; padding:24px; border-right:1px solid rgba(133,255,165,.18); border-bottom:1px solid rgba(133,255,165,.18); background:rgba(133,255,165,.014); }
+        .module-num { color:#3e5845; font-size:9px; }
+        .module-icon { width:42px; height:42px; display:grid; place-items:center; margin:55px 0 26px; border:1px solid rgba(133,255,165,.28); color:#84ffa3; }
+        .module-icon svg { width:20px; }
+        .module-card h3 { margin:0 0 9px; color:#dfffe6; font:500 16px 'IBM Plex Mono'; text-transform:uppercase; }
+        .module-card p { margin:0; color:#58705e; font-size:10px; line-height:1.7; }
+
+        /* Concept 4: Prism OS */
+        .c4 { color:#29233c; background:#f8f7ff; font-family:'Manrope',sans-serif; }
+        .c4-bg { position:absolute; inset:0 0 auto; height:840px; overflow:hidden; pointer-events:none; background:radial-gradient(circle at 18% 28%,rgba(129,102,255,.16),transparent 24%),radial-gradient(circle at 85% 22%,rgba(255,112,78,.13),transparent 20%),linear-gradient(#faf9ff,#f4f1ff); }
+        .c4-bg::before { content:''; position:absolute; width:560px; height:560px; left:50%; top:260px; transform:translateX(-50%); border-radius:50%; background:rgba(255,255,255,.55); filter:blur(2px); box-shadow:0 0 100px rgba(125,95,236,.08); }
+        .c4 .concept-nav { width:min(1180px,calc(100% - 40px)); }
+        .c4 .brand-mark { color:#fff; background:linear-gradient(135deg,#ff805e,#8c6eff); box-shadow:0 8px 22px rgba(116,85,223,.22); }
+        .c4 .nav-links a { color:#716b82; }
+        .c4 .nav-links a:hover { color:#3e355d; }
+        .c4 .nav-lang { background:#fff; border:1px solid #e4dff1; box-shadow:0 6px 18px rgba(59,41,105,.05); }
+        .c4 .nav-lang button { color:#9992a9; }
+        .c4 .nav-lang .active { color:#fff; background:#6f59df; }
+        .c4 .nav-portal { min-height:42px; color:#50456f; background:rgba(255,255,255,.76); border:1px solid #e4dff1; border-radius:999px; }
+        .prism-hero { min-height:810px; position:relative; z-index:2; text-align:center; padding:90px 20px 40px; }
+        .prism-pill { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; color:#6e5bca; background:rgba(255,255,255,.74); border:1px solid #ded8f1; border-radius:999px; box-shadow:0 8px 30px rgba(83,57,143,.07); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; backdrop-filter:blur(12px); }
+        .prism-pill i { width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,#ff7e5d,#8d6dff); }
+        .c4 h1 { max-width:970px; margin:24px auto 22px; font:700 clamp(56px,8.2vw,108px)/.91 'Manrope',sans-serif; letter-spacing:-.075em; }
+        .c4 h1 span { background:linear-gradient(100deg,#725bdb,#a06cf1 48%,#f2765c); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .prism-copy { max-width:650px; margin:0 auto; color:#746e83; font-size:16px; line-height:1.7; }
+        .prism-ctas { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:32px; }
+        .c4 .button-primary { color:#fff; background:#382f55; border-radius:999px; box-shadow:0 14px 34px rgba(48,38,82,.2); }
+        .c4 .button-secondary { color:#544a72; background:rgba(255,255,255,.72); border:1px solid #dfdaf0; border-radius:999px; }
+        .prism-stage { width:min(850px,calc(100% - 40px)); height:290px; margin:54px auto 0; position:relative; }
+        .prism-core { width:142px; height:142px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(14deg); border-radius:42px; background:linear-gradient(145deg,#ff8a66,#9a72f8 53%,#65d8df); box-shadow:0 28px 70px rgba(116,84,210,.28),inset 0 1px 0 rgba(255,255,255,.6); }
+        .prism-core::before { content:''; position:absolute; inset:24px; border:1px solid rgba(255,255,255,.6); border-radius:27px; }
+        .prism-core::after { content:'W'; position:absolute; inset:0; display:grid; place-items:center; transform:rotate(-14deg); color:#fff; font:700 38px 'Manrope'; }
+        .agent-chip { position:absolute; display:flex; align-items:center; gap:10px; padding:11px 14px; color:#554b6c; background:rgba(255,255,255,.83); border:1px solid rgba(106,83,170,.15); border-radius:14px; box-shadow:0 16px 42px rgba(61,40,112,.1); backdrop-filter:blur(14px); font-size:11px; font-weight:700; animation:chipFloat 5s ease-in-out infinite; }
+        .agent-chip i { width:27px; height:27px; display:grid; place-items:center; border-radius:9px; color:#fff; background:linear-gradient(135deg,#9a80f7,#7360dd); }
+        .agent-chip i svg { width:14px; }
+        .chip-1 { left:4%; top:21%; }.chip-2 { right:5%; top:9%; animation-delay:-1s; }.chip-3 { left:13%; bottom:9%; animation-delay:-2s; }.chip-4 { right:12%; bottom:8%; animation-delay:-3s; }
+        .prism-trust { position:relative; z-index:3; width:min(1050px,calc(100% - 40px)); margin:-2px auto 95px; display:flex; align-items:center; justify-content:center; gap:28px; color:#aaa5b5; font-size:10px; text-transform:uppercase; letter-spacing:.12em; }
+        .prism-trust span { width:4px; height:4px; border-radius:50%; background:#c9c2db; }
+        .c4-bento { position:relative; z-index:2; padding:120px max(20px,calc((100% - 1180px)/2)); background:#fff; border-top:1px solid #ece8f4; }
+        .bento-head { text-align:center; max-width:770px; margin:0 auto 54px; }
+        .bento-head .section-eyebrow { justify-content:center; color:#765fd8; }
+        .bento-head h2 { margin:18px 0 14px; font:700 clamp(40px,5.4vw,70px)/.98 'Manrope'; letter-spacing:-.065em; }
+        .bento-head p { color:#817b8d; font-size:14px; line-height:1.65; }
+        .bento-grid { display:grid; grid-template-columns:1.15fr .85fr .85fr; grid-template-rows:280px 250px; gap:14px; }
+        .bento-card { overflow:hidden; position:relative; padding:26px; border:1px solid #e9e5f1; border-radius:22px; background:#f8f7fc; }
+        .bento-card h3 { margin:0 0 7px; font:700 19px 'Manrope'; letter-spacing:-.035em; }
+        .bento-card p { max-width:360px; margin:0; color:#868090; font-size:12px; line-height:1.6; }
+        .bento-large { grid-row:1/3; background:linear-gradient(155deg,#f2efff,#fff4ef); }
+        .bento-wide { grid-column:2/4; background:#312a48; color:#fff; }
+        .bento-wide p { color:#aaa3ba; }
+        .mini-conversation { margin-top:42px; display:flex; flex-direction:column; gap:10px; }
+        .bubble { max-width:85%; padding:12px 14px; border-radius:14px; background:#fff; color:#5f5870; box-shadow:0 8px 20px rgba(65,43,120,.06); font-size:11px; line-height:1.45; }
+        .bubble.user { align-self:flex-end; color:#fff; background:#816be2; }
+        .source-chip { display:inline-flex; align-items:center; gap:6px; margin-top:5px; color:#7b68d7; font-size:9px; font-weight:700; }
+        .wide-orbit { position:absolute; width:260px; height:260px; right:35px; top:-73px; border:1px solid rgba(255,255,255,.12); border-radius:50%; box-shadow:0 0 0 38px rgba(255,255,255,.025),0 0 0 76px rgba(255,255,255,.018); }
+        .wide-orbit::before { content:''; position:absolute; width:70px; height:70px; left:30px; bottom:24px; border-radius:22px; background:linear-gradient(135deg,#ff8b69,#8d71ec); transform:rotate(18deg); box-shadow:0 18px 40px rgba(0,0,0,.22); }
+        .wide-stat { position:absolute; bottom:26px; left:26px; color:#8f87a1; font-size:10px; }
+        .wide-stat strong { display:block; color:#fff; font:700 34px 'Manrope'; }
+        .language-cloud { display:flex; flex-wrap:wrap; gap:7px; margin-top:45px; }
+        .language-cloud span { padding:7px 9px; color:#6e657d; background:#fff; border:1px solid #e4dfed; border-radius:999px; font-size:9px; font-weight:700; }
+        .install-code { margin-top:42px; padding:14px; overflow:hidden; color:#8d78e9; background:#fff; border:1px solid #e8e3f0; border-radius:12px; font:500 9px 'IBM Plex Mono'; white-space:nowrap; }
+
+        @keyframes orbitFloat { 0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-10px) rotate(2deg)} }
+        @keyframes wave { from{transform:scaleY(.55);opacity:.4}to{transform:scaleY(1);opacity:.9} }
+        @keyframes blink { 50%{opacity:.25} }
+        @keyframes chipFloat { 0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
+
+        @media (max-width: 980px) {
+            .nav-links { display:none; }
+            .c1-hero,.c2-title-row,.terminal-hero { grid-template-columns:1fr; }
+            .c1-copy { padding-bottom:20px; }
+            .c1-visual { min-height:510px; }
+            .atlas-orbit { width:min(500px,80vw); }
+            .c1-proof { grid-template-columns:1fr repeat(3,1fr); }
+            .c1-proof > p { grid-column:1/-1; margin-bottom:20px; }
+            .c1-stat:first-of-type { border-left:0; padding-left:0; }
+            .flow-grid { grid-template-columns:repeat(2,1fr); }
+            .flow-card:nth-child(2)::after { display:none; }
+            .editorial-board { grid-template-columns:1fr; }
+            .editorial-feed { border-left:0; border-top:1px solid #aaa69b; }
+            .terminal-copy { border-right:0; border-bottom:1px solid rgba(133,255,165,.16); }
+            .agent-console { min-height:560px; }
+            .bento-grid { grid-template-columns:1fr 1fr; grid-template-rows:auto; }
+            .bento-large { grid-row:auto; }
+            .bento-wide { grid-column:1/3; min-height:280px; }
+        }
+        @media (max-width: 700px) {
+            .concept-grid { grid-template-columns:1fr; }
+            .gallery-intro { padding-top:72px; }
+            .concept-card { min-height:380px; }
+            .concept-switcher { bottom:12px; }
+            .concept-switcher .gallery-link span { display:none; }
+            .concept-switcher a { padding:0 11px; }
+            .concept-nav { width:calc(100% - 28px) !important; }
+            .brand-label { display:none; }
+            .nav-lang { display:none; }
+            .c1-hero,.c2-hero,.terminal-hero { width:calc(100% - 28px); }
+            .c1 h1 { font-size:52px; }
+            .c1-ctas,.terminal-ctas,.prism-ctas { flex-direction:column; align-items:stretch; }
+            .c1-visual { min-height:420px; transform:scale(.86); margin:-35px; }
+            .orbit-node { font-size:9px; }
+            .c1-status { right:0; }
+            .c1-proof { grid-template-columns:1fr; width:calc(100% - 28px); }
+            .c1-stat { border:0; border-top:1px solid rgba(255,255,255,.08); padding:18px 0; }
+            .c1-workflow-head,.c2-process-head,.module-head { display:block; }
+            .flow-grid,.editorial-steps,.module-grid { grid-template-columns:1fr; }
+            .flow-card::after { display:none; }
+            .c2-hero { padding-top:55px; }
+            .c2 h1 { font-size:62px; }
+            .c2-sidecopy { margin-top:40px; }
+            .editorial-board { margin-top:50px; }
+            .editorial-visual { min-height:360px; }
+            .feed-item { grid-template-columns:44px 1fr; }
+            .feed-time { display:none; }
+            .c2-metrics { grid-template-columns:1fr 1fr; width:calc(100% - 28px); }
+            .c2-metric { border-bottom:1px solid #aaa69b; }
+            .terminal-hero { border:0; }
+            .terminal-copy { padding:70px 10px; }
+            .c3 h1 { font-size:48px; }
+            .console-body { padding:16px; }
+            .console-line { grid-template-columns:1fr auto; }
+            .console-time { display:none; }
+            .terminal-stats { grid-template-columns:1fr; }
+            .terminal-stat { border-right:0; border-bottom:1px solid rgba(133,255,165,.16); }
+            .prism-hero { min-height:880px; padding-top:70px; }
+            .c4 h1 { font-size:55px; }
+            .prism-stage { margin-top:50px; transform:scale(.84); }
+            .agent-chip { font-size:9px; }
+            .chip-1 { left:-6%; }.chip-2 { right:-8%; }.chip-3 { left:-1%; }.chip-4 { right:-5%; }
+            .prism-trust { flex-wrap:wrap; gap:12px; }
+            .bento-grid { grid-template-columns:1fr; }
+            .bento-wide { grid-column:auto; }
+            .bento-card { min-height:260px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior:auto; }
+            *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+<main id="app"></main>
+
+<template id="switcher-template">
+    <nav class="concept-switcher" aria-label="Design concept switcher">
+        <a class="gallery-link" href="/designs" data-route="gallery" aria-label="Back to gallery">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            <span>All concepts</span>
+        </a>
+        <a href="/designs/1" data-route="1">01</a>
+        <a href="/designs/2" data-route="2">02</a>
+        <a href="/designs/3" data-route="3">03</a>
+        <a href="/designs/4" data-route="4">04</a>
+    </nav>
+</template>
+
+<script>
+(() => {
+    'use strict';
+
+    const icons = {
+        spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3Z"/><path d="M19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></svg>',
+        arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>',
+        search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>',
+        brain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9.5 4.5a3 3 0 00-5 2.2 3.2 3.2 0 00.7 5.8 3.5 3.5 0 004.3 5.2M14.5 4.5a3 3 0 015 2.2 3.2 3.2 0 01-.7 5.8 3.5 3.5 0 01-4.3 5.2M9.5 4.5v14.7M14.5 4.5v14.7M7 9h2.5M14.5 13H18"/></svg>',
+        chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 14a4 4 0 01-4 4H9l-5 3v-7a4 4 0 01-1-2.6V7a4 4 0 014-4h9a4 4 0 014 4v7Z"/></svg>',
+        code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 9l-3 3 3 3M16 9l3 3-3 3M14 5l-4 14"/></svg>',
+        document: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>'
+    };
+
+    const logo = (label = true) => `<a class="brand" href="/designs"><span class="brand-mark">W</span>${label ? '<span class="brand-label">WebRAG Systems</span>' : ''}</a>`;
+    const nav = (style = '') => `
+        <nav class="concept-nav">
+            ${logo()}
+            <div class="nav-links"><a href="#platform">Platform</a><a href="#workflow">How it works</a><a href="#results">Results</a></div>
+            <div class="nav-actions">
+                <div class="nav-lang" aria-label="Language preview"><button class="active">EN</button><button>RU</button><button>KZ</button></div>
+                <a class="button nav-portal" href="/app">Customer portal</a>
+            </div>
+        </nav>`;
+
+    function gallery() {
+        return `<section class="gallery">
+            <div class="gallery-shell">
+                <div class="gallery-top"><div class="gallery-logo"><span class="gallery-logo-mark">W</span> WebRAG Systems</div><div class="gallery-meta">Landing page exploration · 2026</div></div>
+                <div class="gallery-intro"><div class="gallery-kicker">Four creative directions</div><h1>Choose the world<br>your agents live in.</h1><p>Each concept keeps the same product story, but changes the visual personality, hierarchy, and way the agent system is explained. Open any direction to see the full responsive page.</p></div>
+                <div class="concept-grid">
+                    <a class="concept-card" href="/designs/1"><div class="concept-card-top"><span class="concept-number">01 / DEEP TECH</span><span class="concept-arrow">↗</span></div><div class="concept-preview preview-1"></div><div class="concept-info"><h2>Neural Atlas</h2><p>Immersive, technical and premium · Indigo, midnight and mint</p></div></a>
+                    <a class="concept-card" href="/designs/2"><div class="concept-card-top"><span class="concept-number">02 / EDITORIAL</span><span class="concept-arrow">↗</span></div><div class="concept-preview preview-2"></div><div class="concept-info"><h2>Editorial Intelligence</h2><p>Bold, confident and business-first · Ink, ivory and electric blue</p></div></a>
+                    <a class="concept-card" href="/designs/3"><div class="concept-card-top"><span class="concept-number">03 / SYSTEM UI</span><span class="concept-arrow">↗</span></div><div class="concept-preview preview-3"></div><div class="concept-info"><h2>Agent Command Center</h2><p>Operational, precise and alive · Carbon, signal green and grid lines</p></div></a>
+                    <a class="concept-card" href="/designs/4"><div class="concept-card-top"><span class="concept-number">04 / FRIENDLY AI</span><span class="concept-arrow">↗</span></div><div class="concept-preview preview-4"></div><div class="concept-info"><h2>Prism OS</h2><p>Approachable, luminous and product-led · Lilac, coral and soft glass</p></div></a>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    function concept1() {
+        const steps = [
+            ['01','Connect',icons.globe,'Point WebRAG at your site or upload documents.'],
+            ['02','Understand',icons.brain,'Your private knowledge graph is mapped and indexed.'],
+            ['03','Answer',icons.chat,'Visitors get grounded answers with cited sources.'],
+            ['04','Improve',icons.spark,'Live insights reveal what customers need next.']
+        ];
+        return `<div class="concept-page c1"><div class="c1-bg"></div>${nav()}
+            <section class="c1-hero" id="platform">
+                <div class="c1-copy"><div class="section-eyebrow">The intelligence layer for your website</div><h1>Your content.<br><span>Acting intelligently.</span></h1><p>Deploy an AI agent that understands every page, document and product detail—then turns that knowledge into instant, grounded answers for every visitor.</p><div class="c1-ctas"><a class="button button-primary" href="/trial">Build your agent ${icons.arrow}</a><a class="button button-secondary" href="#workflow">Explore the system</a></div><div class="micro-proof"><span class="avatar-stack"><i></i><i></i><i></i></span><span>One line of code · Live in five minutes</span></div></div>
+                <div class="c1-visual" aria-label="Animated agent knowledge network"><div class="atlas-orbit"><div class="orbit-line"></div><div class="atlas-core">${icons.spark}</div><div class="orbit-node node-1"><i></i> Website crawler</div><div class="orbit-node node-2"><i></i> Knowledge index</div><div class="orbit-node node-3"><i></i> Answer engine</div><div class="orbit-node node-4"><i></i> Source citations</div></div><div class="c1-status"><div class="c1-status-top"><span>Agent activity</span><span>Live</span></div><div class="wave"><i style="--h:35%"></i><i style="--h:70%"></i><i style="--h:46%"></i><i style="--h:95%"></i><i style="--h:60%"></i><i style="--h:82%"></i><i style="--h:43%"></i><i style="--h:72%"></i><i style="--h:50%"></i></div></div></div>
+            </section>
+            <section class="c1-proof" id="results"><p>One connected system, every customer touchpoint</p><div class="c1-stat"><strong>24/7</strong><span>Always available</span></div><div class="c1-stat"><strong>5 min</strong><span>Typical setup</span></div><div class="c1-stat"><strong>∞</strong><span>Languages supported</span></div></section>
+            <section class="c1-workflow" id="workflow"><div class="c1-workflow-head"><div><div class="section-eyebrow">System architecture</div><h2>From scattered content to one capable agent.</h2></div><p>WebRAG continuously turns your existing business knowledge into helpful, trustworthy conversations.</p></div><div class="flow-grid">${steps.map(s=>`<article class="flow-card"><span class="flow-num">${s[0]}</span><div class="flow-icon">${s[2]}</div><h3>${s[1]}</h3><p>${s[3]}</p></article>`).join('')}</div></section>
+        </div>`;
+    }
+
+    function concept2() {
+        return `<div class="concept-page c2">${nav()}
+            <section class="c2-hero" id="platform"><div class="c2-title-row"><div><div class="section-eyebrow">AI agents for real businesses</div><h1>Your site,<br>now <em>smart.</em></h1></div><div class="c2-sidecopy"><p>WebRAG turns the knowledge already inside your website into an AI service that answers, guides and converts—without the usual integration project.</p><a class="button button-primary" href="/trial">Try it on your website ${icons.arrow}</a></div></div>
+                <div class="editorial-board"><div class="editorial-visual"><div class="visual-caption"><div class="visual-label">Knowledge in motion / 01</div><h2>Every useful answer starts with your content.</h2></div></div><div class="editorial-feed"><div class="feed-head"><span>Agent activity</span><span class="live-dot">Live</span></div><div class="feed-item"><span class="feed-icon">${icons.globe}</span><span><strong>Website mapped</strong><small>148 pages understood</small></span><span class="feed-time">09:42</span></div><div class="feed-item"><span class="feed-icon">${icons.search}</span><span><strong>Question resolved</strong><small>Pricing policy · 3 sources</small></span><span class="feed-time">09:44</span></div><div class="feed-item"><span class="feed-icon">${icons.chat}</span><span><strong>Lead assisted</strong><small>English → Kazakh</small></span><span class="feed-time">09:46</span></div><div class="feed-item"><span class="feed-icon">${icons.document}</span><span><strong>PDF synchronized</strong><small>Product catalogue · 2026</small></span><span class="feed-time">09:47</span></div></div></div>
+            </section>
+            <section class="c2-metrics" id="results"><div class="c2-metric"><strong>01</strong><span>Line of code to install</span></div><div class="c2-metric"><strong>24/7</strong><span>Customer assistance</span></div><div class="c2-metric"><strong>3+</strong><span>Core languages</span></div><div class="c2-metric"><strong>100%</strong><span>Grounded in your content</span></div></section>
+            <section class="c2-process" id="workflow"><div class="c2-process-head"><div><div class="section-eyebrow">A shorter path to useful AI</div><h2>Live in four moves.</h2></div><p>No training programme. No data migration. Your website and documents are already the knowledge base—the agent simply makes them conversational.</p></div><div class="editorial-steps"><article class="editorial-step"><b>01</b><span class="step-symbol">${icons.globe}</span><h3>Connect your website</h3><p>Enter a URL and optionally add PDFs, policies or catalogues.</p></article><article class="editorial-step"><b>02</b><span class="step-symbol">${icons.brain}</span><h3>Build the knowledge</h3><p>WebRAG maps, chunks and indexes the content automatically.</p></article><article class="editorial-step"><b>03</b><span class="step-symbol">${icons.chat}</span><h3>Test real questions</h3><p>See grounded answers and citations before anything goes live.</p></article><article class="editorial-step"><b>04</b><span class="step-symbol">${icons.code}</span><h3>Publish one line</h3><p>Add the widget to your site and start helping visitors immediately.</p></article></div></section>
+        </div>`;
+    }
+
+    function concept3() {
+        return `<div class="concept-page c3">${nav()}
+            <section class="terminal-hero" id="platform"><div class="terminal-copy"><span class="terminal-tag"><i></i> Agent network ready</span><h1>Deploy knowledge.<span>Not another chatbot.</span></h1><p>&gt; WebRAG connects autonomous retrieval, multilingual reasoning and source-grounded answers to the content your business already owns.</p><div class="terminal-ctas"><a class="button button-primary" href="/trial">Initialize free demo ${icons.arrow}</a><a class="button button-secondary" href="#workflow">View architecture</a></div><div class="terminal-note">SYSTEM STATUS: <span>ALL SERVICES OPERATIONAL</span> / LATENCY 1.2S</div></div>
+                <div class="agent-console"><div class="console-head"><span>wrag://agent-01/activity</span><span>● live stream</span></div><div class="console-body"><div class="console-line"><span class="console-time">09:42:01</span><span class="console-text">crawl.discovered /pricing</span><span class="console-ok">OK</span></div><div class="console-line"><span class="console-time">09:42:03</span><span class="console-text">embed.indexed 148 documents</span><span class="console-ok">OK</span></div><div class="console-line highlight"><span class="console-time">09:42:08</span><span class="console-text">query.resolved “delivery policy?”</span><span class="console-ok">3 SRC</span></div><div class="console-line"><span class="console-time">09:42:09</span><span class="console-text">response.sent language=kk</span><span class="console-ok">DONE</span></div><div class="console-map"><i class="map-path p1"></i><i class="map-path p2"></i><i class="map-path p3"></i><i class="map-node n1"></i><i class="map-node n2"></i><i class="map-node n3"></i><i class="map-node n4"></i></div></div><div class="terminal-stats"><div class="terminal-stat"><strong>148</strong><span>Pages indexed</span></div><div class="terminal-stat"><strong>99.8%</strong><span>Agent uptime</span></div><div class="terminal-stat"><strong>1.2s</strong><span>Avg response</span></div></div></div>
+            </section>
+            <section class="c3-modules" id="workflow"><div class="module-head"><div><div class="section-eyebrow">Core modules</div><h2>One system. Three specialized agents.</h2></div><div class="module-index">MODULES 01—03 / ACTIVE</div></div><div class="module-grid"><article class="module-card"><span class="module-num">M/01</span><div class="module-icon">${icons.globe}</div><h3>Crawl agent</h3><p>Maps every public page and document while preserving source structure and metadata.</p></article><article class="module-card"><span class="module-num">M/02</span><div class="module-icon">${icons.search}</div><h3>Retrieval agent</h3><p>Finds the strongest evidence using hybrid semantic and keyword intelligence.</p></article><article class="module-card"><span class="module-num">M/03</span><div class="module-icon">${icons.chat}</div><h3>Answer agent</h3><p>Produces clear, multilingual responses with citations back to your source material.</p></article></div></section>
+        </div>`;
+    }
+
+    function concept4() {
+        return `<div class="concept-page c4"><div class="c4-bg"></div>${nav()}
+            <section class="prism-hero" id="platform"><span class="prism-pill"><i></i> Your website just found its voice</span><h1>One <span>intelligence layer</span><br>for every visitor.</h1><p class="prism-copy">WebRAG brings your pages, documents and customer knowledge together in a helpful AI agent—beautifully simple to launch, surprisingly powerful to use.</p><div class="prism-ctas"><a class="button button-primary" href="/trial">Create your agent ${icons.arrow}</a><a class="button button-secondary" href="#workflow">See how it works</a></div><div class="prism-stage"><div class="prism-core"></div><div class="agent-chip chip-1"><i>${icons.globe}</i> Website content</div><div class="agent-chip chip-2"><i>${icons.document}</i> PDF knowledge</div><div class="agent-chip chip-3"><i>${icons.search}</i> Smart retrieval</div><div class="agent-chip chip-4"><i>${icons.chat}</i> Helpful answers</div></div></section>
+            <div class="prism-trust"><b>Fast setup</b><span></span><b>Grounded answers</b><span></span><b>Multilingual by default</b><span></span><b>Your data, your agent</b></div>
+            <section class="c4-bento" id="workflow"><div class="bento-head"><div class="section-eyebrow">Made to feel effortless</div><h2>Complex AI, wrapped in a simple product.</h2><p>Everything needed to turn static information into useful customer conversations—without a complicated implementation.</p></div><div class="bento-grid"><article class="bento-card bento-large"><h3>Answers people can trust</h3><p>Every response is grounded in your approved content and can link back to its sources.</p><div class="mini-conversation"><div class="bubble user">Do you deliver to Almaty?</div><div class="bubble">Yes—we deliver to Almaty in 1–2 business days.<div class="source-chip">↗ Delivery policy · Updated today</div></div><div class="bubble user">Can I track my order?</div><div class="bubble">Absolutely. Your tracking link appears as soon as the order ships.</div></div></article><article class="bento-card bento-wide"><h3>Your whole knowledge base, connected</h3><p>Sites, PDFs and structured content work together as one source of truth.</p><div class="wide-orbit"></div><div class="wide-stat"><strong>148</strong>sources synchronized</div></article><article class="bento-card"><h3>Speak every language</h3><p>Meet customers in the language they choose.</p><div class="language-cloud"><span>English</span><span>Русский</span><span>Қазақша</span><span>+ more</span></div></article><article class="bento-card"><h3>Publish in one line</h3><p>No rebuild. No long integration project.</p><div class="install-code">&lt;script src="webrag.ai/widget.js"&gt;</div></article></div></section>
+        </div>`;
+    }
+
+    const match = location.pathname.match(/\/designs\/(\d)$/);
+    const current = match ? Number(match[1]) : 0;
+    const views = [gallery, concept1, concept2, concept3, concept4];
+    document.getElementById('app').innerHTML = (views[current] || gallery)();
+
+    if (current) {
+        const switcher = document.getElementById('switcher-template').content.cloneNode(true);
+        const active = switcher.querySelector(`[data-route="${current}"]`);
+        if (active) { active.classList.add('active'); active.setAttribute('aria-current','page'); }
+        document.body.appendChild(switcher);
+    }
+})();
+</script>
+</body>
+</html>

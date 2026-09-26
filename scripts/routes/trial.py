@@ -183,6 +183,27 @@ async def serve_trial_page():
     return FileResponse(html_path, media_type="text/html")
 
 
+@router.get("/designs")
+@router.get("/designs/{concept_id}")
+async def serve_design_concepts(concept_id: int | None = None):
+    """Serve the isolated landing-page concepts without changing the live trial page."""
+    if concept_id is not None and concept_id not in {1, 2, 3, 4}:
+        return RedirectResponse(url="/designs")
+    html_path = cfg.WIDGET_DIR / "designs.html"
+    if not html_path.exists():
+        return JSONResponse({"error": "designs.html not found"}, status_code=404)
+    return FileResponse(html_path, media_type="text/html")
+
+
+@router.get("/editorial.css")
+async def serve_editorial_styles():
+    """Serve the shared visual system used by all first-party frontend pages."""
+    css_path = cfg.WIDGET_DIR / "editorial.css"
+    if not css_path.exists():
+        return JSONResponse({"error": "editorial.css not found"}, status_code=404)
+    return FileResponse(css_path, media_type="text/css")
+
+
 @router.post("/api/trial/start")
 async def trial_start(
     request: Request,

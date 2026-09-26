@@ -479,8 +479,9 @@
             cursor: pointer;
         }
     </style>
+    <link rel="stylesheet" href="/editorial.css">
 </head>
-<body>
+<body class="page-admin">
 
 <!-- ── Login screen ── -->
 <div class="login-wrap" id="login-screen">
@@ -1307,11 +1308,9 @@ function renderWidgetPreview(siteId) {
         body {
             margin: 0;
             min-height: 100vh;
-            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
-            background:
-                radial-gradient(circle at top right, rgba(251,116,45,0.22), transparent 28%),
-                linear-gradient(180deg, #fbfbfb 0%, #f1f1f1 100%);
-            color: #47464d;
+            font-family: "DM Sans", Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f0ede5;
+            color: #181817;
         }
         .preview-shell {
             min-height: 100vh;
@@ -1319,18 +1318,18 @@ function renderWidgetPreview(siteId) {
         }
         .preview-card {
             max-width: 760px;
-            background: rgba(255,255,255,0.88);
-            border: 1px solid rgba(0,0,0,0.08);
-            border-radius: 18px;
+            background: #f7f4ed;
+            border: 1px solid #181817;
+            border-radius: 0;
             padding: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            box-shadow: 8px 8px 0 #181817;
         }
         .preview-eyebrow {
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: .08em;
-            color: #fb742d;
+            color: #2f4be5;
             margin-bottom: 12px;
         }
         .preview-title {
@@ -1342,13 +1341,13 @@ function renderWidgetPreview(siteId) {
         .preview-copy {
             font-size: 14px;
             line-height: 1.7;
-            color: #6b7280;
+            color: #625f59;
             max-width: 58ch;
         }
         .preview-note {
             margin-top: 18px;
             font-size: 12px;
-            color: #9ca3af;
+            color: #8a867d;
         }
     </style>
 </head>

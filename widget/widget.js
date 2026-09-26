@@ -6,13 +6,13 @@
   const SITE_ID = scriptTag?.getAttribute("data-site-id") || "1";
   const API_URL = scriptTag?.getAttribute("data-api") || window.location.origin;
   const TITLE = scriptTag?.getAttribute("data-title") || "Ask a question";
-  const COLOR = scriptTag?.getAttribute("data-color") || "#2563eb";
+  const COLOR = scriptTag?.getAttribute("data-color") || "#2f4be5";
   const POSITION = normalizePosition(scriptTag?.getAttribute("data-position"));
   const BUBBLE_SIZE = clampNumber(scriptTag?.getAttribute("data-bubble-size"), 56, 44, 96);
   const PANEL_WIDTH = clampNumber(scriptTag?.getAttribute("data-panel-width"), 380, 320, 520);
   const PANEL_HEIGHT = clampNumber(scriptTag?.getAttribute("data-panel-height"), 520, 420, 760);
   const BUBBLE_SHAPE = normalizeBubbleShape(scriptTag?.getAttribute("data-bubble-shape"));
-  const PANEL_RADIUS = clampNumber(scriptTag?.getAttribute("data-panel-radius"), 16, 8, 32);
+  const PANEL_RADIUS = clampNumber(scriptTag?.getAttribute("data-panel-radius"), 4, 0, 32);
   const ICON_NAME = normalizeIconName(scriptTag?.getAttribute("data-icon"));
   const FONT_FAMILY = sanitizeFontFamily(scriptTag?.getAttribute("data-font-family"));
   const FONT_URL = sanitizeFontUrl(scriptTag?.getAttribute("data-font-url"));
@@ -312,9 +312,9 @@
       border-radius: ${getBubbleBorderRadius()};
       background: ${COLOR};
       color: #fff;
-      border: none;
+      border: 1px solid #181817;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      box-shadow: 4px 4px 0 #181817;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -335,23 +335,25 @@
       max-width: calc(100vw - 48px);
       height: ${PANEL_HEIGHT}px;
       max-height: calc(100vh - 120px);
-      background: #fff;
+      background: #f0ede5;
+      border: 1px solid #181817;
       border-radius: ${PANEL_RADIUS}px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      box-shadow: 8px 8px 0 #181817;
       display: none;
       flex-direction: column;
       overflow: hidden;
       z-index: 999998;
-      font-family: ${FONT_FAMILY || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+      font-family: ${FONT_FAMILY || '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'};
       font-size: 14px;
       color: #1a1a1a;
     }
     .wr-panel.open { display: flex; }
 
     .wr-header {
-      padding: 16px;
+      padding: 18px;
       background: ${COLOR};
       color: #fff;
+      border-bottom: 1px solid #181817;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -362,9 +364,10 @@
       flex: 1;
     }
     .wr-header-title {
-      font-weight: 600;
+      font-weight: 700;
       font-size: 15px;
       line-height: 1.2;
+      letter-spacing: -0.02em;
     }
     .wr-lang-switch {
       display: flex;
@@ -376,7 +379,7 @@
       border: 1px solid rgba(255,255,255,0.35);
       background: rgba(255,255,255,0.12);
       color: #fff;
-      border-radius: 999px;
+      border-radius: 0;
       padding: 4px 8px;
       font: inherit;
       font-size: 11px;
@@ -407,12 +410,13 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      background: #f0ede5;
     }
 
     .wr-msg {
       max-width: 88%;
       padding: 10px 14px;
-      border-radius: 12px;
+      border-radius: 0;
       line-height: 1.5;
       word-wrap: break-word;
     }
@@ -420,13 +424,13 @@
       align-self: flex-end;
       background: ${COLOR};
       color: #fff;
-      border-bottom-right-radius: 4px;
+      border: 1px solid #181817;
     }
     .wr-msg.bot {
       align-self: flex-start;
-      background: #f0f0f0;
+      background: #dedacf;
       color: #1a1a1a;
-      border-bottom-left-radius: 4px;
+      border: 1px solid #aaa69b;
     }
     .wr-msg.bot a {
       color: ${COLOR};
@@ -456,8 +460,8 @@
     .wr-chip {
       padding: 8px 12px;
       border: 1px solid rgba(37, 99, 235, 0.2);
-      border-radius: 999px;
-      background: #fff;
+      border-radius: 0;
+      background: #f7f4ed;
       color: ${COLOR};
       cursor: pointer;
       font-size: 12px;
@@ -490,11 +494,11 @@
     .wr-field select {
       width: 100%;
       border: 1px solid #d1d5db;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 9px 10px;
       font: inherit;
       outline: none;
-      background: #fff;
+      background: #f7f4ed;
       color: #111827;
     }
     .wr-field textarea {
@@ -519,7 +523,7 @@
       border: none;
       background: ${COLOR};
       color: #fff;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 10px 12px;
       font: inherit;
       font-size: 13px;
@@ -534,8 +538,9 @@
     .wr-typing {
       align-self: flex-start;
       padding: 10px 14px;
-      background: #f0f0f0;
-      border-radius: 12px;
+      background: #dedacf;
+      border: 1px solid #aaa69b;
+      border-radius: 0;
       display: none;
     }
     .wr-typing.active { display: block; }
@@ -572,15 +577,16 @@
 
     .wr-input-row {
       padding: 12px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid #aaa69b;
       display: flex;
       gap: 8px;
+      background: #f7f4ed;
     }
     .wr-input {
       flex: 1;
       padding: 10px 14px;
-      border: 1px solid #ddd;
-      border-radius: 24px;
+      border: 1px solid #aaa69b;
+      border-radius: 0;
       outline: none;
       font-size: 14px;
       font-family: inherit;
@@ -589,8 +595,8 @@
     .wr-send {
       width: 40px;
       height: 40px;
-      border-radius: 50%;
-      border: none;
+      border-radius: 0;
+      border: 1px solid #181817;
       background: ${COLOR};
       color: #fff;
       cursor: pointer;
@@ -604,12 +610,12 @@
     .wr-confidence {
       font-size: 11px;
       padding: 2px 8px;
-      border-radius: 8px;
+      border-radius: 0;
       display: inline-block;
       margin-bottom: 4px;
     }
-    .wr-confidence.high { background: #dcfce7; color: #166534; }
-    .wr-confidence.medium { background: #fef9c3; color: #854d0e; }
+    .wr-confidence.high { background: rgba(47,75,229,.1); color: #243cc5; }
+    .wr-confidence.medium { background: #dedacf; color: #514f4a; }
     .wr-confidence.low { background: #fecaca; color: #991b1b; }
 
     @media (max-width: 560px) {
