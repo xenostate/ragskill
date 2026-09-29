@@ -238,6 +238,38 @@
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
         }
+        .pilot-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+        .pilot-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:18px; }
+        .pilot-metric { padding:16px; background:#fff; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+        .pilot-metric:nth-child(4n) { border-right:0; }
+        .pilot-metric-value { font-size:26px; font-weight:800; color:var(--accent); }
+        .pilot-metric-label { margin-top:4px; color:var(--text2); font-size:12px; }
+        .pilot-columns { display:grid; grid-template-columns:1fr 1.35fr; gap:16px; }
+        .pilot-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .pilot-table th { text-align:left; color:var(--text2); font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+        .pilot-table th, .pilot-table td { padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+        .pilot-table tr:last-child td { border-bottom:0; }
+        .pilot-issue { padding:14px 0; border-bottom:1px solid var(--border); }
+        .pilot-issue:last-child { border-bottom:0; }
+        .pilot-question { font-weight:700; line-height:1.45; }
+        .pilot-answer { color:var(--text2); font-size:13px; line-height:1.5; margin:7px 0; white-space:pre-wrap; }
+        .pilot-badge { display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:3px 7px; border-radius:999px; background:#fff1f2; color:#be123c; margin:5px 4px 5px 0; }
+        .pilot-badge.good { background:#f0fdf4; color:#166534; }
+        .pilot-answer-form { display:none; margin-top:10px; padding:12px; background:#fff7ed; border-radius:12px; }
+        .pilot-answer-form textarea { min-height:100px; margin-bottom:9px; }
+        .pilot-muted { color:var(--text2); font-size:13px; }
+        #pilot-analytics { overflow-x:auto; }
+        .config-ai { border:1px solid var(--border); border-radius:14px; overflow:hidden; margin:14px 0 18px; background:#fafafa; }
+        .config-ai-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--border); background:#fff; }
+        .config-ai-title { font-weight:800; font-size:14px; }
+        .config-ai-sub { color:var(--text2); font-size:12px; margin-top:3px; line-height:1.45; }
+        .config-ai-badge { flex-shrink:0; border-radius:999px; background:#fff7ed; color:#c2410c; padding:4px 8px; font-size:10px; font-weight:800; text-transform:uppercase; }
+        .config-ai-messages { max-height:220px; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:9px; }
+        .config-ai-message { max-width:88%; border-radius:12px; padding:9px 11px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
+        .config-ai-message.assistant { align-self:flex-start; background:#fff; border:1px solid var(--border); }
+        .config-ai-message.user { align-self:flex-end; background:var(--accent); color:#fff; }
+        .config-ai-compose { display:grid; grid-template-columns:1fr auto; gap:9px; padding:12px; border-top:1px solid var(--border); background:#fff; align-items:end; }
+        .config-ai-compose textarea { min-height:48px; max-height:120px; margin:0; }
         .stat {
             background: #fafafa;
             border: 1px solid var(--border);
@@ -515,6 +547,10 @@
                 top: 10px;
                 right: 10px;
             }
+            .pilot-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .pilot-metric:nth-child(2n) { border-right:0; }
+            .pilot-columns { grid-template-columns:1fr; }
+            .config-ai-compose { grid-template-columns:1fr; }
         }
     </style>
     <link rel="stylesheet" href="/editorial.css">
@@ -601,10 +637,10 @@
         </div>
 
         <div class="tab-content active" id="tab-sites">
-            <div id="sites-list"><div class="loading">Loading your sites...</div></div>
+            <div id="sites-list"><div class="loading" data-i18n="sites_loading">Loading your sites...</div></div>
         </div>
         <div class="tab-content" id="tab-assistants">
-            <div id="assistants-list"><div class="loading">Loading your assistants...</div></div>
+            <div id="assistants-list"><div class="loading" data-i18n="assistants_loading">Loading your assistants...</div></div>
         </div>
         <div class="tab-content" id="tab-site-detail"></div>
     </div>
@@ -659,6 +695,8 @@ let userToken = localStorage.getItem("wr_user_token") || "";
 let currentUser = null;
 let currentSiteId = null;
 let currentLang = localStorage.getItem("wr_lang") || "ru";
+let currentAnalyticsDays = 14;
+let siteAnalyticsIssues = [];
 
 const I18N = {
     ru: {
@@ -678,10 +716,10 @@ const I18N = {
         signup_btn: "Создать аккаунт",
         top_activate: "Создать ассистента для сайта",
         top_internal: "Внутренний ассистент",
-        top_trial: "Открыть trial",
+        top_trial: "Открыть пробный мастер",
         top_logout: "Выйти",
         activate_title: "Создать ассистента для сайта",
-        activate_sub: "Введите URL сайта и код активации, чтобы создать production-ассистента в вашем аккаунте.",
+        activate_sub: "Введите URL сайта и код активации, чтобы создать рабочего ассистента в вашем аккаунте.",
         field_site_url: "URL сайта",
         ph_site_url: "https://your-site.com",
         field_activation_code: "Код активации",
@@ -693,7 +731,7 @@ const I18N = {
         language_auto: "Определить автоматически",
         modal_close: "Закрыть",
         workspace_title: "Ваш рабочий кабинет",
-        workspace_sub: "Вы можете пользоваться кабинетом сразу. Чтобы сначала пройти бесплатный crawl-and-chat тест, откройте trial wizard. Production-ассистенты пока остаются за кодом активации.",
+        workspace_sub: "Вы можете пользоваться кабинетом сразу. Чтобы сначала бесплатно проверить обход сайта и чат, откройте пробный мастер. Рабочие ассистенты пока активируются по коду.",
         stat_sites: "Сайтов",
         stat_assistants: "Внутренних ассистентов",
         tab_sites: "Мои сайты",
@@ -719,28 +757,32 @@ const I18N = {
         err_signup: "Не удалось зарегистрироваться",
         err_login: "Не удалось войти",
         sites_loading: "Загружаем ваши сайты...",
-        sites_empty: "У вас пока нет сайтов. Используйте код активации или trial wizard, чтобы создать первый проект.",
-        badge_trial: "Trial",
-        badge_active: "Active",
-        site_meta: "Site ID: {id} · {docs} document(s) · Language: {language}",
+        sites_empty: "У вас пока нет сайтов. Используйте код активации или пробный мастер, чтобы создать первый проект.",
+        badge_trial: "Пробный",
+        badge_active: "Активен",
+        site_meta: "ID сайта: {id} · документов: {docs} · язык: {language}",
+        site_activity: "вопросов: {questions} · лидов: {leads}",
+        action_manage: "Управление",
+        action_delete: "Удалить",
         assistants_loading: "Загружаем ассистентов...",
         assistants_empty: "У вашего аккаунта пока нет внутренних ассистентов.",
-        assistant_meta: "Slug: {slug} · Site ID: {siteId} · {docs} document(s)",
+        assistant_meta: "Адрес: {slug} · ID сайта: {siteId} · документов: {docs}",
+        assistant_url: "URL",
         assistant_open: "Открыть",
         focus_activate_title: "Активировать",
         focus_internal_title: "Создать",
         detail_loading: "Загружаем детали сайта...",
         detail_error: "Не удалось загрузить детали сайта.",
         detail_back: "← Назад к списку сайтов",
-        detail_meta: "Site ID: {id} · {docs} document(s) · {chunks} chunk(s) · Language: {language}",
-        detail_source: "Source URL",
-        detail_widget: "Widget code",
+        detail_meta: "ID сайта: {id} · документов: {docs} · чанков: {chunks} · язык: {language}",
+        detail_source: "Исходный URL",
+        detail_widget: "Код виджета",
         detail_recrawl: "Переобход",
         detail_upload_pdf: "Загрузить PDF",
         detail_recrawl_title: "Переиндексация сайта",
         detail_recrawl_sub: "Это удалит текущие документы и чанки, а затем заново проиндексирует сайт по исходному URL.",
         detail_assistant_title: "Конфигурация ассистента",
-        detail_assistant_sub: "Обновляйте приветствие, кнопки, формы и intent rules для этого сайта.",
+        detail_assistant_sub: "Настройте приветствие, кнопки, формы и правила намерений для этого сайта.",
         detail_docs_title: "Документы и чанки",
         detail_docs_empty: "Пока нет проиндексированных документов.",
         assistant_format_success: "JSON отформатирован.",
@@ -752,9 +794,105 @@ const I18N = {
         recrawl_starting: "Запускаем переобход...",
         recrawl_failed: "Не удалось запустить переобход",
         recrawl_started: "Переобход запущен. Ждем прогресс...",
-        upload_success: "Файл \"{filename}\" загружен — проиндексировано {chunks} chunk(s).",
-        delete_chunk_confirm: "Удалить этот chunk?",
-        delete_site_confirm: "Удалить сайт \"{domain}\" и все его документы/chunks?",
+        upload_success: "Файл \"{filename}\" загружен — проиндексировано чанков: {chunks}.",
+        delete_chunk_confirm: "Удалить этот чанк?",
+        delete_site_confirm: "Удалить сайт \"{domain}\" и все его документы и чанки?",
+        recrawl_max_pages: "Макс. страниц",
+        recrawl_start: "Начать переобход",
+        action_cancel: "Отмена",
+        pilot_title: "Результаты пилота",
+        pilot_sub: "Что спрашивали посетители, что ответил WRS и что нужно улучшить.",
+        period_7: "Последние 7 дней",
+        period_14: "Последние 14 дней",
+        period_30: "Последние 30 дней",
+        period_90: "Последние 90 дней",
+        export_monthly_csv: "Экспорт месячного CSV",
+        analytics_loading: "Загружаем аналитику пилота...",
+        analytics_error: "Не удалось загрузить аналитику. Примените последнюю миграцию базы данных и повторите попытку.",
+        config_ai_title: "Настроить с помощью ИИ",
+        config_ai_sub: "Опишите желаемый характер, языки, приветствие, быстрые действия, формы или визуальный стиль.",
+        config_ai_badge: "Только черновик",
+        config_ai_welcome: "Каким должен быть внешний вид и поведение ассистента? Я обновлю черновик JSON ниже. Ничего не будет опубликовано, пока вы не нажмёте «Сохранить конфигурацию».",
+        config_ai_placeholder: "Например: сделай стиль дружелюбным и лаконичным, приветствуй на русском и английском и добавь форму обратной связи.",
+        config_ai_send: "Обновить черновик",
+        config_ai_invalid_json: "Исправьте JSON ниже, прежде чем просить помощника изменить конфигурацию.",
+        config_ai_drafting: "Подготавливаем...",
+        config_ai_creating: "Создаём черновик конфигурации...",
+        config_ai_request_error: "Не удалось обновить черновик. Повторите попытку.",
+        config_ai_draft_error: "Не удалось создать черновик конфигурации.",
+        config_ai_updated: "Черновик обновлён. Проверьте его ниже и сохраните, когда будете готовы.",
+        config_ai_pasted: "Черновик ИИ вставлен ниже. Проверьте его и нажмите «Сохранить конфигурацию», чтобы опубликовать.",
+        config_ai_network_error: "Из-за ошибки сети не удалось обновить черновик.",
+        preset_label: "Стиль оформления",
+        preset_professional: "Профессиональный",
+        preset_friendly: "Дружелюбный",
+        preset_minimal: "Минималистичный",
+        preset_selected: "Выбран стиль «{preset}». Сохраните конфигурацию, чтобы опубликовать изменения.",
+        assistant_json_label: "JSON ассистента",
+        assistant_save: "Сохранить конфигурацию",
+        assistant_format: "Форматировать JSON",
+        assistant_load_template: "Загрузить шаблон",
+        doc_chunks: "чанков: {count}",
+        doc_crawled: "обработано: {date}",
+        doc_expand: "Нажмите, чтобы развернуть",
+        doc_no_chunks: "Нет чанков",
+        no_answer_recorded: "Ответ не был сохранён.",
+        top_question: "Популярный вопрос",
+        asked_count: "Количество",
+        issues_count: "Проблемы",
+        no_questions_period: "За этот период вопросов пока нет.",
+        wrs_answered: "Ответ WRS:",
+        add_correct_answer: "Добавить правильный ответ",
+        upload_supporting_pdf: "Загрузить подтверждающий PDF",
+        answer_index_help: "Этот ответ станет проиндексированным документом знаний для будущих вопросов.",
+        answer_placeholder: "Введите утверждённый ответ...",
+        answer_save_index: "Сохранить и проиндексировать",
+        nothing_flagged: "Сейчас ничего не отмечено. Здесь появятся ответы с низкой уверенностью, ошибки и отрицательные оценки.",
+        recent_asked: "Вопрос",
+        recent_answered: "Ответ WRS",
+        recent_quality: "Качество",
+        recent_time: "Время",
+        no_recent_conversations: "За этот период нет сохранённых диалогов.",
+        metric_questions: "Вопросы",
+        metric_needs_improvement: "Нужно улучшить",
+        metric_leads: "Конверсии в лиды · {rate}%",
+        metric_avg_response: "Среднее время ответа",
+        metric_chat_sessions: "Сессии чата",
+        metric_errors: "Ошибки",
+        metric_helpful: "Положительные оценки",
+        metric_views: "Просмотры / посетители",
+        top_questions_title: "Популярные вопросы",
+        needs_improvement_title: "Нужно улучшить",
+        needs_improvement_sub: "Добавьте ответ здесь или загрузите подтверждающий PDF выше.",
+        recent_title: "Последние вопросы и ответы",
+        reason_low_confidence: "низкая уверенность",
+        reason_unanswered: "нет ответа",
+        reason_error: "ошибка",
+        reason_negative_feedback: "отрицательная оценка",
+        confidence_low: "низкая",
+        confidence_medium: "средняя",
+        confidence_high: "высокая",
+        status_error_label: "ошибка",
+        feedback_up: "полезно",
+        feedback_down: "неполезно",
+        unit_ms: "мс",
+        answer_required: "Сначала введите утверждённый ответ.",
+        answer_indexing: "Индексируем ответ...",
+        answer_index_error: "Не удалось проиндексировать ответ.",
+        answer_indexed: "Ответ проиндексирован: {chunks} чанков.",
+        pdf_indexing: "Загружаем и индексируем «{filename}»...",
+        pdf_index_error: "Не удалось проиндексировать PDF.",
+        pdf_indexed: "PDF проиндексирован: {chunks} чанков.",
+        report_month_prompt: "Месяц отчёта (ГГГГ-ММ)",
+        report_export_error: "Не удалось экспортировать месячный отчёт.",
+        recrawl_confirm: "Текущие документы и чанки будут удалены, после чего сайт будет проиндексирован заново. Продолжить?",
+        processing: "Обрабатываем...",
+        done: "Готово!",
+        upload_start: "Загружаем «{filename}»...",
+        upload_error: "Не удалось загрузить PDF.",
+        delete_chunk_error: "Не удалось удалить чанк.",
+        delete_site_error: "Не удалось удалить сайт.",
+        generic_request_error: "Не удалось выполнить запрос.",
     },
     kk: {
         page_title: "WebRAG Жеке кабинет",
@@ -773,10 +911,10 @@ const I18N = {
         signup_btn: "Аккаунт жасау",
         top_activate: "Сайт ассистентін жасау",
         top_internal: "Ішкі ассистент",
-        top_trial: "Trial ашу",
+        top_trial: "Сынақ шеберін ашу",
         top_logout: "Шығу",
         activate_title: "Сайт ассистентін жасау",
-        activate_sub: "Аккаунтыңызда production-ассистент жасау үшін сайт URL-ін және белсендіру кодын енгізіңіз.",
+        activate_sub: "Аккаунтыңызда жұмыс ассистентін жасау үшін сайт URL-ін және белсендіру кодын енгізіңіз.",
         field_site_url: "Сайт URL-і",
         ph_site_url: "https://your-site.com",
         field_activation_code: "Белсендіру коды",
@@ -788,7 +926,7 @@ const I18N = {
         language_auto: "Автоматты анықтау",
         modal_close: "Жабу",
         workspace_title: "Жұмыс кеңістігіңіз",
-        workspace_sub: "Панельді бірден пайдалана аласыз. Алдымен тегін crawl-and-chat тестінен өту үшін trial wizard ашыңыз. Production-ассистенттер әзірге активация кодымен ашылады.",
+        workspace_sub: "Панельді бірден пайдалана аласыз. Алдымен сайтты шолу мен чатты тегін тексеру үшін сынақ шеберін ашыңыз. Жұмыс ассистенттері әзірге белсендіру кодымен ашылады.",
         stat_sites: "Сайттар",
         stat_assistants: "Ішкі ассистенттер",
         tab_sites: "Менің сайттарым",
@@ -814,28 +952,32 @@ const I18N = {
         err_signup: "Тіркелу сәтсіз аяқталды",
         err_login: "Кіру сәтсіз аяқталды",
         sites_loading: "Сайттарыңыз жүктелуде...",
-        sites_empty: "Әзірге сайттарыңыз жоқ. Бірінші жобаны жасау үшін активация кодын немесе trial wizard пайдаланыңыз.",
-        badge_trial: "Trial",
-        badge_active: "Active",
-        site_meta: "Site ID: {id} · {docs} document(s) · Language: {language}",
+        sites_empty: "Әзірге сайттарыңыз жоқ. Бірінші жобаны жасау үшін белсендіру кодын немесе сынақ шеберін пайдаланыңыз.",
+        badge_trial: "Сынақ",
+        badge_active: "Белсенді",
+        site_meta: "Сайт ID: {id} · құжаттар: {docs} · тіл: {language}",
+        site_activity: "сұрақтар: {questions} · лидтер: {leads}",
+        action_manage: "Басқару",
+        action_delete: "Жою",
         assistants_loading: "Ассистенттер жүктелуде...",
         assistants_empty: "Аккаунтыңызда әзірге ішкі ассистенттер жоқ.",
-        assistant_meta: "Slug: {slug} · Site ID: {siteId} · {docs} document(s)",
+        assistant_meta: "Мекенжай: {slug} · сайт ID: {siteId} · құжаттар: {docs}",
+        assistant_url: "URL",
         assistant_open: "Ашу",
         focus_activate_title: "Белсендіру",
         focus_internal_title: "Жасау",
         detail_loading: "Сайт мәліметтері жүктелуде...",
         detail_error: "Сайт мәліметтерін жүктеу сәтсіз аяқталды.",
         detail_back: "← Сайттар тізіміне оралу",
-        detail_meta: "Site ID: {id} · {docs} document(s) · {chunks} chunk(s) · Language: {language}",
-        detail_source: "Source URL",
-        detail_widget: "Widget code",
+        detail_meta: "Сайт ID: {id} · құжаттар: {docs} · чанктар: {chunks} · тіл: {language}",
+        detail_source: "Бастапқы URL",
+        detail_widget: "Виджет коды",
         detail_recrawl: "Қайта crawl жасау",
         detail_upload_pdf: "PDF жүктеу",
         detail_recrawl_title: "Сайтты қайта индекстеу",
         detail_recrawl_sub: "Бұл ағымдағы құжаттар мен chunk-тарды жояды, содан кейін сайтты source URL бойынша қайта индекстейді.",
         detail_assistant_title: "Ассистент конфигурациясы",
-        detail_assistant_sub: "Осы сайт үшін greeting, buttons, forms және intent rules параметрлерін жаңартыңыз.",
+        detail_assistant_sub: "Осы сайттың сәлемдесуін, түймелерін, пішіндерін және ниет ережелерін баптаңыз.",
         detail_docs_title: "Құжаттар және chunk-тар",
         detail_docs_empty: "Әзірге индекстелген құжаттар жоқ.",
         assistant_format_success: "JSON форматталды.",
@@ -847,9 +989,105 @@ const I18N = {
         recrawl_starting: "Қайта crawl басталуда...",
         recrawl_failed: "Қайта crawl іске қосылмады",
         recrawl_started: "Қайта crawl іске қосылды. Прогресс күтілуде...",
-        upload_success: "\"{filename}\" жүктелді — {chunks} chunk(s) индекстелді.",
-        delete_chunk_confirm: "Осы chunk-ты жою керек пе?",
-        delete_site_confirm: "\"{domain}\" сайтын және барлық құжаттары/chunk-тарын жою керек пе?",
+        upload_success: "\"{filename}\" жүктелді — {chunks} чанк индекстелді.",
+        delete_chunk_confirm: "Осы чанкты жою керек пе?",
+        delete_site_confirm: "\"{domain}\" сайтын және оның барлық құжаттары мен чанктарын жою керек пе?",
+        recrawl_max_pages: "Макс. беттер",
+        recrawl_start: "Қайта индекстеуді бастау",
+        action_cancel: "Болдырмау",
+        pilot_title: "Пилот нәтижелері",
+        pilot_sub: "Келушілер не сұрады, WRS не жауап берді және нені жақсарту керек.",
+        period_7: "Соңғы 7 күн",
+        period_14: "Соңғы 14 күн",
+        period_30: "Соңғы 30 күн",
+        period_90: "Соңғы 90 күн",
+        export_monthly_csv: "Айлық CSV экспорттау",
+        analytics_loading: "Пилот аналитикасы жүктелуде...",
+        analytics_error: "Аналитиканы жүктеу мүмкін болмады. Дерекқордың соңғы миграциясын қолданып, қайталап көріңіз.",
+        config_ai_title: "ЖИ көмегімен баптау",
+        config_ai_sub: "Қажетті мінезді, тілдерді, сәлемдесуді, жылдам әрекеттерді, пішіндерді немесе көрнекі стильді сипаттаңыз.",
+        config_ai_badge: "Тек нобай",
+        config_ai_welcome: "Ассистент қалай көрініп, қалай әрекет етуі керек? Төмендегі JSON нобайын жаңартамын. «Конфигурацияны сақтау» түймесін басқанша ештеңе жарияланбайды.",
+        config_ai_placeholder: "Мысалы: жылы әрі қысқа стиль жаса, қазақша және орысша сәлемдесіп, байланыс пішінін қос.",
+        config_ai_send: "Нобайды жаңарту",
+        config_ai_invalid_json: "Конфигурация көмекшісінен өзгеріс сұрамас бұрын төмендегі JSON-ды түзетіңіз.",
+        config_ai_drafting: "Дайындалуда...",
+        config_ai_creating: "Конфигурация нобайы жасалуда...",
+        config_ai_request_error: "Нобайды жаңарту мүмкін болмады. Қайталап көріңіз.",
+        config_ai_draft_error: "Конфигурация нобайын жасау мүмкін болмады.",
+        config_ai_updated: "Нобай жаңартылды. Төменде тексеріп, дайын болғанда сақтаңыз.",
+        config_ai_pasted: "ЖИ нобайы төменге енгізілді. Оны тексеріп, жариялау үшін «Конфигурацияны сақтау» түймесін басыңыз.",
+        config_ai_network_error: "Желі қатесіне байланысты нобайды жаңарту мүмкін болмады.",
+        preset_label: "Дизайн стилі",
+        preset_professional: "Кәсіби",
+        preset_friendly: "Жылы",
+        preset_minimal: "Минималистік",
+        preset_selected: "«{preset}» стилі таңдалды. Өзгерістерді жариялау үшін конфигурацияны сақтаңыз.",
+        assistant_json_label: "Ассистент JSON-ы",
+        assistant_save: "Конфигурацияны сақтау",
+        assistant_format: "JSON-ды пішімдеу",
+        assistant_load_template: "Үлгіні жүктеу",
+        doc_chunks: "чанктар: {count}",
+        doc_crawled: "өңделген күні: {date}",
+        doc_expand: "Ашу үшін басыңыз",
+        doc_no_chunks: "Чанк жоқ",
+        no_answer_recorded: "Жауап сақталмаған.",
+        top_question: "Танымал сұрақ",
+        asked_count: "Саны",
+        issues_count: "Мәселелер",
+        no_questions_period: "Бұл кезеңде сұрақтар жоқ.",
+        wrs_answered: "WRS жауабы:",
+        add_correct_answer: "Дұрыс жауап қосу",
+        upload_supporting_pdf: "Растайтын PDF жүктеу",
+        answer_index_help: "Бұл жауап болашақ сұрақтарға арналған индекстелген білім құжатына айналады.",
+        answer_placeholder: "Бекітілген жауапты енгізіңіз...",
+        answer_save_index: "Сақтау және индекстеу",
+        nothing_flagged: "Қазір белгіленген мәселе жоқ. Сенімділігі төмен жауаптар, қателер және теріс бағалар осында көрсетіледі.",
+        recent_asked: "Сұрақ",
+        recent_answered: "WRS жауабы",
+        recent_quality: "Сапа",
+        recent_time: "Уақыт",
+        no_recent_conversations: "Бұл кезеңде сақталған диалогтар жоқ.",
+        metric_questions: "Сұрақтар",
+        metric_needs_improvement: "Жақсарту қажет",
+        metric_leads: "Лид конверсиялары · {rate}%",
+        metric_avg_response: "Орташа жауап уақыты",
+        metric_chat_sessions: "Чат сессиялары",
+        metric_errors: "Қателер",
+        metric_helpful: "Пайдалы бағалар",
+        metric_views: "Қаралымдар / келушілер",
+        top_questions_title: "Танымал сұрақтар",
+        needs_improvement_title: "Жақсарту қажет",
+        needs_improvement_sub: "Жауапты осында қосыңыз немесе жоғарыда растайтын PDF жүктеңіз.",
+        recent_title: "Соңғы сұрақтар мен жауаптар",
+        reason_low_confidence: "сенімділігі төмен",
+        reason_unanswered: "жауап жоқ",
+        reason_error: "қате",
+        reason_negative_feedback: "теріс баға",
+        confidence_low: "төмен",
+        confidence_medium: "орташа",
+        confidence_high: "жоғары",
+        status_error_label: "қате",
+        feedback_up: "пайдалы",
+        feedback_down: "пайдасыз",
+        unit_ms: "мс",
+        answer_required: "Алдымен бекітілген жауапты енгізіңіз.",
+        answer_indexing: "Жауап индекстелуде...",
+        answer_index_error: "Жауапты индекстеу мүмкін болмады.",
+        answer_indexed: "Жауап индекстелді: {chunks} чанк.",
+        pdf_indexing: "«{filename}» жүктеліп, индекстелуде...",
+        pdf_index_error: "PDF-ті индекстеу мүмкін болмады.",
+        pdf_indexed: "PDF индекстелді: {chunks} чанк.",
+        report_month_prompt: "Есеп айы (ЖЖЖЖ-АА)",
+        report_export_error: "Айлық есепті экспорттау мүмкін болмады.",
+        recrawl_confirm: "Ағымдағы құжаттар мен чанктар жойылып, сайт қайта индекстеледі. Жалғастыру керек пе?",
+        processing: "Өңделуде...",
+        done: "Дайын!",
+        upload_start: "«{filename}» жүктелуде...",
+        upload_error: "PDF жүктеу мүмкін болмады.",
+        delete_chunk_error: "Чанкты жою мүмкін болмады.",
+        delete_site_error: "Сайтты жою мүмкін болмады.",
+        generic_request_error: "Сұрауды орындау мүмкін болмады.",
     },
     en: {
         page_title: "WebRAG Portal",
@@ -945,11 +1183,111 @@ const I18N = {
         upload_success: "Uploaded \"{filename}\" — {chunks} chunk(s) indexed.",
         delete_chunk_confirm: "Delete this chunk?",
         delete_site_confirm: "Delete site \"{domain}\" and all its documents/chunks?",
+        site_activity: "{questions} question(s) · {leads} lead(s)",
+        action_manage: "Manage",
+        action_delete: "Delete",
+        assistant_url: "URL",
+        recrawl_max_pages: "Max pages",
+        recrawl_start: "Start re-crawl",
+        action_cancel: "Cancel",
+        pilot_title: "Pilot outcomes",
+        pilot_sub: "What visitors asked, what WRS answered, and what to improve.",
+        period_7: "Last 7 days",
+        period_14: "Last 14 days",
+        period_30: "Last 30 days",
+        period_90: "Last 90 days",
+        export_monthly_csv: "Export monthly CSV",
+        analytics_loading: "Loading pilot analytics...",
+        analytics_error: "Analytics could not be loaded. Run the latest database migration and try again.",
+        config_ai_title: "Configure with AI",
+        config_ai_sub: "Describe the personality, languages, greeting, quick actions, forms, or visual style you want.",
+        config_ai_badge: "Draft only",
+        config_ai_welcome: "How should this assistant look and behave? I’ll update the JSON draft below. Nothing is published until you click Save config.",
+        config_ai_placeholder: "Example: Make it warm and concise, greet visitors in English and Russian, and add a Contact us lead form.",
+        config_ai_send: "Update draft",
+        config_ai_invalid_json: "Fix the JSON below before asking the configuration assistant to edit it.",
+        config_ai_drafting: "Drafting...",
+        config_ai_creating: "Creating a configuration draft...",
+        config_ai_request_error: "I couldn’t update the draft. Please try again.",
+        config_ai_draft_error: "Could not create a configuration draft.",
+        config_ai_updated: "Draft updated. Review it below and save when ready.",
+        config_ai_pasted: "AI draft pasted below. Review it, then click Save config to publish it.",
+        config_ai_network_error: "A network error prevented me from updating the draft.",
+        preset_label: "Design preset",
+        preset_professional: "Professional",
+        preset_friendly: "Friendly",
+        preset_minimal: "Minimal",
+        preset_selected: "Preset set to {preset}. Save the config to publish it.",
+        assistant_json_label: "Assistant JSON",
+        assistant_save: "Save config",
+        assistant_format: "Format JSON",
+        assistant_load_template: "Load template",
+        doc_chunks: "{count} chunk(s)",
+        doc_crawled: "Crawled: {date}",
+        doc_expand: "Click to expand",
+        doc_no_chunks: "No chunks",
+        no_answer_recorded: "No answer was recorded.",
+        top_question: "Top question",
+        asked_count: "Asked",
+        issues_count: "Issues",
+        no_questions_period: "No questions in this period yet.",
+        wrs_answered: "WRS answered:",
+        add_correct_answer: "Add the correct answer",
+        upload_supporting_pdf: "Upload supporting PDF",
+        answer_index_help: "This answer becomes an indexed knowledge document for future questions.",
+        answer_placeholder: "Enter the approved answer...",
+        answer_save_index: "Save and index",
+        nothing_flagged: "Nothing is currently flagged. Low-confidence answers, errors, and negative feedback will appear here.",
+        recent_asked: "Asked",
+        recent_answered: "WRS answered",
+        recent_quality: "Quality",
+        recent_time: "Time",
+        no_recent_conversations: "No recorded conversations in this period.",
+        metric_questions: "Questions",
+        metric_needs_improvement: "Needs improvement",
+        metric_leads: "Lead conversions · {rate}%",
+        metric_avg_response: "Average response",
+        metric_chat_sessions: "Chat sessions",
+        metric_errors: "Errors",
+        metric_helpful: "Helpful feedback",
+        metric_views: "Views / visitors",
+        top_questions_title: "Top questions",
+        needs_improvement_title: "Needs improvement",
+        needs_improvement_sub: "Add an answer here, or upload a supporting PDF above.",
+        recent_title: "Recent questions and answers",
+        reason_low_confidence: "low confidence",
+        reason_unanswered: "unanswered",
+        reason_error: "error",
+        reason_negative_feedback: "negative feedback",
+        confidence_low: "low",
+        confidence_medium: "medium",
+        confidence_high: "high",
+        status_error_label: "error",
+        feedback_up: "helpful",
+        feedback_down: "not helpful",
+        unit_ms: "ms",
+        answer_required: "Enter the approved answer first.",
+        answer_indexing: "Indexing the answer...",
+        answer_index_error: "Could not index the answer.",
+        answer_indexed: "Answer indexed in {chunks} chunk(s).",
+        pdf_indexing: "Uploading and indexing \"{filename}\"...",
+        pdf_index_error: "Could not index the PDF.",
+        pdf_indexed: "PDF indexed in {chunks} chunk(s).",
+        report_month_prompt: "Report month (YYYY-MM)",
+        report_export_error: "Could not export the monthly report.",
+        recrawl_confirm: "This will delete existing documents/chunks and re-crawl the site. Continue?",
+        processing: "Processing...",
+        done: "Done!",
+        upload_start: "Uploading \"{filename}\"...",
+        upload_error: "Failed to upload PDF.",
+        delete_chunk_error: "Failed to delete chunk.",
+        delete_site_error: "Failed to delete site.",
+        generic_request_error: "The request could not be completed.",
     },
 };
 
 function esc(value) {
-    return String(value || "")
+    return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -963,6 +1301,22 @@ function t(key, vars = {}) {
         text = text.replace(`{${name}}`, String(value));
     });
     return text;
+}
+
+function localizedApiError(message, fallbackKey) {
+    if (currentLang === "en" && message) return String(message);
+    return t(fallbackKey || "generic_request_error");
+}
+
+function translatedEnum(prefix, value) {
+    const normalized = String(value || "").trim().toLowerCase().replaceAll(" ", "_");
+    const key = `${prefix}_${normalized}`;
+    const base = I18N[currentLang] || I18N.en;
+    return base[key] || I18N.en[key] || String(value || "—").replaceAll("_", " ");
+}
+
+function localeTag() {
+    return currentLang === "ru" ? "ru-RU" : currentLang === "kk" ? "kk-KZ" : "en-US";
 }
 
 function applyTranslations() {
@@ -1078,7 +1432,7 @@ async function createWebsiteAssistant(event) {
         }
         const data = await resp.json();
         if (!resp.ok || !data.success) {
-            setStatus(statusId, "error", data.error || t("status_activate_error"));
+            setStatus(statusId, "error", localizedApiError(data.error, "status_activate_error"));
             return;
         }
 
@@ -1110,7 +1464,7 @@ async function doSignup() {
         });
         const data = await resp.json();
         if (!resp.ok) {
-            showErr("signup-err", data.error || t("err_signup"));
+            showErr("signup-err", localizedApiError(data.error, "err_signup"));
             return;
         }
         userToken = data.token;
@@ -1133,7 +1487,7 @@ async function doLogin() {
         });
         const data = await resp.json();
         if (!resp.ok) {
-            showErr("login-err", data.error || t("err_login"));
+            showErr("login-err", localizedApiError(data.error, "err_login"));
             return;
         }
         userToken = data.token;
@@ -1210,11 +1564,11 @@ async function loadSites() {
             <div class="site-row" onclick="openSiteDetail(${site.id})">
                 <div>
                     <div class="site-domain">${esc(site.domain)} ${badge}</div>
-                    <div class="site-meta">${esc(t("site_meta", { id: site.id, docs: site.doc_count, language: site.language || "auto" }))}</div>
+                    <div class="site-meta">${esc(t("site_meta", { id: site.id, docs: site.doc_count, language: site.language || t("language_auto") }))} · ${esc(t("site_activity", { questions: site.query_count || 0, leads: site.lead_count || 0 }))}</div>
                 </div>
                 <div class="inline-actions" onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${site.id})">Manage</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id}, '${esc(site.domain)}')">Delete</button>
+                    <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${site.id})">${esc(t("action_manage"))}</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id}, '${esc(site.domain)}')">${esc(t("action_delete"))}</button>
                 </div>
             </div>
         `;
@@ -1238,7 +1592,7 @@ async function loadAssistants() {
                 <div class="site-domain">${esc(a.name)} <span class="badge badge-active">${esc(t("badge_active"))}</span></div>
                 <div class="site-meta">${esc(t("assistant_meta", { slug: a.slug, siteId: a.site_id, docs: a.doc_count }))}</div>
                 <div class="site-meta" style="margin-top:4px">
-                    URL: <a href="${esc(a.url)}" target="_blank" style="color:var(--accent)">${esc(a.url)}</a>
+                    ${esc(t("assistant_url"))}: <a href="${esc(a.url)}" target="_blank" style="color:var(--accent)">${esc(a.url)}</a>
                 </div>
             </div>
             <div class="inline-actions">
@@ -1283,7 +1637,7 @@ async function openSiteDetail(siteId) {
         <button class="back-btn" onclick="switchTab('sites')">${esc(t("detail_back"))}</button>
         <div class="site-header">
             <h2>${esc(site.domain)} ${badge}</h2>
-            <div class="site-meta">${esc(t("detail_meta", { id: site.id, docs: docs.length, chunks: totalChunks, language: site.language || "auto" }))}</div>
+            <div class="site-meta">${esc(t("detail_meta", { id: site.id, docs: docs.length, chunks: totalChunks, language: site.language || t("language_auto") }))}</div>
             <div class="site-meta" style="margin-top:6px">
                 ${esc(t("detail_source"))}: <a href="${esc(sourceUrl)}" target="_blank" style="color:var(--accent)">${esc(sourceUrl)}</a>
                 · ${esc(t("detail_widget"))}: <code>${esc(widgetSnippet)}</code>
@@ -1306,38 +1660,73 @@ async function openSiteDetail(siteId) {
                     <input type="text" id="recrawl-url" value="${esc(sourceUrl)}">
                 </div>
                 <div class="field">
-                    <label>Max pages</label>
+                    <label>${esc(t("recrawl_max_pages"))}</label>
                     <input type="number" id="recrawl-pages" value="100" min="1" max="300">
                 </div>
             </div>
             <div class="inline-actions">
-                <button class="btn btn-primary" id="recrawl-btn" onclick="doRecrawl()">Start re-crawl</button>
-                <button class="btn btn-outline" onclick="document.getElementById('recrawl-form').style.display='none'">Cancel</button>
+                <button class="btn btn-primary" id="recrawl-btn" onclick="doRecrawl()">${esc(t("recrawl_start"))}</button>
+                <button class="btn btn-outline" onclick="document.getElementById('recrawl-form').style.display='none'">${esc(t("action_cancel"))}</button>
             </div>
             <div class="status-msg" id="recrawl-status"></div>
         </div>
 
         <div class="status-msg" id="upload-status"></div>
 
+        <div class="card" style="margin-bottom:18px;" id="pilot-analytics-card">
+            <div class="pilot-toolbar">
+                <div>
+                    <h3 style="margin-bottom:4px">${esc(t("pilot_title"))}</h3>
+                    <div class="pilot-muted">${esc(t("pilot_sub"))}</div>
+                </div>
+                <div class="inline-actions">
+                    <select id="analytics-days" style="width:auto" onchange="loadSiteAnalytics(parseInt(this.value, 10))">
+                        <option value="7">${esc(t("period_7"))}</option>
+                        <option value="14" selected>${esc(t("period_14"))}</option>
+                        <option value="30">${esc(t("period_30"))}</option>
+                        <option value="90">${esc(t("period_90"))}</option>
+                    </select>
+                    <button class="btn btn-outline" onclick="downloadMonthlyReport()">${esc(t("export_monthly_csv"))}</button>
+                </div>
+            </div>
+            <div id="pilot-analytics"><div class="loading">${esc(t("analytics_loading"))}</div></div>
+        </div>
+
         <div class="card" style="margin-bottom:18px;">
             <h3>${esc(t("detail_assistant_title"))}</h3>
             <p>${esc(t("detail_assistant_sub"))}</p>
-            <div class="field">
-                <label>Design preset</label>
-                <div class="inline-actions">
-                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('professional')">Professional</button>
-                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('friendly')">Friendly</button>
-                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('minimal')">Minimal</button>
+            <div class="config-ai">
+                <div class="config-ai-head">
+                    <div>
+                        <div class="config-ai-title">${esc(t("config_ai_title"))}</div>
+                        <div class="config-ai-sub">${esc(t("config_ai_sub"))}</div>
+                    </div>
+                    <span class="config-ai-badge">${esc(t("config_ai_badge"))}</span>
+                </div>
+                <div class="config-ai-messages" id="config-ai-messages">
+                    <div class="config-ai-message assistant">${esc(t("config_ai_welcome"))}</div>
+                </div>
+                <div class="config-ai-compose">
+                    <textarea id="config-ai-input" maxlength="4000" placeholder="${esc(t("config_ai_placeholder"))}" onkeydown="handleConfigAiKey(event)"></textarea>
+                    <button class="btn btn-primary" id="config-ai-send" onclick="sendConfigAiRequest()">${esc(t("config_ai_send"))}</button>
                 </div>
             </div>
             <div class="field">
-                <label>Assistant JSON</label>
+                <label>${esc(t("preset_label"))}</label>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('professional')">${esc(t("preset_professional"))}</button>
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('friendly')">${esc(t("preset_friendly"))}</button>
+                    <button type="button" class="btn btn-outline" onclick="setAssistantPreset('minimal')">${esc(t("preset_minimal"))}</button>
+                </div>
+            </div>
+            <div class="field">
+                <label>${esc(t("assistant_json_label"))}</label>
                 <textarea id="assistant-config" style="min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${assistantJson}</textarea>
             </div>
             <div class="inline-actions">
-                <button class="btn btn-primary" onclick="saveAssistantConfig()">Save config</button>
-                <button class="btn btn-outline" onclick="formatAssistantConfig()">Format JSON</button>
-                <button class="btn btn-outline" onclick="loadAssistantConfigTemplate()">Load template</button>
+                <button class="btn btn-primary" onclick="saveAssistantConfig()">${esc(t("assistant_save"))}</button>
+                <button class="btn btn-outline" onclick="formatAssistantConfig()">${esc(t("assistant_format"))}</button>
+                <button class="btn btn-outline" onclick="loadAssistantConfigTemplate()">${esc(t("assistant_load_template"))}</button>
             </div>
             <div class="status-msg" id="assistant-config-status"></div>
         </div>
@@ -1347,30 +1736,213 @@ async function openSiteDetail(siteId) {
             ${docs.length === 0 ? `<div class="empty-state">${esc(t("detail_docs_empty"))}</div>` : docs.map((doc) => renderDocSection(doc, site.id)).join("")}
         </div>
     `;
+    loadSiteAnalytics(currentAnalyticsDays);
 }
 
 function renderDocSection(doc, siteId) {
     const chunks = doc.chunks || [];
+    const crawled = doc.last_crawled
+        ? ` · ${t("doc_crawled", { date: new Date(doc.last_crawled).toLocaleDateString(localeTag()) })}`
+        : "";
     return `
         <div class="doc-section">
             <div class="doc-header" onclick="toggleDocChunks(this)" id="doc-header-${doc.id}">
                 <div>
                     <h4>${esc(doc.title)}</h4>
-                    <div class="doc-header-meta">${esc(doc.url)} · ${doc.chunk_count} chunk(s) ${doc.last_crawled ? '· Crawled: ' + new Date(doc.last_crawled).toLocaleDateString() : ''}</div>
+                    <div class="doc-header-meta">${esc(doc.url)} · ${esc(t("doc_chunks", { count: doc.chunk_count }))}${esc(crawled)}</div>
                 </div>
-                <span class="doc-header-meta">${chunks.length > 0 ? 'Click to expand' : 'No chunks'}</span>
+                <span class="doc-header-meta">${esc(chunks.length > 0 ? t("doc_expand") : t("doc_no_chunks"))}</span>
             </div>
             <div class="doc-chunks" id="doc-chunks-${doc.id}">
                 ${chunks.map((chunk) => `
                     <div class="chunk-item" id="chunk-${chunk.id}">
                         <span class="chunk-idx">#${chunk.chunk_index}</span>
                         <div class="chunk-text">${esc(chunk.preview)}</div>
-                        <button class="btn btn-sm btn-danger" onclick="deleteChunk(${siteId}, ${chunk.id})">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteChunk(${siteId}, ${chunk.id})">${esc(t("action_delete"))}</button>
                     </div>
                 `).join("")}
             </div>
         </div>
     `;
+}
+
+function analyticsMetric(value, label) {
+    return `<div class="pilot-metric"><div class="pilot-metric-value">${esc(value)}</div><div class="pilot-metric-label">${esc(label)}</div></div>`;
+}
+
+function compactAnswer(value, max = 220) {
+    const text = String(value || "").trim();
+    if (!text) return t("no_answer_recorded");
+    return text.length > max ? text.slice(0, max - 1) + "…" : text;
+}
+
+async function loadSiteAnalytics(days = 14) {
+    currentAnalyticsDays = days || 14;
+    const el = document.getElementById("pilot-analytics");
+    if (!el || !currentSiteId) return;
+    const periodSelect = document.getElementById("analytics-days");
+    if (periodSelect) periodSelect.value = String(currentAnalyticsDays);
+    el.innerHTML = `<div class="loading">${esc(t("analytics_loading"))}</div>`;
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/analytics?days=${currentAnalyticsDays}`, {
+        headers: authHeaders(false),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok) {
+        el.innerHTML = `<div class="empty-state">${esc(localizedApiError(data.error, "analytics_error"))}</div>`;
+        return;
+    }
+    const s = data.summary || {};
+    const top = data.top_questions || [];
+    siteAnalyticsIssues = data.needs_improvement || [];
+    const recent = data.recent_interactions || [];
+    const helpful = s.helpful_rate == null ? "—" : `${s.helpful_rate}%`;
+    const topHtml = top.length ? `
+        <table class="pilot-table">
+            <thead><tr><th>${esc(t("top_question"))}</th><th>${esc(t("asked_count"))}</th><th>${esc(t("issues_count"))}</th></tr></thead>
+            <tbody>${top.map((item) => `<tr>
+                <td>${esc(item.question)}</td>
+                <td>${item.count}</td>
+                <td>${(item.low_confidence || 0) + (item.errors || 0) + (item.negative_feedback || 0)}</td>
+            </tr>`).join("")}</tbody>
+        </table>` : `<div class="pilot-muted">${esc(t("no_questions_period"))}</div>`;
+    const issuesHtml = siteAnalyticsIssues.length ? siteAnalyticsIssues.map((item, index) => `
+        <div class="pilot-issue">
+            <div class="pilot-question">${esc(item.query)}</div>
+            <div>${(item.reasons || []).map((reason) => `<span class="pilot-badge">${esc(translatedEnum("reason", reason))}</span>`).join("")}</div>
+            <div class="pilot-answer"><strong>${esc(t("wrs_answered"))}</strong> ${esc(compactAnswer(item.answer))}</div>
+            <div class="inline-actions">
+                <button class="btn btn-sm btn-primary" onclick="openAnswerEditor(${index})">${esc(t("add_correct_answer"))}</button>
+                <div class="file-input-wrap">
+                    <button class="btn btn-sm btn-outline">${esc(t("upload_supporting_pdf"))}</button>
+                    <input type="file" accept=".pdf" onchange="uploadImprovementPdf(this.files[0], ${index})">
+                </div>
+            </div>
+            <div class="pilot-answer-form" id="pilot-answer-form-${index}">
+                <div class="pilot-muted" style="margin-bottom:8px">${esc(t("answer_index_help"))}</div>
+                <textarea id="pilot-answer-${index}" placeholder="${esc(t("answer_placeholder"))}"></textarea>
+                <div class="inline-actions">
+                    <button class="btn btn-sm btn-primary" id="pilot-answer-submit-${index}" onclick="submitImprovementAnswer(${index})">${esc(t("answer_save_index"))}</button>
+                    <button class="btn btn-sm btn-outline" onclick="openAnswerEditor(${index}, false)">${esc(t("action_cancel"))}</button>
+                </div>
+                <div class="status-msg" id="pilot-answer-status-${index}"></div>
+            </div>
+        </div>`).join("") : `<div class="pilot-muted">${esc(t("nothing_flagged"))}</div>`;
+    const recentHtml = recent.length ? `
+        <table class="pilot-table">
+            <thead><tr><th>${esc(t("recent_asked"))}</th><th>${esc(t("recent_answered"))}</th><th>${esc(t("recent_quality"))}</th><th>${esc(t("recent_time"))}</th></tr></thead>
+            <tbody>${recent.slice(0, 15).map((item) => `<tr>
+                <td>${esc(item.query)}</td>
+                <td>${esc(compactAnswer(item.answer, 280))}</td>
+                <td><span class="pilot-badge ${item.status === "ok" && item.confidence !== "low" ? "good" : ""}">${esc(item.status === "error" ? t("status_error_label") : translatedEnum("confidence", item.confidence))}</span>${item.feedback ? `<span class="pilot-badge ${item.feedback === "up" ? "good" : ""}">${esc(translatedEnum("feedback", item.feedback))}</span>` : ""}</td>
+                <td>${item.response_time_ms || 0} ${esc(t("unit_ms"))}</td>
+            </tr>`).join("")}</tbody>
+        </table>` : `<div class="pilot-muted">${esc(t("no_recent_conversations"))}</div>`;
+
+    el.innerHTML = `
+        <div class="pilot-metrics">
+            ${analyticsMetric(s.questions || 0, t("metric_questions"))}
+            ${analyticsMetric(s.needs_improvement || 0, t("metric_needs_improvement"))}
+            ${analyticsMetric(s.leads || 0, t("metric_leads", { rate: s.lead_conversion_rate || 0 }))}
+            ${analyticsMetric(`${s.avg_response_ms || 0} ${t("unit_ms")}`, t("metric_avg_response"))}
+            ${analyticsMetric(s.chat_sessions || 0, t("metric_chat_sessions"))}
+            ${analyticsMetric(`${s.errors || 0} · ${s.error_rate || 0}%`, t("metric_errors"))}
+            ${analyticsMetric(helpful, t("metric_helpful"))}
+            ${analyticsMetric(`${s.page_views || 0} / ${s.unique_visitors || 0}`, t("metric_views"))}
+        </div>
+        <div class="pilot-columns">
+            <div><h3>${esc(t("top_questions_title"))}</h3>${topHtml}</div>
+            <div><h3>${esc(t("needs_improvement_title"))}</h3><div class="pilot-muted" style="margin-bottom:6px">${esc(t("needs_improvement_sub"))}</div>${issuesHtml}</div>
+        </div>
+        <div style="margin-top:20px"><h3>${esc(t("recent_title"))}</h3>${recentHtml}</div>
+    `;
+}
+
+function openAnswerEditor(index, show = true) {
+    const form = document.getElementById(`pilot-answer-form-${index}`);
+    if (form) form.style.display = show ? "block" : "none";
+    if (show) document.getElementById(`pilot-answer-${index}`)?.focus();
+}
+
+async function submitImprovementAnswer(index) {
+    const issue = siteAnalyticsIssues[index];
+    const answerEl = document.getElementById(`pilot-answer-${index}`);
+    const button = document.getElementById(`pilot-answer-submit-${index}`);
+    if (!issue || !answerEl || !answerEl.value.trim()) {
+        setStatus(`pilot-answer-status-${index}`, "error", t("answer_required"));
+        return;
+    }
+    button.disabled = true;
+    setStatus(`pilot-answer-status-${index}`, "info", t("answer_indexing"));
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/answers`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+            interaction_id: issue.interaction_id,
+            chat_log_id: issue.id,
+            question: issue.query,
+            answer: answerEl.value.trim(),
+        }),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        button.disabled = false;
+        setStatus(`pilot-answer-status-${index}`, "error", localizedApiError(data.error, "answer_index_error"));
+        return;
+    }
+    setStatus(`pilot-answer-status-${index}`, "success", t("answer_indexed", { chunks: data.chunks }));
+    setTimeout(() => loadSiteAnalytics(currentAnalyticsDays), 600);
+}
+
+async function uploadImprovementPdf(file, index) {
+    const issue = siteAnalyticsIssues[index];
+    if (!file || !issue) return;
+    const formData = new FormData();
+    formData.append("pdf", file);
+    formData.append("interaction_id", issue.interaction_id || "");
+    formData.append("chat_log_id", issue.id == null ? "" : String(issue.id));
+    openAnswerEditor(index);
+    setStatus(`pilot-answer-status-${index}`, "info", t("pdf_indexing", { filename: file.name }));
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/upload-pdf`, {
+        method: "POST",
+        headers: { "X-User-Token": userToken },
+        body: formData,
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        setStatus(`pilot-answer-status-${index}`, "error", localizedApiError(data.error, "pdf_index_error"));
+        return;
+    }
+    setStatus(`pilot-answer-status-${index}`, "success", t("pdf_indexed", { chunks: data.chunks }));
+    setTimeout(() => loadSiteAnalytics(currentAnalyticsDays), 600);
+}
+
+async function downloadMonthlyReport() {
+    if (!currentSiteId) return;
+    const defaultMonth = new Date().toISOString().slice(0, 7);
+    const month = prompt(t("report_month_prompt"), defaultMonth);
+    if (!month) return;
+    const resp = await fetch(API + `/api/user/sites/${currentSiteId}/analytics/export?month=${encodeURIComponent(month)}`, {
+        headers: authHeaders(false),
+    });
+    if (resp.status === 401) { await doLogout(); return; }
+    if (!resp.ok) {
+        const data = await resp.json();
+        alert(localizedApiError(data.error, "report_export_error"));
+        return;
+    }
+    const blob = await resp.blob();
+    const disposition = resp.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = match ? match[1] : `wrs-report-${month}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
 }
 
 function toggleDocChunks(headerEl) {
@@ -1396,6 +1968,7 @@ function getAssistantConfigTemplate() {
             mobile_fullscreen: true
         },
         display: { title: "", subtitle: "", input_placeholder: "" },
+        behavior: { tone: "professional", answer_length: "concise", instructions: "" },
         language_switch: {
             enabled: false,
             default: "",
@@ -1434,6 +2007,73 @@ function getAssistantConfigTemplate() {
     };
 }
 
+function appendConfigAiMessage(role, text) {
+    const messages = document.getElementById("config-ai-messages");
+    if (!messages) return;
+    const message = document.createElement("div");
+    message.className = `config-ai-message ${role === "user" ? "user" : "assistant"}`;
+    message.textContent = text;
+    messages.appendChild(message);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function handleConfigAiKey(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendConfigAiRequest();
+    }
+}
+
+async function sendConfigAiRequest() {
+    const input = document.getElementById("config-ai-input");
+    const button = document.getElementById("config-ai-send");
+    const textarea = document.getElementById("assistant-config");
+    if (!input || !button || !textarea || !currentSiteId) return;
+    const instruction = input.value.trim();
+    if (!instruction) return;
+
+    let currentConfig;
+    try {
+        currentConfig = JSON.parse(textarea.value || "{}");
+    } catch (e) {
+        setStatus("assistant-config-status", "error", t("config_ai_invalid_json"));
+        return;
+    }
+
+    appendConfigAiMessage("user", instruction);
+    input.value = "";
+    input.disabled = true;
+    button.disabled = true;
+    button.textContent = t("config_ai_drafting");
+    setStatus("assistant-config-status", "info", t("config_ai_creating"));
+
+    try {
+        const resp = await fetch(API + `/api/user/sites/${currentSiteId}/assistant-config/draft`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ instruction, current_config: currentConfig, response_language: currentLang }),
+        });
+        if (resp.status === 401) { await doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            appendConfigAiMessage("assistant", localizedApiError(data.error, "config_ai_request_error"));
+            setStatus("assistant-config-status", "error", localizedApiError(data.error, "config_ai_draft_error"));
+            return;
+        }
+        textarea.value = JSON.stringify(data.config, null, 2);
+        appendConfigAiMessage("assistant", data.message || t("config_ai_updated"));
+        setStatus("assistant-config-status", "info", t("config_ai_pasted"));
+    } catch (e) {
+        appendConfigAiMessage("assistant", t("config_ai_network_error"));
+        setStatus("assistant-config-status", "error", t("status_network", { message: e.message }));
+    } finally {
+        input.disabled = false;
+        button.disabled = false;
+        button.textContent = t("config_ai_send");
+        input.focus();
+    }
+}
+
 function setAssistantPreset(preset) {
     const textarea = document.getElementById("assistant-config");
     if (!textarea) return;
@@ -1442,7 +2082,7 @@ function setAssistantPreset(preset) {
         const defaults = getAssistantConfigTemplate().appearance;
         config.appearance = { ...defaults, ...(config.appearance || {}), preset };
         textarea.value = JSON.stringify(config, null, 2);
-        setStatus("assistant-config-status", "info", `Preset set to ${preset}. Save the config to publish it.`);
+        setStatus("assistant-config-status", "info", t("preset_selected", { preset: t(`preset_${preset}`) }));
     } catch (e) {
         setStatus("assistant-config-status", "error", t("assistant_invalid_json", { message: e.message }));
     }
@@ -1483,7 +2123,7 @@ async function saveAssistantConfig() {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        setStatus("assistant-config-status", "error", data.error || t("assistant_save_error"));
+        setStatus("assistant-config-status", "error", localizedApiError(data.error, "assistant_save_error"));
         return;
     }
     textarea.value = JSON.stringify(data.assistant || parsed, null, 2);
@@ -1491,7 +2131,7 @@ async function saveAssistantConfig() {
 }
 
 async function doRecrawl() {
-    if (!confirm("This will delete existing documents/chunks and re-crawl the site. Continue?")) return;
+    if (!confirm(t("recrawl_confirm"))) return;
     setStatus("recrawl-status", "info", t("recrawl_starting"));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/recrawl`, {
         method: "POST",
@@ -1504,7 +2144,7 @@ async function doRecrawl() {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        setStatus("recrawl-status", "error", data.error || t("recrawl_failed"));
+        setStatus("recrawl-status", "error", localizedApiError(data.error, "recrawl_failed"));
         return;
     }
     setStatus("recrawl-status", "success", t("recrawl_started"));
@@ -1517,13 +2157,13 @@ function pollProgress(siteId, statusId, onDone = null) {
         evtSource.onmessage = (event) => {
             const progress = JSON.parse(event.data);
             if (progress.error) {
-                setStatus(statusId, "error", progress.error);
+                setStatus(statusId, "error", currentLang === "en" ? progress.error : t("recrawl_failed"));
                 evtSource.close();
                 return;
             }
-            setStatus(statusId, "info", progress.message || "Processing...");
+            setStatus(statusId, "info", currentLang === "en" && progress.message ? progress.message : t("processing"));
             if (progress.done) {
-                setStatus(statusId, "success", progress.message || "Done!");
+                setStatus(statusId, "success", currentLang === "en" && progress.message ? progress.message : t("done"));
                 evtSource.close();
                 setTimeout(() => {
                     if (onDone) {
@@ -1542,7 +2182,7 @@ async function uploadPdf(file) {
     if (!file) return;
     const formData = new FormData();
     formData.append("pdf", file);
-    setStatus("upload-status", "info", `Uploading "${file.name}"...`);
+    setStatus("upload-status", "info", t("upload_start", { filename: file.name }));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/upload-pdf`, {
         method: "POST",
         headers: { "X-User-Token": userToken },
@@ -1551,7 +2191,7 @@ async function uploadPdf(file) {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        setStatus("upload-status", "error", data.error || "Failed to upload PDF");
+        setStatus("upload-status", "error", localizedApiError(data.error, "upload_error"));
         return;
     }
     setStatus("upload-status", "success", t("upload_success", { filename: data.filename, chunks: data.chunks }));
@@ -1567,7 +2207,7 @@ async function deleteChunk(siteId, chunkId) {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        alert(data.error || "Failed to delete chunk");
+        alert(localizedApiError(data.error, "delete_chunk_error"));
         return;
     }
     const el = document.getElementById("chunk-" + chunkId);
@@ -1583,7 +2223,7 @@ async function deleteSite(siteId, domain) {
     if (resp.status === 401) { await doLogout(); return; }
     const data = await resp.json();
     if (!resp.ok || !data.success) {
-        alert(data.error || "Failed to delete site");
+        alert(localizedApiError(data.error, "delete_site_error"));
         return;
     }
     await loadSites();

@@ -38,6 +38,11 @@ ASSISTANT_CONFIG_TEMPLATE = {
         "subtitle": "",
         "input_placeholder": "",
     },
+    "behavior": {
+        "tone": "professional",
+        "answer_length": "concise",
+        "instructions": "",
+    },
     "language_switch": {
         "enabled": False,
         "default": "",
@@ -324,6 +329,7 @@ def normalize_assistant_config(raw: dict | None) -> dict:
     raw = raw or {}
     appearance = raw.get("appearance") if isinstance(raw.get("appearance"), dict) else {}
     display = raw.get("display") if isinstance(raw.get("display"), dict) else {}
+    behavior = raw.get("behavior") if isinstance(raw.get("behavior"), dict) else {}
     language_switch = raw.get("language_switch") if isinstance(raw.get("language_switch"), dict) else {}
     greeting = raw.get("greeting") if isinstance(raw.get("greeting"), dict) else {}
     contact = raw.get("contact") if isinstance(raw.get("contact"), dict) else {}
@@ -350,6 +356,12 @@ def normalize_assistant_config(raw: dict | None) -> dict:
     source_mode = _clean_str(sources.get("mode"), 24).lower()
     if source_mode not in ("hidden", "compact", "expanded"):
         source_mode = "compact"
+    tone = _clean_str(behavior.get("tone"), 24).lower()
+    if tone not in ("professional", "friendly", "neutral", "warm", "formal"):
+        tone = "professional"
+    answer_length = _clean_str(behavior.get("answer_length"), 24).lower()
+    if answer_length not in ("concise", "balanced", "detailed"):
+        answer_length = "concise"
 
     config = {
         "version": 2,
@@ -367,6 +379,11 @@ def normalize_assistant_config(raw: dict | None) -> dict:
             "title": _clean_text_value(display.get("title"), 80),
             "subtitle": _clean_text_value(display.get("subtitle"), 120),
             "input_placeholder": _clean_text_value(display.get("input_placeholder"), 120),
+        },
+        "behavior": {
+            "tone": tone,
+            "answer_length": answer_length,
+            "instructions": _clean_str(behavior.get("instructions"), 4000),
         },
         "language_switch": {
             "enabled": bool(language_switch.get("enabled", False)),

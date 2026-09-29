@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import uuid
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Request
@@ -45,6 +46,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[dict]
     confidence: str
+    message_id: str
     actions: list[dict] = Field(default_factory=list)
 
 
@@ -143,6 +145,7 @@ async def chat(req: ChatRequest, request: Request):
         return error
 
     t0 = time.time()
+    interaction_id = f"msg_{uuid.uuid4().hex}"
     language = resolve_response_language(
         req.query,
         req.response_language,
@@ -151,9 +154,35 @@ async def chat(req: ChatRequest, request: Request):
     assistant_config = get_assistant_config(site.get("settings") or {})
     intent_result = match_intent_actions(assistant_config, req.query)
 
-    result = await asyncio.to_thread(
-        do_rag_sync, req.site_id, req.query, req.top_k, req.session_id, language
-    )
+    try:
+        result = await asyncio.to_thread(
+            do_rag_sync,
+            req.site_id,
+            req.query,
+            req.top_k,
+            req.session_id,
+            language,
+            assistant_config.get("behavior"),
+        )
+    except Exception as exc:
+        elapsed_ms = int((time.time() - t0) * 1000)
+        cfg.log.exception(f"chat failed site={req.site_id} interaction={interaction_id}")
+        asyncio.create_task(_log_query(
+            site_id=req.site_id,
+            query=req.query,
+            confidence="low",
+            response_ms=elapsed_ms,
+            chunk_count=0,
+            interaction_id=interaction_id,
+            session_id=req.session_id,
+            status="error",
+            error_code=exc.__class__.__name__,
+            error_message=str(exc)[:500],
+        ))
+        return JSONResponse({
+            "error": "The assistant could not answer this question",
+            "message_id": interaction_id,
+        }, status_code=500)
     if intent_result["actions"] and result.get("confidence") == "low":
         result["answer"] = resolve_text_value(
             intent_result.get("response_message"),
@@ -174,10 +203,22 @@ async def chat(req: ChatRequest, request: Request):
 
     # Fire-and-forget analytics log (never blocks the response)
     asyncio.create_task(_log_query(
-        req.site_id, req.query, result["confidence"], elapsed_ms, len(result["sources"])
+        site_id=req.site_id,
+        query=req.query,
+        confidence=result["confidence"],
+        response_ms=elapsed_ms,
+        chunk_count=len(result["sources"]),
+        interaction_id=interaction_id,
+        session_id=req.session_id,
+        answer=result.get("answer", ""),
+        sources=result.get("sources", []),
     ))
 
-    return ChatResponse(**result, actions=intent_result["actions"])
+    return ChatResponse(
+        **result,
+        message_id=interaction_id,
+        actions=intent_result["actions"],
+    )
 
 
 @router.get("/api/widget/config/{site_id}", response_model=WidgetConfigResponse)
@@ -252,15 +293,36 @@ async def submit_widget_feedback(req: FeedbackRequest, request: Request):
     return {"success": True}
 
 
-async def _log_query(site_id: int, query: str, confidence: str, response_ms: int, chunk_count: int) -> None:
+async def _log_query(
+    site_id: int,
+    query: str,
+    confidence: str,
+    response_ms: int,
+    chunk_count: int,
+    *,
+    interaction_id: str,
+    session_id: str | None = None,
+    answer: str = "",
+    sources: list[dict] | None = None,
+    status: str = "ok",
+    error_code: str | None = None,
+    error_message: str | None = None,
+) -> None:
     try:
         await asyncio.to_thread(
             lambda: cfg.sb.table("chat_logs").insert({
                 "site_id": site_id,
                 "query": query[:500],
+                "answer": answer[:10000],
                 "confidence": confidence,
                 "response_time_ms": response_ms,
                 "chunk_count": chunk_count,
+                "interaction_id": interaction_id,
+                "session_id": (session_id or "")[:128] or None,
+                "sources": sources or [],
+                "status": status,
+                "error_code": error_code,
+                "error_message": error_message,
             }).execute()
         )
     except Exception as e:

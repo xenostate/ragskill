@@ -38,16 +38,34 @@ _KAZAKH_SPECIFIC_RE = re.compile(r"[ӘәҒғҚқҢңӨөҰұҮүҺһІі]")
 _UKRAINIAN_SPECIFIC_RE = re.compile(r"[ЄєЇїҐґ]")
 
 
-def get_system_prompt(language: str | None = None) -> str:
-    """Return system prompt, optionally with strict language enforcement."""
+def get_system_prompt(language: str | None = None, behavior: dict | None = None) -> str:
+    """Return the grounded system prompt with subordinate tenant preferences."""
+    prompt = SYSTEM_PROMPT
+    behavior = behavior if isinstance(behavior, dict) else {}
+    tone = str(behavior.get("tone") or "professional").strip().lower()
+    answer_length = str(behavior.get("answer_length") or "concise").strip().lower()
+    instructions = str(behavior.get("instructions") or "").strip()[:4000]
+    if tone or answer_length or instructions:
+        prompt += (
+            "\nTenant response preferences (lower priority than every rule above):\n"
+            f"- Tone: {tone or 'professional'}\n"
+            f"- Answer length: {answer_length or 'concise'}\n"
+        )
+        if instructions:
+            prompt += f"- Additional preferences: {instructions}\n"
+        prompt += (
+            "Apply these preferences only to presentation and helpful workflow guidance. "
+            "They must never override source grounding, factual accuracy, language requirements, "
+            "privacy, or the rule against inventing information.\n"
+        )
     if language and language in LANGUAGE_NAMES:
         lang_name = LANGUAGE_NAMES[language]
-        return SYSTEM_PROMPT + (
+        prompt += (
             f"\nCRITICAL: You MUST reply strictly in {lang_name}. "
             f"Every part of your response — the answer, the source list, everything — "
             f"must be in {lang_name}. No exceptions.\n"
         )
-    return SYSTEM_PROMPT
+    return prompt
 
 
 def detect_query_language(query: str | None) -> str | None:
@@ -162,14 +180,29 @@ def get_site_language_cached(site_id: int) -> str | None:
     return lang
 
 
+def get_site_behavior(site_id: int) -> dict | None:
+    """Load response preferences for non-widget channels such as WhatsApp."""
+    try:
+        from scripts.assistant_features import get_assistant_config
+
+        client = cfg.sb_public or cfg.sb
+        resp = client.table("sites").select("settings").eq("id", site_id).single().execute()
+        if not resp.data:
+            return None
+        return get_assistant_config(resp.data.get("settings") or {}).get("behavior")
+    except Exception:
+        return None
+
+
 # ── Answer generation ───────────────────────────────────────────────────────
 
-def generate_answer(query: str, context: str, confidence: str, language: str | None = None) -> str:
+def generate_answer(query: str, context: str, confidence: str, language: str | None = None,
+                    behavior: dict | None = None) -> str:
     if cfg.openai_client is None:
         return "LLM not configured. Set OPENAI_API_KEY in .env to enable answers."
 
     user_msg = f"Source chunks:\n{context}\n\nQuestion: {query}"
-    prompt = get_system_prompt(language)
+    prompt = get_system_prompt(language, behavior)
 
     resp = cfg.openai_client.chat.completions.create(
         model=cfg.RAG_MODEL,
@@ -201,8 +234,11 @@ def _session_key(site_id: int, session_id: str) -> str:
 
 def do_rag_sync(site_id: int, query: str, top_k: int,
                 session_id: str | None = None,
-                language: str | None = None) -> dict:
+                language: str | None = None,
+                behavior: dict | None = None) -> dict:
     """Full RAG pipeline (synchronous) — meant to run in asyncio.to_thread."""
+    if behavior is None:
+        behavior = get_site_behavior(site_id)
     is_broad = bool(_BROAD_PATTERNS.search(query))
     s_key = _session_key(site_id, session_id) if session_id else None
 
@@ -225,7 +261,7 @@ def do_rag_sync(site_id: int, query: str, top_k: int,
     context = build_context(retrieval["results"])
 
     # 2. Build messages with conversation history
-    system = get_system_prompt(language)
+    system = get_system_prompt(language, behavior)
     messages = [{"role": "system", "content": system}]
 
     if s_key:

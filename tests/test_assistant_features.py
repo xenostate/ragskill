@@ -96,6 +96,26 @@ class TestAssistantConfig:
         assert public["appearance"]["preset"] == "professional"
         assert public["feedback"]["enabled"] is True
 
+    def test_behavior_config_is_constrained_and_normalized(self):
+        config = normalize_assistant_config({
+            "behavior": {
+                "tone": "warm",
+                "answer_length": "detailed",
+                "instructions": "Use short headings and explain technical terms.",
+            }
+        })
+        assert config["behavior"] == {
+            "tone": "warm",
+            "answer_length": "detailed",
+            "instructions": "Use short headings and explain technical terms.",
+        }
+
+        fallback = normalize_assistant_config({
+            "behavior": {"tone": "sarcastic", "answer_length": "endless"}
+        })
+        assert fallback["behavior"]["tone"] == "professional"
+        assert fallback["behavior"]["answer_length"] == "concise"
+
     def test_template_is_reusable_copy(self):
         template = assistant_config_template()
         template["greeting"]["enabled"] = True

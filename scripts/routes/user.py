@@ -6,18 +6,27 @@ from __future__ import annotations
 
 import asyncio
 import io
+import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import APIRouter, Request, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pypdf import PdfReader
 
 import scripts.config as cfg
+from scripts.analytics import (
+    load_site_analytics,
+    monthly_report_csv,
+    utc_month_period,
+    utc_period_for_days,
+)
 from scripts.assistant_features import normalize_assistant_config
+from scripts.config_assistant import ConfigAssistantError, draft_assistant_config
 from scripts.indexer import chunk_text, content_hash
+from scripts.knowledge import index_answer_document
 from scripts.routes.trial import run_trial_indexing
 from scripts.utils import (
     rate_limit_check,
@@ -306,6 +315,8 @@ async def user_list_sites(request: Request):
     for s in (sites.data or []):
         settings = s.get("settings") or {}
         doc_count = cfg.sb.table("documents").select("id", count="exact").eq("site_id", s["id"]).execute()
+        query_count = cfg.sb.table("chat_logs").select("id", count="exact").eq("site_id", s["id"]).execute()
+        lead_count = cfg.sb.table("assistant_form_submissions").select("id", count="exact").eq("site_id", s["id"]).execute()
         result.append({
             "id": s["id"],
             "domain": s["domain"],
@@ -313,6 +324,8 @@ async def user_list_sites(request: Request):
             "is_trial": s.get("is_trial", False),
             "is_landing": settings.get("landing", False),
             "doc_count": doc_count.count if doc_count.count is not None else 0,
+            "query_count": query_count.count if query_count.count is not None else 0,
+            "lead_count": lead_count.count if lead_count.count is not None else 0,
         })
     return {"sites": result}
 
@@ -326,6 +339,95 @@ async def user_site_documents(site_id: int, request: Request):
     if not site:
         return JSONResponse({"error": "Site not found"}, status_code=404)
     return {"site": site, "documents": _site_documents(site_id)}
+
+
+@router.get("/api/user/sites/{site_id}/analytics")
+async def user_site_analytics(site_id: int, request: Request):
+    """Customer-facing pilot report for a rolling period (14 days by default)."""
+    user = verify_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    site = _user_can_access_site(user, site_id)
+    if not site:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+    try:
+        days = int(request.query_params.get("days", "14"))
+    except ValueError:
+        return JSONResponse({"error": "days must be a number"}, status_code=400)
+    start, end = utc_period_for_days(days)
+    try:
+        report, _ = await asyncio.to_thread(load_site_analytics, cfg.sb, site_id, start, end)
+    except Exception:
+        cfg.log.exception(f"Could not load analytics for site {site_id}")
+        return JSONResponse({"error": "Analytics unavailable. Apply the latest schema migration."}, status_code=500)
+    report.pop("_feedback_rows", None)
+    report["site"] = {"id": site_id, "domain": site.get("domain")}
+    return report
+
+
+@router.get("/api/user/sites/{site_id}/analytics/export")
+async def user_site_analytics_export(site_id: int, request: Request):
+    """Download a monthly CSV with metrics and question/answer detail."""
+    user = verify_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    site = _user_can_access_site(user, site_id)
+    if not site:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+    try:
+        start, end, month = utc_month_period(request.query_params.get("month", ""))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    try:
+        report, rows = await asyncio.to_thread(load_site_analytics, cfg.sb, site_id, start, end)
+        csv_content = monthly_report_csv(site, month, report, rows)
+    except Exception:
+        cfg.log.exception(f"Could not export analytics for site {site_id}")
+        return JSONResponse({"error": "Report unavailable. Apply the latest schema migration."}, status_code=500)
+    safe_domain = re.sub(r"[^a-zA-Z0-9.-]", "_", site.get("domain") or f"site-{site_id}")
+    return Response(
+        csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="wrs-{safe_domain}-{month}.csv"'},
+    )
+
+
+@router.post("/api/user/sites/{site_id}/answers")
+async def user_add_site_answer(site_id: int, request: Request):
+    """Turn a failed/low-confidence question into indexed customer knowledge."""
+    user = verify_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    site = _user_can_access_site(user, site_id)
+    if not site:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+    body = await request.json()
+    interaction_id = str(body.get("interaction_id") or "").strip()[:128]
+    chat_log_id = body.get("chat_log_id")
+    try:
+        result = await asyncio.to_thread(
+            index_answer_document,
+            site_id,
+            body.get("question", ""),
+            body.get("answer", ""),
+            body.get("title"),
+        )
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except Exception:
+        cfg.log.exception(f"Could not add answer for site {site_id}")
+        return JSONResponse({"error": "Could not index the answer"}, status_code=500)
+    if interaction_id:
+        cfg.sb.table("chat_logs").update({
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_document_id": result["document_id"],
+        }).eq("site_id", site_id).eq("interaction_id", interaction_id).execute()
+    elif isinstance(chat_log_id, int):
+        cfg.sb.table("chat_logs").update({
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_document_id": result["document_id"],
+        }).eq("site_id", site_id).eq("id", chat_log_id).execute()
+    return {"success": True, **result}
 
 
 @router.post("/api/user/sites/{site_id}/assistant-config")
@@ -346,6 +448,38 @@ async def user_update_assistant_config(site_id: int, request: Request):
     settings["assistant"] = normalize_assistant_config(assistant)
     cfg.sb.table("sites").update({"settings": settings}).eq("id", site_id).execute()
     return {"success": True, "assistant": settings["assistant"]}
+
+
+@router.post("/api/user/sites/{site_id}/assistant-config/draft")
+async def user_draft_assistant_config(site_id: int, request: Request):
+    """Create an LLM-edited configuration draft without publishing it."""
+    user = verify_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    site = _user_can_access_site(user, site_id)
+    if not site:
+        return JSONResponse({"error": "Site not found"}, status_code=404)
+    blocked = rate_limit_check(request, f"assistant_config_draft:{site_id}", 12, 600)
+    if blocked:
+        return blocked
+    body = await request.json()
+    instruction = str(body.get("instruction") or "").strip()
+    current_config = body.get("current_config")
+    response_language = str(body.get("response_language") or "").strip().lower()
+    if current_config is not None and not isinstance(current_config, dict):
+        return JSONResponse({"error": "current_config must be a JSON object"}, status_code=400)
+    if cfg.openai_client is None:
+        return JSONResponse({"error": "The configuration assistant is not configured"}, status_code=503)
+    try:
+        result = await asyncio.to_thread(
+            draft_assistant_config,
+            current_config if current_config is not None else (site.get("settings") or {}).get("assistant"),
+            instruction,
+            response_language,
+        )
+    except ConfigAssistantError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"success": True, **result}
 
 
 @router.delete("/api/user/sites/{site_id}")
@@ -387,7 +521,13 @@ async def user_delete_chunk(site_id: int, chunk_id: int, request: Request):
 
 
 @router.post("/api/user/sites/{site_id}/upload-pdf")
-async def user_upload_pdf(site_id: int, request: Request, pdf: UploadFile = File(...)):
+async def user_upload_pdf(
+    site_id: int,
+    request: Request,
+    pdf: UploadFile = File(...),
+    interaction_id: str = Form(""),
+    chat_log_id: str = Form(""),
+):
     user = verify_user(request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -437,6 +577,17 @@ async def user_upload_pdf(site_id: int, request: Request, pdf: UploadFile = File
     result = await asyncio.to_thread(do_pdf_index)
     if "error" in result:
         return JSONResponse({"error": result["error"]}, status_code=400)
+    interaction_id = interaction_id.strip()[:128]
+    if interaction_id:
+        cfg.sb.table("chat_logs").update({
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_document_id": result["doc_id"],
+        }).eq("site_id", site_id).eq("interaction_id", interaction_id).execute()
+    elif chat_log_id.isdigit():
+        cfg.sb.table("chat_logs").update({
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+            "resolved_document_id": result["doc_id"],
+        }).eq("site_id", site_id).eq("id", int(chat_log_id)).execute()
     return result
 
 

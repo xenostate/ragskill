@@ -174,8 +174,24 @@ create table if not exists chat_logs (
     created_at      timestamptz default now()
 );
 
+-- Pilot reporting: retain the response and a stable interaction identifier so
+-- feedback, failures, and later knowledge improvements can be audited.
+alter table chat_logs add column if not exists interaction_id text;
+alter table chat_logs add column if not exists session_id text;
+alter table chat_logs add column if not exists answer text;
+alter table chat_logs add column if not exists sources jsonb default '[]'::jsonb;
+alter table chat_logs add column if not exists status text default 'ok';
+alter table chat_logs add column if not exists error_code text;
+alter table chat_logs add column if not exists error_message text;
+alter table chat_logs add column if not exists resolved_at timestamptz;
+alter table chat_logs add column if not exists resolved_document_id bigint references documents(id) on delete set null;
+
 create index if not exists idx_chat_logs_site    on chat_logs(site_id);
 create index if not exists idx_chat_logs_created on chat_logs(created_at desc);
+create unique index if not exists idx_chat_logs_interaction
+    on chat_logs(interaction_id) where interaction_id is not null;
+create index if not exists idx_chat_logs_site_status
+    on chat_logs(site_id, status, confidence, created_at desc);
 
 -- Anonymous thumbs-up/down feedback for assistant responses.
 create table if not exists assistant_feedback (
@@ -190,6 +206,7 @@ create table if not exists assistant_feedback (
 
 create index if not exists idx_assistant_feedback_site on assistant_feedback(site_id);
 create index if not exists idx_assistant_feedback_created on assistant_feedback(created_at desc);
+create index if not exists idx_assistant_feedback_message on assistant_feedback(message_id);
 
 -- Widget visitor page-view log (sent as a beacon from widget.js on every page load)
 create table if not exists visitor_logs (

@@ -1368,7 +1368,7 @@
       msg.innerHTML = renderBotHtml(resolveText(text, getUiLanguage()), sources, confidence);
       if (options.feedback) {
         responseSequence += 1;
-        appendFeedback(msg, `response_${responseSequence}`);
+        appendFeedback(msg, options.messageId || `response_${responseSequence}`);
       }
     } else {
       msg.textContent = resolveText(text, getUiLanguage());
@@ -1844,7 +1844,10 @@
       if (!resp.ok) {
         throw new Error(data.error || "Request failed");
       }
-      addMessage(data.answer, "bot", data.sources, data.confidence, { feedback: true });
+      addMessage(data.answer, "bot", data.sources, data.confidence, {
+        feedback: true,
+        messageId: data.message_id,
+      });
       renderResponseActions(data.actions || []);
     } catch (err) {
       addMessage("Sorry, something went wrong. Please try again.", "bot");

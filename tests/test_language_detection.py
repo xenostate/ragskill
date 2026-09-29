@@ -1,4 +1,4 @@
-from scripts.rag_core import detect_query_language, resolve_response_language
+from scripts.rag_core import detect_query_language, get_system_prompt, resolve_response_language
 
 
 def test_detects_russian_query_with_english_project_name():
@@ -32,3 +32,16 @@ def test_site_language_is_used_when_detection_is_inconclusive():
 
 def test_unsupported_explicit_language_does_not_disable_detection():
     assert resolve_response_language("Что умеет ассистент?", "xx", "en") == "ru"
+
+
+def test_tenant_behavior_is_added_without_weakening_grounding_rules():
+    prompt = get_system_prompt("en", {
+        "tone": "warm",
+        "answer_length": "detailed",
+        "instructions": "Use bullet points for complex answers.",
+    })
+    assert "Tone: warm" in prompt
+    assert "Answer length: detailed" in prompt
+    assert "Use bullet points for complex answers." in prompt
+    assert "must never override source grounding" in prompt
+    assert "ONLY on the provided source chunks" in prompt

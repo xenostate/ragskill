@@ -460,10 +460,23 @@
         .dual-bar-day .b-unique { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
         .dual-bar-day .bar-label { font-size: 10px; color: var(--text2); white-space: nowrap; }
 
+        .config-ai { border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:14px 0 18px; background:#f9f9fb; }
+        .config-ai-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding:13px 15px; border-bottom:1px solid var(--border); background:#fff; }
+        .config-ai-title { font-weight:700; font-size:13px; }
+        .config-ai-sub { color:var(--text2); font-size:11px; line-height:1.45; margin-top:3px; }
+        .config-ai-badge { flex-shrink:0; border-radius:999px; background:#fff7ed; color:#c2410c; padding:4px 8px; font-size:9px; font-weight:700; text-transform:uppercase; }
+        .config-ai-messages { max-height:220px; overflow-y:auto; padding:13px; display:flex; flex-direction:column; gap:8px; }
+        .config-ai-message { max-width:88%; border-radius:9px; padding:8px 10px; font-size:12px; line-height:1.5; white-space:pre-wrap; }
+        .config-ai-message.assistant { align-self:flex-start; background:#fff; border:1px solid var(--border); }
+        .config-ai-message.user { align-self:flex-end; background:var(--accent); color:#fff; }
+        .config-ai-compose { display:grid; grid-template-columns:1fr auto; gap:8px; padding:11px; border-top:1px solid var(--border); background:#fff; align-items:end; }
+        .config-ai-compose textarea { min-height:48px; max-height:120px; margin:0; }
+
         @media (max-width: 768px) {
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
             .analytics-row-2, .analytics-row-3 { grid-template-columns: 1fr; }
             .sys-grid { grid-template-columns: repeat(2, 1fr); }
+            .config-ai-compose { grid-template-columns: 1fr; }
         }
 
         /* ── File input ── */
@@ -987,7 +1000,7 @@ async function loadSites() {
             <div class="site-row" onclick="openSiteDetail(${s.id})">
                 <div class="site-info">
                     <div class="site-domain">${esc(s.domain)} ${badge}</div>
-                    <div class="site-meta">ID: ${s.id} &middot; ${s.doc_count} doc(s) &middot; Lang: ${s.language || 'auto'}</div>
+                    <div class="site-meta">ID: ${s.id} &middot; ${s.doc_count} doc(s) &middot; ${s.query_count || 0} question(s) &middot; ${s.lead_count || 0} lead(s) &middot; Lang: ${s.language || 'auto'}</div>
                 </div>
                 <div class="site-actions" onclick="event.stopPropagation()">
                     ${s.is_landing ? '' : `<button class="btn btn-sm btn-danger" onclick="deleteSite(${s.id}, '${esc(s.domain)}')">Delete</button>`}
@@ -1093,6 +1106,22 @@ async function openSiteDetail(siteId) {
             <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
                 Choose one of three polished presets, then configure branding, greeting, quick actions, contact, forms, feedback, and sources in JSON.
             </p>
+            <div class="config-ai">
+                <div class="config-ai-head">
+                    <div>
+                        <div class="config-ai-title">Configure with AI</div>
+                        <div class="config-ai-sub">Describe the personality, languages, greeting, quick actions, forms, or visual style you want.</div>
+                    </div>
+                    <span class="config-ai-badge">Draft only</span>
+                </div>
+                <div class="config-ai-messages" id="config-ai-messages">
+                    <div class="config-ai-message assistant">How should this assistant look and behave? I’ll update the JSON draft below. Nothing is published until you click Save Config.</div>
+                </div>
+                <div class="config-ai-compose">
+                    <textarea id="config-ai-input" maxlength="4000" placeholder="Example: Make it warm and concise, greet visitors in English and Russian, and add a Contact us lead form." onkeydown="handleConfigAiKey(event)"></textarea>
+                    <button class="btn btn-sm btn-blue" id="config-ai-send" onclick="sendConfigAiRequest()">Update Draft</button>
+                </div>
+            </div>
             <div class="form-group">
                 <label>Design preset</label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1207,6 +1236,11 @@ function getAssistantConfigTemplate() {
             subtitle: "",
             input_placeholder: ""
         },
+        behavior: {
+            tone: "professional",
+            answer_length: "concise",
+            instructions: ""
+        },
         language_switch: {
             enabled: false,
             default: "",
@@ -1309,6 +1343,79 @@ function getAssistantConfigTemplate() {
             }
         ]
     };
+}
+
+function appendConfigAiMessage(role, text) {
+    const messages = document.getElementById("config-ai-messages");
+    if (!messages) return;
+    const message = document.createElement("div");
+    message.className = `config-ai-message ${role === "user" ? "user" : "assistant"}`;
+    message.textContent = text;
+    messages.appendChild(message);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function handleConfigAiKey(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendConfigAiRequest();
+    }
+}
+
+async function sendConfigAiRequest() {
+    const input = document.getElementById("config-ai-input");
+    const button = document.getElementById("config-ai-send");
+    const textarea = document.getElementById("assistant-config");
+    const status = document.getElementById("assistant-config-status");
+    if (!input || !button || !textarea || !status || !currentSiteId) return;
+    const instruction = input.value.trim();
+    if (!instruction) return;
+
+    let currentConfig;
+    try {
+        currentConfig = JSON.parse(textarea.value || "{}");
+    } catch (e) {
+        status.className = "status-msg error";
+        status.textContent = "Fix the JSON below before asking the configuration assistant to edit it.";
+        return;
+    }
+
+    appendConfigAiMessage("user", instruction);
+    input.value = "";
+    input.disabled = true;
+    button.disabled = true;
+    button.textContent = "Drafting...";
+    status.className = "status-msg info";
+    status.textContent = "Creating a configuration draft...";
+
+    try {
+        const resp = await fetch(API + `/api/admin/sites/${currentSiteId}/assistant-config/draft`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ instruction, current_config: currentConfig }),
+        });
+        if (resp.status === 401) { doLogout(); return; }
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            appendConfigAiMessage("assistant", data.error || "I couldn’t update the draft. Please try again.");
+            status.className = "status-msg error";
+            status.textContent = data.error || "Could not create a configuration draft.";
+            return;
+        }
+        textarea.value = JSON.stringify(data.config, null, 2);
+        appendConfigAiMessage("assistant", data.message || "Draft updated. Review it below and save when ready.");
+        status.className = "status-msg info";
+        status.textContent = "AI draft pasted below. Review it, then click Save Config to publish it.";
+    } catch (e) {
+        appendConfigAiMessage("assistant", "A network error prevented me from updating the draft.");
+        status.className = "status-msg error";
+        status.textContent = "Network error: " + e.message;
+    } finally {
+        input.disabled = false;
+        button.disabled = false;
+        button.textContent = "Update Draft";
+        input.focus();
+    }
 }
 
 function setAssistantPreset(preset) {

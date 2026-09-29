@@ -203,6 +203,7 @@ Supported features:
 
 - `appearance` — one of three presets, brand colors, company logo, launcher icon/position, and mobile mode
 - `display` — widget title, subtitle, and input placeholder
+- `behavior` — constrained tone, answer length, and tenant-specific response preferences
 - `greeting` — first assistant message shown when the widget opens
 - `starters` — quick action buttons
 - `contact` — named contact with WhatsApp or lead-form action
@@ -211,7 +212,9 @@ Supported features:
 - `forms` — structured in-chat forms
 - `destinations` — where form submissions should be forwarded
 
-The assistant config is managed from the Admin page for each site:
+The assistant config is managed from the Admin page or customer portal for each site. The **Configure with AI** chat converts natural-language requests into a validated JSON draft. It never publishes automatically: review the generated JSON, then use the existing **Save Config** button.
+
+Manual workflow:
 
 1. Open `/admin`
 2. Open a site from **All Sites**
@@ -237,6 +240,11 @@ The assistant config is managed from the Admin page for each site:
     "title": "Assistant title",
     "subtitle": "Online · Usually replies instantly",
     "input_placeholder": "Type your question"
+  },
+  "behavior": {
+    "tone": "warm",
+    "answer_length": "concise",
+    "instructions": "Use plain language and explain unfamiliar terms."
   },
   "greeting": {
     "enabled": true,
@@ -314,6 +322,22 @@ The assistant config is managed from the Admin page for each site:
 The design surface is deliberately constrained. `appearance.preset` accepts only `professional`, `friendly`, or `minimal`; launcher icons accept `chat`, `message`, `sparkles`, or `question`; launcher positions accept `left` or `right`. Existing embed attributes remain valid as fallbacks, so older installations do not need to change their script tag.
 
 Run the latest `references/schema.sql` migration before enabling feedback analytics. If the optional `assistant_feedback` table is not present yet, feedback remains non-blocking for visitors and the widget continues normally.
+
+## Pilot Analytics and Improvement Loop
+
+Each customer site now has a **Pilot outcomes** panel in `/app` → **My Sites** → **Manage**. It provides a rolling 7/14/30/90-day view of:
+
+- Questions, chat sessions, page views, and unique visitors
+- The actual question and WRS answer for recent interactions
+- Top repeated questions
+- Low-confidence, unanswered/error, and negatively rated responses
+- Helpful/unhelpful feedback
+- Lead-form submissions and chat-to-lead conversion
+- Average response time, P95 response time, and error rate
+
+From a flagged question, the customer can add an approved answer. WRS indexes it as a new knowledge document and marks that interaction resolved. Customers can also upload a supporting PDF from the same site page. **Export monthly CSV** downloads the selected month's summary and full question/answer detail.
+
+Run the complete `references/schema.sql` in Supabase before deploying this feature. The migration adds answer, error, response-source, resolution, session, and stable interaction fields to `chat_logs` while remaining safe to re-run.
 
 ### Starter Actions
 
@@ -483,6 +507,9 @@ Important:
 │   ├── server.py            # FastAPI entry point (lifespan, middleware)
 │   ├── config.py            # Shared config, constants, mutable globals
 │   ├── assistant_features.py # Assistant config, forms, notification routing
+│   ├── analytics.py         # Pilot metrics, quality triage, monthly CSV export
+│   ├── config_assistant.py  # LLM-assisted, validated config drafting
+│   ├── knowledge.py         # Customer-provided answer indexing
 │   ├── utils.py             # Rate limiter, auth, SSRF protection, helpers
 │   ├── rag_core.py          # Retrieval, context building, answer generation
 │   ├── indexer.py           # Crawl → clean → chunk → embed → store
@@ -496,6 +523,7 @@ Important:
 │       ├── admin.py         # /admin, /api/admin/* (site management)
 │       ├── auth.py          # /api/admin/auth, /api/quick-activate
 │       ├── internal.py      # /assistant/*, /api/internal/* (private KBs)
+│       ├── user.py          # /app, ownership-scoped site analytics + management
 │       └── whatsapp.py      # /api/whatsapp/* (webhook endpoints)
 ├── tests/
 │   ├── conftest.py          # Test config (mocks heavy deps)
@@ -598,6 +626,7 @@ cloudflared tunnel --url http://localhost:8090
 |---------|---------|-------------|
 | `EMBED_MODEL` | `intfloat/multilingual-e5-base` | Sentence-transformers model name |
 | `RAG_MODEL` | `gpt-4o-mini` | OpenAI model for answer generation |
+| `ASSISTANT_CONFIG_MODEL` | value of `RAG_MODEL` | OpenAI model used to turn natural language into config drafts |
 | `RAG_TOP_K` | `5` | Number of chunks to retrieve per query |
 | `CHUNK_SIZE` | `500` | Words per chunk |
 | `CHUNK_OVERLAP` | `50` | Overlap words between chunks |

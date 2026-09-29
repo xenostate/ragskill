@@ -26,6 +26,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "intfloat/multilingual-e5-base")
 RAG_MODEL = os.environ.get("RAG_MODEL", "gpt-4o-mini")
+ASSISTANT_CONFIG_MODEL = os.environ.get("ASSISTANT_CONFIG_MODEL", RAG_MODEL)
 RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
