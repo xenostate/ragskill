@@ -93,6 +93,7 @@ SMTP_USERNAME=alerts@example.com                  # optional
 SMTP_PASSWORD=your-password                       # optional
 SMTP_FROM=alerts@example.com                      # optional
 SMTP_USE_TLS=true                                 # optional
+ENABLE_API_DOCS=true                              # local only; keep false in production
 ```
 
 ### 4. Apply database migrations
@@ -115,7 +116,7 @@ INSERT INTO sites (domain, language) VALUES ('example.com', 'en');
 ### 6. Crawl and index the site
 
 ```bash
-# For normal HTML sites:
+# Automatically use static HTML and fall back to Playwright for JS-only pages:
 .venv/bin/python3 scripts/indexer.py --site-id 1 --max-pages 50
 
 # For JS-rendered SPAs (React, Svelte, Next.js, etc.):
@@ -148,7 +149,7 @@ curl -s -X POST http://localhost:8090/api/chat \
 .venv/bin/python3 scripts/indexer.py \
   --site-id <ID> \
   --max-pages <N> \
-  --renderer <static|playwright> \
+  --renderer <auto|static|playwright> \
   --start-url <URL>              # optional: override crawl entry point
 ```
 
@@ -156,7 +157,7 @@ curl -s -X POST http://localhost:8090/api/chat \
 |------|---------|-------------|
 | `--site-id` | required | Site ID from `sites` table |
 | `--max-pages` | 100 | Max pages to BFS-crawl |
-| `--renderer` | `static` | `static` = requests (fast), `playwright` = headless Chrome (for SPAs) |
+| `--renderer` | `auto` | `auto` = static first with a Playwright fallback for JS-only pages; explicit modes remain available |
 | `--start-url` | `https://{domain}` | Override the starting URL |
 
 ### Retrieval (search chunks)

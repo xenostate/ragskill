@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>WebRAG Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -25,6 +26,10 @@
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+        }
+        body.auth-pending .auth-shell,
+        body.auth-pending .dashboard {
+            display: none !important;
         }
         .auth-shell {
             min-height: 100vh;
@@ -533,15 +538,18 @@
             }
             .topbar {
                 align-items: flex-start;
+                flex-direction: column;
                 padding-top: 56px;
             }
             .topbar-right {
                 margin-right: 0;
                 justify-content: flex-start;
+                width: 100%;
             }
             #user-pill {
                 max-width: none;
                 text-align: left;
+                width: 100%;
             }
             .global-lang {
                 top: 10px;
@@ -555,7 +563,7 @@
     </style>
     <link rel="stylesheet" href="/editorial.css">
 </head>
-<body class="page-user">
+<body class="page-user auth-pending">
 <div class="global-lang">
     <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">RU</button>
     <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">KZ</button>
@@ -572,11 +580,11 @@
 
         <div class="auth-panel active" id="auth-login">
             <div class="field">
-                <label data-i18n="field_email">Email</label>
+                <label for="login-email" data-i18n="field_email">Email</label>
                 <input type="email" id="login-email" data-i18n-ph="ph_email" placeholder="you@example.com">
             </div>
             <div class="field">
-                <label data-i18n="field_password">Password</label>
+                <label for="login-password" data-i18n="field_password">Password</label>
                 <input type="password" id="login-password" data-i18n-ph="ph_password_login" placeholder="Enter your password">
             </div>
             <button class="btn btn-primary" style="width:100%" data-i18n="login_btn" onclick="doLogin()">Login</button>
@@ -585,15 +593,15 @@
 
         <div class="auth-panel" id="auth-signup">
             <div class="field">
-                <label data-i18n="field_name">Name</label>
+                <label for="signup-name" data-i18n="field_name">Name</label>
                 <input type="text" id="signup-name" data-i18n-ph="ph_name" placeholder="Your name">
             </div>
             <div class="field">
-                <label data-i18n="field_email">Email</label>
+                <label for="signup-email" data-i18n="field_email">Email</label>
                 <input type="email" id="signup-email" data-i18n-ph="ph_email" placeholder="you@example.com">
             </div>
             <div class="field">
-                <label data-i18n="field_password">Password</label>
+                <label for="signup-password" data-i18n="field_password">Password</label>
                 <input type="password" id="signup-password" data-i18n-ph="ph_password_signup" placeholder="At least 6 characters">
             </div>
             <button class="btn btn-primary" style="width:100%" data-i18n="signup_btn" onclick="doSignup()">Create account</button>
@@ -655,7 +663,7 @@
             </div>
             <button class="modal-close" type="button" data-i18n-aria="modal_close" aria-label="Close" onclick="closeWebsiteAssistantForm()">&times;</button>
         </div>
-        <form id="create-website-form" onsubmit="createWebsiteAssistant(event)">
+        <form id="create-website-form" novalidate onsubmit="createWebsiteAssistant(event)">
             <div class="field">
                 <label for="create-website-url" data-i18n="field_site_url">Website URL</label>
                 <input type="url" id="create-website-url" data-i18n-ph="ph_site_url" placeholder="https://your-site.com" required>
@@ -726,7 +734,7 @@ const I18N = {
         ph_activation_code: "Введите код",
         field_max_pages: "Макс. страниц",
         field_language: "Язык",
-        field_playwright: "Использовать Playwright для сайтов с тяжелым JavaScript",
+        field_playwright: "Использовать Playwright для сайтов с динамическим JavaScript-контентом",
         activate_btn: "Создать ассистента",
         language_auto: "Определить автоматически",
         modal_close: "Закрыть",
@@ -754,6 +762,8 @@ const I18N = {
         status_internal_success: "Ассистент создан: {url}",
         status_internal_error: "Не удалось создать ассистента",
         status_network: "Ошибка сети: {message}",
+        validation_required: "Заполните URL сайта и код активации.",
+        validation_url: "Введите корректный URL, начинающийся с http:// или https://.",
         err_signup: "Не удалось зарегистрироваться",
         err_login: "Не удалось войти",
         sites_loading: "Загружаем ваши сайты...",
@@ -921,7 +931,7 @@ const I18N = {
         ph_activation_code: "Кодты енгізіңіз",
         field_max_pages: "Макс. беттер",
         field_language: "Тіл",
-        field_playwright: "JavaScript-heavy сайттар үшін Playwright пайдалану",
+        field_playwright: "Динамикалық JavaScript мазмұны бар сайттар үшін Playwright пайдалану",
         activate_btn: "Ассистент жасау",
         language_auto: "Автоматты анықтау",
         modal_close: "Жабу",
@@ -949,6 +959,8 @@ const I18N = {
         status_internal_success: "Ассистент жасалды: {url}",
         status_internal_error: "Ішкі ассистентті жасау сәтсіз аяқталды",
         status_network: "Желі қатесі: {message}",
+        validation_required: "Сайт URL-ін және белсендіру кодын толтырыңыз.",
+        validation_url: "http:// немесе https:// деп басталатын дұрыс URL енгізіңіз.",
         err_signup: "Тіркелу сәтсіз аяқталды",
         err_login: "Кіру сәтсіз аяқталды",
         sites_loading: "Сайттарыңыз жүктелуде...",
@@ -1144,6 +1156,8 @@ const I18N = {
         status_internal_success: "Assistant created: {url}",
         status_internal_error: "Failed to create assistant",
         status_network: "Network error: {message}",
+        validation_required: "Enter the website URL and activation code.",
+        validation_url: "Enter a valid URL beginning with http:// or https://.",
         err_signup: "Failed to sign up",
         err_login: "Failed to login",
         sites_loading: "Loading your sites...",
@@ -1291,7 +1305,17 @@ function esc(value) {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function safeHttpUrl(value) {
+    try {
+        const parsed = new URL(String(value || ""), window.location.origin);
+        return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "#";
+    } catch (error) {
+        return "#";
+    }
 }
 
 function t(key, vars = {}) {
@@ -1343,7 +1367,7 @@ function setLang(lang) {
     currentLang = lang;
     localStorage.setItem("wr_lang", lang);
     applyTranslations();
-    if (userToken && document.getElementById("dashboard").style.display === "block") {
+    if (document.getElementById("dashboard").style.display === "block") {
         loadSites();
         loadAssistants();
         if (currentSiteId) {
@@ -1359,17 +1383,20 @@ function switchAuthTab(tab) {
 }
 
 function authHeaders(json = true) {
-    const headers = { "X-User-Token": userToken };
+    const headers = {};
+    if (userToken) headers["X-User-Token"] = userToken;
     if (json) headers["Content-Type"] = "application/json";
     return headers;
 }
 
 function showAuth() {
+    document.body.classList.remove("auth-pending");
     document.getElementById("auth-shell").style.display = "flex";
     document.getElementById("dashboard").style.display = "none";
 }
 
 function showDashboard() {
+    document.body.classList.remove("auth-pending");
     document.getElementById("auth-shell").style.display = "none";
     document.getElementById("dashboard").style.display = "block";
 }
@@ -1410,9 +1437,22 @@ async function createWebsiteAssistant(event) {
     event.preventDefault();
     const statusId = "create-website-status";
     const submit = document.getElementById("create-website-submit");
+    const url = document.getElementById("create-website-url").value.trim();
+    const code = document.getElementById("create-website-code").value.trim();
+    if (!url || !code) {
+        setStatus(statusId, "error", t("validation_required"));
+        return;
+    }
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("protocol");
+    } catch (e) {
+        setStatus(statusId, "error", t("validation_url"));
+        return;
+    }
     const formData = new FormData();
-    formData.append("url", document.getElementById("create-website-url").value.trim());
-    formData.append("code", document.getElementById("create-website-code").value.trim());
+    formData.append("url", url);
+    formData.append("code", code);
     formData.append("max_pages", document.getElementById("create-website-pages").value || "100");
     formData.append("language", document.getElementById("create-website-language").value);
     formData.append("use_playwright", document.getElementById("create-website-playwright").checked ? "1" : "0");
@@ -1422,7 +1462,7 @@ async function createWebsiteAssistant(event) {
     try {
         const resp = await fetch(API + "/api/quick-activate", {
             method: "POST",
-            headers: { "X-User-Token": userToken },
+            headers: authHeaders(false),
             body: formData,
         });
         if (resp.status === 401) {
@@ -1467,8 +1507,8 @@ async function doSignup() {
             showErr("signup-err", localizedApiError(data.error, "err_signup"));
             return;
         }
-        userToken = data.token;
-        localStorage.setItem("wr_user_token", userToken);
+        userToken = "";
+        localStorage.removeItem("wr_user_token");
         await bootstrap();
     } catch (e) {
         showErr("signup-err", t("status_network", { message: e.message }));
@@ -1490,8 +1530,8 @@ async function doLogin() {
             showErr("login-err", localizedApiError(data.error, "err_login"));
             return;
         }
-        userToken = data.token;
-        localStorage.setItem("wr_user_token", userToken);
+        userToken = "";
+        localStorage.removeItem("wr_user_token");
         await bootstrap();
     } catch (e) {
         showErr("login-err", t("status_network", { message: e.message }));
@@ -1499,11 +1539,9 @@ async function doLogin() {
 }
 
 async function doLogout() {
-    if (userToken) {
-        try {
-            await fetch(API + "/api/user/logout", { method: "POST", headers: authHeaders() });
-        } catch (e) {}
-    }
+    try {
+        await fetch(API + "/api/user/logout", { method: "POST", headers: authHeaders() });
+    } catch (e) {}
     userToken = "";
     currentUser = null;
     localStorage.removeItem("wr_user_token");
@@ -1511,16 +1549,28 @@ async function doLogout() {
 }
 
 async function bootstrap() {
-    if (!userToken) {
+    let resp;
+    try {
+        resp = await fetch(API + "/api/user/me", { headers: authHeaders(false) });
+    } catch (error) {
+        showAuth();
+        showErr("login-err", t("status_network", { message: error.message }));
+        return;
+    }
+    if (resp.status === 401) {
+        userToken = "";
+        localStorage.removeItem("wr_user_token");
         showAuth();
         return;
     }
-    const resp = await fetch(API + "/api/user/me", { headers: authHeaders(false) });
-    if (resp.status === 401) {
-        await doLogout();
+    if (!resp.ok) {
+        showAuth();
+        showErr("login-err", t("generic_request_error"));
         return;
     }
     const data = await resp.json();
+    userToken = "";
+    localStorage.removeItem("wr_user_token");
     currentUser = data.user;
     document.getElementById("user-pill").textContent = `${currentUser.name} · ${currentUser.email}`;
     document.getElementById("stat-sites").textContent = data.stats.sites || 0;
@@ -1531,6 +1581,9 @@ async function bootstrap() {
 }
 
 function switchTab(tab) {
+    if (tab === "sites" || tab === "assistants") {
+        currentSiteId = null;
+    }
     document.querySelectorAll(".tab-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tab));
     document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
     const pane = document.getElementById("tab-" + tab);
@@ -1557,18 +1610,19 @@ async function loadSites() {
         return;
     }
     list.innerHTML = sites.map((site) => {
+        const siteId = Number.parseInt(site.id, 10);
         const badge = site.is_trial
             ? `<span class="badge badge-trial">${esc(t("badge_trial"))}</span>`
             : `<span class="badge badge-active">${esc(t("badge_active"))}</span>`;
         return `
-            <div class="site-row" onclick="openSiteDetail(${site.id})">
+            <div class="site-row" onclick="openSiteDetail(${siteId})">
                 <div>
                     <div class="site-domain">${esc(site.domain)} ${badge}</div>
                     <div class="site-meta">${esc(t("site_meta", { id: site.id, docs: site.doc_count, language: site.language || t("language_auto") }))} · ${esc(t("site_activity", { questions: site.query_count || 0, leads: site.lead_count || 0 }))}</div>
                 </div>
                 <div class="inline-actions" onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${site.id})">${esc(t("action_manage"))}</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteSite(${site.id}, '${esc(site.domain)}')">${esc(t("action_delete"))}</button>
+                    <button class="btn btn-sm btn-outline" onclick="openSiteDetail(${siteId})">${esc(t("action_manage"))}</button>
+                    <button class="btn btn-sm btn-danger" data-site-id="${siteId}" data-domain="${esc(site.domain)}" onclick="deleteSite(Number(this.dataset.siteId), this.dataset.domain)">${esc(t("action_delete"))}</button>
                 </div>
             </div>
         `;
@@ -1586,20 +1640,23 @@ async function loadAssistants() {
         list.innerHTML = `<div class="empty-state">${esc(t("assistants_empty"))}</div>`;
         return;
     }
-    list.innerHTML = assistants.map((a) => `
+    list.innerHTML = assistants.map((a) => {
+        const assistantUrl = safeHttpUrl(a.url);
+        return `
         <div class="site-row" style="cursor:default">
             <div>
                 <div class="site-domain">${esc(a.name)} <span class="badge badge-active">${esc(t("badge_active"))}</span></div>
                 <div class="site-meta">${esc(t("assistant_meta", { slug: a.slug, siteId: a.site_id, docs: a.doc_count }))}</div>
                 <div class="site-meta" style="margin-top:4px">
-                    ${esc(t("assistant_url"))}: <a href="${esc(a.url)}" target="_blank" style="color:var(--accent)">${esc(a.url)}</a>
+                    ${esc(t("assistant_url"))}: <a href="${esc(assistantUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(a.url)}</a>
                 </div>
             </div>
             <div class="inline-actions">
-                <a class="btn btn-sm btn-outline" href="${esc(a.url)}" target="_blank" style="text-decoration:none">${esc(t("assistant_open"))}</a>
+                <a class="btn btn-sm btn-outline" href="${esc(assistantUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">${esc(t("assistant_open"))}</a>
             </div>
         </div>
-    `).join("");
+    `;
+    }).join("");
 }
 
 async function openSiteDetail(siteId) {
@@ -1626,7 +1683,8 @@ async function openSiteDetail(siteId) {
     const docs = data.documents || [];
     const settings = site.settings || {};
     const sourceUrl = settings.source_url || `https://${site.domain}`;
-    const assistantJson = esc(JSON.stringify(settings.assistant || getAssistantConfigTemplate(), null, 2));
+    const sourceHref = safeHttpUrl(sourceUrl);
+    const assistantJson = esc(JSON.stringify(settings.assistant || getAssistantConfigTemplate(site.language), null, 2));
     const badge = site.is_trial
         ? `<span class="badge badge-trial">${esc(t("badge_trial"))}</span>`
         : `<span class="badge badge-active">${esc(t("badge_active"))}</span>`;
@@ -1639,7 +1697,7 @@ async function openSiteDetail(siteId) {
             <h2>${esc(site.domain)} ${badge}</h2>
             <div class="site-meta">${esc(t("detail_meta", { id: site.id, docs: docs.length, chunks: totalChunks, language: site.language || t("language_auto") }))}</div>
             <div class="site-meta" style="margin-top:6px">
-                ${esc(t("detail_source"))}: <a href="${esc(sourceUrl)}" target="_blank" style="color:var(--accent)">${esc(sourceUrl)}</a>
+                ${esc(t("detail_source"))}: <a href="${esc(sourceHref)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(sourceUrl)}</a>
                 · ${esc(t("detail_widget"))}: <code>${esc(widgetSnippet)}</code>
             </div>
             <div class="site-header-actions">
@@ -1906,7 +1964,7 @@ async function uploadImprovementPdf(file, index) {
     setStatus(`pilot-answer-status-${index}`, "info", t("pdf_indexing", { filename: file.name }));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/upload-pdf`, {
         method: "POST",
-        headers: { "X-User-Token": userToken },
+        headers: authHeaders(false),
         body: formData,
     });
     if (resp.status === 401) { await doLogout(); return; }
@@ -1955,7 +2013,58 @@ function showRecrawlForm() {
     document.getElementById("recrawl-form").style.display = "block";
 }
 
-function getAssistantConfigTemplate() {
+function getAssistantConfigTemplate(language = currentLang) {
+    const templateLanguage = language === "kk" ? "kk" : language === "en" ? "en" : "ru";
+    const copy = {
+        ru: {
+            feedbackPrompt: "Был ли ответ полезен?",
+            feedbackThanks: "Спасибо за вашу оценку.",
+            sources: "Источники",
+            infoLabel: "Узнать о программе",
+            infoMessage: "Расскажите об основной программе и о том, как она работает.",
+            formLabel: "Оставить контакты",
+            formTitle: "Запрос на связь",
+            formDescription: "Оставьте контакты, и наша команда свяжется с вами.",
+            send: "Отправить",
+            success: "Спасибо. Ваш запрос отправлен.",
+            name: "Имя",
+            namePlaceholder: "Ваше имя",
+            phone: "Телефон",
+            phonePlaceholder: "+7 700 123 45 67",
+        },
+        kk: {
+            feedbackPrompt: "Жауап пайдалы болды ма?",
+            feedbackThanks: "Бағаңызға рақмет.",
+            sources: "Дереккөздер",
+            infoLabel: "Бағдарлама туралы білу",
+            infoMessage: "Негізгі бағдарлама және оның жұмысы туралы айтып беріңіз.",
+            formLabel: "Байланыс деректерін қалдыру",
+            formTitle: "Байланыс сұрауы",
+            formDescription: "Деректеріңізді қалдырыңыз, біздің команда сізбен хабарласады.",
+            send: "Жіберу",
+            success: "Рақмет. Сұрауыңыз жіберілді.",
+            name: "Аты",
+            namePlaceholder: "Атыңыз",
+            phone: "Телефон",
+            phonePlaceholder: "+7 700 123 45 67",
+        },
+        en: {
+            feedbackPrompt: "Was this helpful?",
+            feedbackThanks: "Thanks for your feedback.",
+            sources: "Sources",
+            infoLabel: "Ask about the program",
+            infoMessage: "Can you tell me about your main program and how it works?",
+            formLabel: "Leave my details",
+            formTitle: "Contact request",
+            formDescription: "Leave your details and our team can follow up.",
+            send: "Send",
+            success: "Thanks. Your request has been sent.",
+            name: "Name",
+            namePlaceholder: "Your name",
+            phone: "Phone",
+            phonePlaceholder: "+1 555 123 4567",
+        },
+    }[templateLanguage];
     return {
         appearance: {
             preset: "professional",
@@ -1986,21 +2095,21 @@ function getAssistantConfigTemplate() {
             prefilled_message: "",
             form_id: "contact_form"
         },
-        feedback: { enabled: true, prompt: "Was this helpful?", thanks_message: "Thanks for your feedback." },
-        sources: { mode: "compact", label: "Sources" },
+        feedback: { enabled: true, prompt: copy.feedbackPrompt, thanks_message: copy.feedbackThanks },
+        sources: { mode: "compact", label: copy.sources },
         starters: [
-            { id: "example_info", label: "Ask about the program", action: "send_message", message: "Can you tell me about your main program and how it works?" },
-            { id: "example_form", label: "Leave my details", action: "open_form", form_id: "contact_form" }
+            { id: "example_info", label: copy.infoLabel, action: "send_message", message: copy.infoMessage },
+            { id: "example_form", label: copy.formLabel, action: "open_form", form_id: "contact_form" }
         ],
         forms: [{
             id: "contact_form",
-            title: "Contact request",
-            description: "Leave your details and our team can follow up.",
-            submit_label: "Send",
-            success_message: "Thanks. Your request has been sent.",
+            title: copy.formTitle,
+            description: copy.formDescription,
+            submit_label: copy.send,
+            success_message: copy.success,
             fields: [
-                { name: "name", label: "Name", type: "text", required: true, placeholder: "Your name" },
-                { name: "phone", label: "Phone", type: "tel", required: true, placeholder: "+82 10 1234 5678" }
+                { name: "name", label: copy.name, type: "text", required: true, placeholder: copy.namePlaceholder },
+                { name: "phone", label: copy.phone, type: "tel", required: true, placeholder: copy.phonePlaceholder }
             ],
             destinations: { email: [], telegram_chat_ids: [], whatsapp_numbers: [] }
         }]
@@ -2185,7 +2294,7 @@ async function uploadPdf(file) {
     setStatus("upload-status", "info", t("upload_start", { filename: file.name }));
     const resp = await fetch(API + `/api/user/sites/${currentSiteId}/upload-pdf`, {
         method: "POST",
-        headers: { "X-User-Token": userToken },
+        headers: authHeaders(false),
         body: formData,
     });
     if (resp.status === 401) { await doLogout(); return; }

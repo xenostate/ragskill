@@ -3,6 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta id="meta-description" name="description" content="WebRAG превращает содержимое сайта и PDF-документов в многоязычного AI-ассистента с точными ответами и ссылками на источники.">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#fb742d">
+    <link rel="canonical" href="https://wrs.kz/trial">
+    <meta id="og-title" property="og:title" content="Web-RAG — AI-ассистент для вашего сайта">
+    <meta id="og-description" property="og:description" content="Подключите AI-ассистента к сайту за несколько минут и протестируйте ответы бесплатно.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://wrs.kz/trial">
+    <meta id="og-locale" property="og:locale" content="ru_RU">
+    <meta name="twitter:card" content="summary">
     <title>Web-RAG — AI-ассистент для вашего сайта</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -641,6 +651,21 @@
         .msg.bot { align-self: flex-start; background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; }
         .msg.bot a { color: var(--accent-hover); }
         .msg.sys { align-self: center; background: var(--accent-glow); color: var(--accent-hover); font-size: 12px; border-radius: 6px; }
+        .chat-confidence {
+            display: inline-block;
+            margin-bottom: 6px;
+            padding: 2px 7px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--text2);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .chat-sources { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--border); }
+        .chat-sources summary { color: var(--text2); cursor: pointer; font-size: 11px; font-weight: 700; }
+        .chat-sources-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+        .chat-sources-list a { display: block; font-size: 11px; overflow-wrap: anywhere; }
 
         .typing { display: none; align-self: flex-start; padding: 9px 13px; background: var(--surface2); border-radius: 10px; }
         .typing.on { display: block; }
@@ -856,10 +881,10 @@
 
     <!-- Hero -->
     <section class="hero">
-        <h1 data-i18n-html="heroTitle"></h1>
-        <p data-i18n="heroSub"></p>
+        <h1 data-i18n-html="heroTitle">Подарите <span class="gradient-text">умного помощника</span> вашему сайту</h1>
+        <p data-i18n="heroSub">Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.</p>
         <button class="hero-cta" onclick="goToRegister()">
-            <span data-i18n="heroCta"></span>
+            <span data-i18n="heroCta">Попробовать бесплатно</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
     </section>
@@ -867,50 +892,50 @@
     <!-- Features -->
     <section class="features">
         <div class="feature-card">
-            <h3 data-i18n="feat1Title"></h3>
-            <p data-i18n="feat1Desc"></p>
+            <h3 data-i18n="feat1Title">Умный поиск по контенту</h3>
+            <p data-i18n="feat1Desc">AI анализирует весь ваш сайт и документы, находит самую релевантную информацию и даёт точные ответы со ссылками.</p>
         </div>
         <div class="feature-card">
-            <h3 data-i18n="feat2Title"></h3>
-            <p data-i18n="feat2Desc"></p>
+            <h3 data-i18n="feat2Title">Установка за 5 минут</h3>
+            <p data-i18n="feat2Desc">Просто вставьте одну строчку кода на сайт — и ассистент готов к работе. Никакой сложной интеграции.</p>
         </div>
         <div class="feature-card">
-            <h3 data-i18n="feat3Title"></h3>
-            <p data-i18n="feat3Desc"></p>
+            <h3 data-i18n="feat3Title">Мультиязычность</h3>
+            <p data-i18n="feat3Desc">Поддержка русского, английского, казахского и других языков. Ассистент отвечает на языке вашей аудитории.</p>
         </div>
     </section>
 
     <!-- Tutorial section -->
     <section class="video-section">
-        <h2 data-i18n="tutorialTitle"></h2>
-        <p data-i18n="tutorialSub"></p>
+        <h2 data-i18n="tutorialTitle">Как это работает</h2>
+        <p data-i18n="tutorialSub">Четыре простых шага от регистрации до работающего ассистента</p>
         <div class="tutorial-steps">
             <div class="tutorial-step">
                 <div class="tutorial-num">1</div>
                 <div class="tutorial-content">
-                    <h4 data-i18n="tut1Title"></h4>
-                    <p data-i18n="tut1Desc"></p>
+                    <h4 data-i18n="tut1Title">Зарегистрируйтесь</h4>
+                    <p data-i18n="tut1Desc">Укажите имя, email и компанию — это займёт 30 секунд.</p>
                 </div>
             </div>
             <div class="tutorial-step">
                 <div class="tutorial-num">2</div>
                 <div class="tutorial-content">
-                    <h4 data-i18n="tut2Title"></h4>
-                    <p data-i18n="tut2Desc"></p>
+                    <h4 data-i18n="tut2Title">Вставьте URL вашего сайта</h4>
+                    <p data-i18n="tut2Desc">Наш AI просканирует страницы и загрузит контент. Можно также добавить PDF-файлы.</p>
                 </div>
             </div>
             <div class="tutorial-step">
                 <div class="tutorial-num">3</div>
                 <div class="tutorial-content">
-                    <h4 data-i18n="tut3Title"></h4>
-                    <p data-i18n="tut3Desc"></p>
+                    <h4 data-i18n="tut3Title">Протестируйте ассистента</h4>
+                    <p data-i18n="tut3Desc">Задайте вопросы в чате и убедитесь, что ассистент отвечает точно и по делу.</p>
                 </div>
             </div>
             <div class="tutorial-step">
                 <div class="tutorial-num">4</div>
                 <div class="tutorial-content">
-                    <h4 data-i18n="tut4Title"></h4>
-                    <p data-i18n="tut4Desc"></p>
+                    <h4 data-i18n="tut4Title">Установите виджет на сайт</h4>
+                    <p data-i18n="tut4Desc">Скопируйте одну строчку кода и вставьте в HTML вашего сайта. Готово!</p>
                 </div>
             </div>
         </div>
@@ -918,10 +943,10 @@
 
     <!-- Bottom CTA -->
     <section class="bottom-cta">
-        <h2 data-i18n="ctaTitle"></h2>
-        <p data-i18n="ctaSub"></p>
+        <h2 data-i18n="ctaTitle">Готовы попробовать?</h2>
+        <p data-i18n="ctaSub">Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас</p>
         <button class="hero-cta" onclick="goToRegister()">
-            <span data-i18n="ctaBtn"></span>
+            <span data-i18n="ctaBtn">Начать бесплатно</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
 
@@ -956,15 +981,15 @@
 
         <div class="card">
             <div class="field">
-                <label data-i18n="regName"></label>
+                <label for="reg-name" data-i18n="regName"></label>
                 <input type="text" id="reg-name" data-i18n-ph="regNamePh">
             </div>
             <div class="field">
-                <label data-i18n="regEmail"></label>
+                <label for="reg-email" data-i18n="regEmail"></label>
                 <input type="email" id="reg-email" data-i18n-ph="regEmailPh">
             </div>
             <div class="field">
-                <label data-i18n="regCompany"></label>
+                <label for="reg-company" data-i18n="regCompany"></label>
                 <input type="text" id="reg-company" data-i18n-ph="regCompanyPh">
             </div>
             <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">
@@ -981,12 +1006,12 @@
 
         <div class="card">
             <div class="field">
-                <label data-i18n="trialUrl"></label>
+                <label for="t-url" data-i18n="trialUrl"></label>
                 <input type="url" id="t-url" placeholder="https://yoursite.com">
             </div>
 
             <div class="field">
-                <label data-i18n="trialPdf"></label>
+                <label for="t-pdfs" data-i18n="trialPdf"></label>
                 <div class="file-drop">
                     <div class="file-drop-icon">+</div>
                     <div class="file-drop-text" data-i18n="trialDrop"></div>
@@ -998,7 +1023,7 @@
 
             <div class="field-row">
                 <div class="field">
-                    <label data-i18n="trialPages"></label>
+                    <label for="t-pages" data-i18n="trialPages"></label>
                     <select id="t-pages">
                         <option value="1">1</option>
                         <option value="3">3</option>
@@ -1010,7 +1035,7 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label data-i18n="trialLang"></label>
+                    <label for="t-lang" data-i18n="trialLang"></label>
                     <select id="t-lang">
                         <option value="ru" selected>Русский</option>
                         <option value="en">English</option>
@@ -1022,7 +1047,7 @@
             <div class="field" style="margin-top:4px;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
                     <input type="checkbox" id="t-playwright" style="width:auto;cursor:pointer;">
-                    Enable Playwright (for JavaScript-heavy sites)
+                    <span data-i18n="trialPlaywright">Использовать Playwright для сайтов с динамическим JavaScript-контентом</span>
                 </label>
             </div>
 
@@ -1056,7 +1081,7 @@
         <div class="chat-box">
             <div class="chat-bar">
                 <span id="c-title">Assistant</span>
-                <small>trial &middot; 3h</small>
+                <small data-i18n="trialBadge">пробный &middot; 3 ч</small>
             </div>
             <div class="chat-body" id="c-body">
                 <div class="msg sys" data-i18n="chatReady"></div>
@@ -1064,7 +1089,7 @@
             </div>
             <div class="chat-foot">
                 <input id="c-input" data-i18n-ph="chatPh">
-                <button id="c-send" onclick="sendMsg()">
+                <button id="c-send" onclick="sendMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
@@ -1133,6 +1158,9 @@
     const T = {
         ru: {
             pageTitle: "Web-RAG — AI-ассистент для вашего сайта",
+            metaDescription: "WebRAG превращает содержимое сайта и PDF-документов в многоязычного AI-ассистента с точными ответами и ссылками на источники.",
+            ogDescription: "Подключите AI-ассистента к сайту за несколько минут и протестируйте ответы бесплатно.",
+            ogLocale: "ru_RU",
             heroTitle: 'Подарите <span class="gradient-text">умного помощника</span> вашему сайту',
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
@@ -1211,6 +1239,9 @@
             trialHint: "Максимум 10 МБ на файл. Только текстовые PDF.",
             trialPages: "Страницы",
             trialLang: "Язык ответов",
+            trialPlaywright: "Использовать Playwright для сайтов с динамическим JavaScript-контентом",
+            trialBadge: "пробный · 3 ч",
+            trialAutoLanguage: "Определить автоматически",
             trialBtn: "Запустить индексацию",
             trialErrUrl: "Пожалуйста, введите URL.",
             trialErrNet: "Ошибка сети.",
@@ -1231,6 +1262,9 @@
             chatStopTrial: "Завершить пробный период",
             chatStopConfirm: "Вы уверены? Все данные будут удалены и вы вернётесь на главную страницу.",
             chatError: "Что-то пошло не так.",
+            chatSources: "Источники",
+            chatConfidence: "Уверенность",
+            chatSend: "Отправить сообщение",
             actTitle: "Активация ассистента",
             actSub: "Введите код активации, чтобы получить код для встраивания на сайт.",
             actCode: "Код активации",
@@ -1248,6 +1282,9 @@
         },
         en: {
             pageTitle: "Web-RAG — AI Website Assistant",
+            metaDescription: "Turn website and PDF content into a multilingual AI assistant with grounded answers and source links.",
+            ogDescription: "Connect an AI assistant to your website in minutes and test it for free.",
+            ogLocale: "en_US",
             heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
@@ -1326,6 +1363,9 @@
             trialHint: "Max 10 MB per file. Text-based PDFs only.",
             trialPages: "Pages",
             trialLang: "Response language",
+            trialPlaywright: "Use Playwright for dynamic JavaScript content",
+            trialBadge: "trial · 3h",
+            trialAutoLanguage: "Auto detect",
             trialBtn: "Index & Launch Assistant",
             trialErrUrl: "Please enter a URL.",
             trialErrNet: "Network error.",
@@ -1346,6 +1386,9 @@
             chatStopTrial: "Stop trial",
             chatStopConfirm: "Are you sure? All data will be deleted and you'll return to the main page.",
             chatError: "Something went wrong.",
+            chatSources: "Sources",
+            chatConfidence: "Confidence",
+            chatSend: "Send message",
             actTitle: "Activate your assistant",
             actSub: "Enter your activation code to get the embed snippet.",
             actCode: "Activation Code",
@@ -1363,6 +1406,9 @@
         },
         kk: {
             pageTitle: "Web-RAG — Сайтыңыз үшін AI-көмекші",
+            metaDescription: "Сайт пен PDF мазмұнын нақты жауаптар мен дереккөз сілтемелерін беретін көптілді AI-көмекшіге айналдырыңыз.",
+            ogDescription: "AI-көмекшіні сайтыңызға бірнеше минутта қосып, тегін сынап көріңіз.",
+            ogLocale: "kk_KZ",
             heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
@@ -1441,6 +1487,9 @@
             trialHint: "Файлға 10 МБ дейін. Тек мәтіндік PDF.",
             trialPages: "Беттер",
             trialLang: "Жауап тілі",
+            trialPlaywright: "Динамикалық JavaScript мазмұны үшін Playwright пайдалану",
+            trialBadge: "сынақ · 3 сағ",
+            trialAutoLanguage: "Автоматты анықтау",
             trialBtn: "Индекстеуді бастау",
             trialErrUrl: "URL енгізіңіз.",
             trialErrNet: "Желі қатесі.",
@@ -1461,6 +1510,9 @@
             chatStopTrial: "Сынақ кезеңін тоқтату",
             chatStopConfirm: "Сенімдісіз бе? Барлық деректер жойылады және сіз басты бетке ораласыз.",
             chatError: "Бір нәрсе дұрыс болмады.",
+            chatSources: "Дереккөздер",
+            chatConfidence: "Сенімділік",
+            chatSend: "Хабарлама жіберу",
             actTitle: "Көмекшіні белсендіру",
             actSub: "Сайтқа ендіру кодын алу үшін белсендіру кодын енгізіңіз.",
             actCode: "Белсендіру коды",
@@ -1484,6 +1536,10 @@
         const t = T[currentLang];
         document.title = t.pageTitle;
         document.documentElement.lang = currentLang === "kk" ? "kk" : currentLang;
+        document.getElementById("meta-description").setAttribute("content", t.metaDescription);
+        document.getElementById("og-title").setAttribute("content", t.pageTitle);
+        document.getElementById("og-description").setAttribute("content", t.ogDescription);
+        document.getElementById("og-locale").setAttribute("content", t.ogLocale);
 
         // Text content
         document.querySelectorAll("[data-i18n]").forEach(el => {
@@ -1501,6 +1557,11 @@
         document.querySelectorAll("[data-i18n-ph]").forEach(el => {
             const key = el.getAttribute("data-i18n-ph");
             if (t[key]) el.placeholder = t[key];
+        });
+
+        document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+            const key = el.getAttribute("data-i18n-aria");
+            if (t[key]) el.setAttribute("aria-label", t[key]);
         });
 
         // Update lang buttons
@@ -1544,7 +1605,18 @@
         if (userToken) headers["X-User-Token"] = userToken;
         return headers;
     }
+    async function hasPortalSession() {
+        try {
+            const resp = await fetch(API + "/api/user/me", { headers: userHeaders() });
+            if (resp.ok) {
+                localStorage.removeItem("wr_user_token");
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    }
     let siteId = null;
+    let chatSessionId = "";
     let landingWidgetLoaded = false;
 
     const dots = [1,2,3,4].map(i => document.getElementById("dot-" + i));
@@ -1573,21 +1645,16 @@
 
     async function refreshPortalUser() {
         const text = document.getElementById("portal-user");
-        const userToken = getUserToken();
-
-        if (!userToken) {
-            text.textContent = "";
-            return;
-        }
 
         try {
-            const resp = await fetch(API + "/api/user/me", { headers: { "X-User-Token": userToken } });
+            const resp = await fetch(API + "/api/user/me", { headers: userHeaders() });
             if (!resp.ok) {
                 localStorage.removeItem("wr_user_token");
                 text.textContent = "";
                 return;
             }
             const data = await resp.json();
+            localStorage.removeItem("wr_user_token");
             const displayName = (data.user && (data.user.name || data.user.email)) || "user";
             text.textContent = ` · ${displayName}`;
         } catch (e) {
@@ -1701,6 +1768,7 @@
             if (!resp.ok) { showErr(err, data.error || t.trialErrNet); btn.disabled = false; return; }
 
             siteId = data.site_id;
+            chatSessionId = `trial_${siteId}_${Math.random().toString(36).slice(2, 10)}`;
             document.getElementById("c-title").textContent = url;
             go("progress", 2);
             watchProgress(siteId);
@@ -1761,6 +1829,52 @@
         };
     }
 
+    async function requestStreamingChat(payload, onDelta) {
+        const resp = await fetch(API + "/api/chat/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        if (!resp.ok) {
+            let message = "Request failed";
+            try {
+                const error = await resp.json();
+                message = error.error || message;
+            } catch (e) {}
+            throw new Error(message);
+        }
+        if (!resp.body) throw new Error("Streaming is not supported by this browser");
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let result = null;
+        const handleBlock = (block) => {
+            const serialized = block
+                .split(/\r?\n/)
+                .filter(line => line.startsWith("data:"))
+                .map(line => line.slice(5).trimStart())
+                .join("\n");
+            if (!serialized) return;
+            const event = JSON.parse(serialized);
+            if (event.type === "delta") onDelta(event.text || "");
+            if (event.type === "done") result = event;
+            if (event.type === "error") throw new Error(event.error || "Request failed");
+        };
+
+        while (true) {
+            const { value, done } = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || "";
+            blocks.forEach(handleBlock);
+            if (done) break;
+        }
+        if (buffer.trim()) handleBlock(buffer);
+        if (!result) throw new Error("The response stream ended unexpectedly");
+        return result;
+    }
+
     // ── Step 3: Chat ──
     window.sendMsg = async function() {
         const t = T[currentLang];
@@ -1774,15 +1888,34 @@
         document.getElementById("c-typing").classList.add("on");
         scrollChat();
 
+        let streamedMessage = null;
+        let streamedText = "";
         try {
-            const resp = await fetch(API + "/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ site_id: siteId, query: q }),
+            const data = await requestStreamingChat({
+                site_id: siteId,
+                query: q,
+                session_id: chatSessionId || `trial_${siteId}`,
+            }, (delta) => {
+                streamedText += delta;
+                if (!streamedMessage) {
+                    document.getElementById("c-typing").classList.remove("on");
+                    streamedMessage = document.createElement("div");
+                    streamedMessage.className = "msg bot";
+                    streamedMessage.style.whiteSpace = "pre-wrap";
+                    document.getElementById("c-body").insertBefore(
+                        streamedMessage,
+                        document.getElementById("c-typing"),
+                    );
+                }
+                streamedMessage.textContent = streamedText;
+                scrollChat();
             });
-            const data = await resp.json();
-            addBotChat(data.answer, data.sources, data.confidence);
+            const finalMessage = createBotMessage(data.answer, data.sources, data.confidence);
+            if (streamedMessage) streamedMessage.replaceWith(finalMessage);
+            else document.getElementById("c-body").insertBefore(finalMessage, document.getElementById("c-typing"));
+            scrollChat();
         } catch (e) {
+            if (streamedMessage) streamedMessage.remove();
             addChat(t.chatError, "bot");
         } finally {
             document.getElementById("c-typing").classList.remove("on");
@@ -1804,15 +1937,104 @@
         scrollChat();
     }
 
-    function addBotChat(text, sources, conf) {
+    function safeChatUrl(url) {
+        try {
+            const parsed = new URL(String(url || ""), window.location.origin);
+            return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+        } catch (e) {
+            return "";
+        }
+    }
+
+    function appendPlainTextWithBreaks(parent, value) {
+        String(value || "").split("\n").forEach((line, index) => {
+            if (index > 0) parent.appendChild(document.createElement("br"));
+            parent.appendChild(document.createTextNode(line));
+        });
+    }
+
+    function appendSafeFormattedText(parent, value) {
+        const text = String(value || "");
+        const pattern = /(\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\))/g;
+        let cursor = 0;
+        let match;
+        while ((match = pattern.exec(text)) !== null) {
+            appendPlainTextWithBreaks(parent, text.slice(cursor, match.index));
+            if (match[2] !== undefined) {
+                const strong = document.createElement("strong");
+                strong.textContent = match[2];
+                parent.appendChild(strong);
+            } else {
+                const href = safeChatUrl(match[4]);
+                if (href) {
+                    const link = document.createElement("a");
+                    link.href = href;
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+                    link.textContent = match[3];
+                    parent.appendChild(link);
+                } else {
+                    parent.appendChild(document.createTextNode(match[3]));
+                }
+            }
+            cursor = pattern.lastIndex;
+        }
+        appendPlainTextWithBreaks(parent, text.slice(cursor));
+    }
+
+    function createBotMessage(text, sources, conf) {
         const d = document.createElement("div");
         d.className = "msg bot";
-        let h = text
-            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-            .replace(/\n/g, "<br>");
-        d.innerHTML = h;
+        const t = T[currentLang];
+
+        if (conf) {
+            const badge = document.createElement("span");
+            badge.className = "chat-confidence";
+            badge.textContent = `${t.chatConfidence}: ${String(conf)}`;
+            d.appendChild(badge);
+            d.appendChild(document.createElement("br"));
+        }
+
+        appendSafeFormattedText(d, text || t.chatError);
+
+        const safeSources = [];
+        const seenSources = new Set();
+        (Array.isArray(sources) ? sources : []).forEach((source) => {
+            const href = safeChatUrl(source && source.url);
+            if (href && !seenSources.has(href)) {
+                seenSources.add(href);
+                safeSources.push({ href, title: String((source && source.title) || "") });
+            }
+        });
+        if (safeSources.length) {
+            const details = document.createElement("details");
+            details.className = "chat-sources";
+            const summary = document.createElement("summary");
+            summary.textContent = `${t.chatSources} · ${safeSources.length}`;
+            details.appendChild(summary);
+            const list = document.createElement("div");
+            list.className = "chat-sources-list";
+            safeSources.forEach((source, index) => {
+                const link = document.createElement("a");
+                link.href = source.href;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                if (source.title) {
+                    link.textContent = source.title;
+                } else {
+                    try { link.textContent = new URL(source.href).hostname; }
+                    catch (e) { link.textContent = `${t.chatSources} ${index + 1}`; }
+                }
+                list.appendChild(link);
+            });
+            details.appendChild(list);
+            d.appendChild(details);
+        }
+        return d;
+    }
+
+    function addBotChat(text, sources, conf) {
+        const d = createBotMessage(text, sources, conf);
         document.getElementById("c-body").insertBefore(d, document.getElementById("c-typing"));
         scrollChat();
     }
@@ -1832,7 +2054,7 @@
         const code = document.getElementById("a-code").value.trim();
         const err = document.getElementById("a-err");
 
-        if (!getUserToken()) { showErr(err, t.authRequired); return; }
+        if (!(await hasPortalSession())) { showErr(err, t.authRequired); return; }
         if (!code) { showErr(err, t.actErrEmpty); return; }
         hideErr(err);
 
@@ -1867,6 +2089,7 @@
     // ── Reset ──
     window.resetAll = function() {
         siteId = null;
+        chatSessionId = "";
         document.getElementById("t-url").value = "";
         document.getElementById("t-pdfs").value = "";
         document.getElementById("t-file-list").textContent = "";
@@ -1907,6 +2130,7 @@
 
         // Reset local state
         siteId = null;
+        chatSessionId = "";
         document.getElementById("t-url").value = "";
         document.getElementById("t-pdfs").value = "";
         document.getElementById("t-file-list").textContent = "";
@@ -1941,12 +2165,12 @@
             <p style="font-size:13px;color:var(--text2);margin-bottom:20px;" data-i18n="qaModalSub"></p>
 
             <div class="field">
-                <label data-i18n="qaUrl"></label>
+                <label for="qa-url" data-i18n="qaUrl"></label>
                 <input type="url" id="qa-url" placeholder="https://yoursite.com">
             </div>
 
             <div class="field">
-                <label data-i18n="trialPdf"></label>
+                <label for="qa-pdfs" data-i18n="trialPdf"></label>
                 <div class="file-drop">
                     <div class="file-drop-icon">+</div>
                     <div class="file-drop-text" data-i18n="qaDrop"></div>
@@ -1958,7 +2182,7 @@
 
             <div class="field-row">
                 <div class="field">
-                    <label data-i18n="qaPages"></label>
+                    <label for="qa-pages" data-i18n="qaPages"></label>
                     <select id="qa-pages">
                         <option value="50">50</option>
                         <option value="100" selected>100</option>
@@ -1968,9 +2192,9 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label data-i18n="trialLang"></label>
+                    <label for="qa-lang" data-i18n="trialLang"></label>
                     <select id="qa-lang">
-                        <option value="" selected>Auto</option>
+                        <option value="" selected data-i18n="trialAutoLanguage">Определить автоматически</option>
                         <option value="ru">Русский</option>
                         <option value="en">English</option>
                         <option value="kk">Қазақша</option>
@@ -1981,12 +2205,12 @@
             <div class="field" style="margin-top:4px;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
                     <input type="checkbox" id="qa-playwright" style="width:auto;cursor:pointer;">
-                    Enable Playwright (for JavaScript-heavy sites)
+                    <span data-i18n="trialPlaywright">Использовать Playwright для сайтов с динамическим JavaScript-контентом</span>
                 </label>
             </div>
 
             <div class="field">
-                <label data-i18n="qaCode"></label>
+                <label for="qa-code" data-i18n="qaCode"></label>
                 <input type="text" id="qa-code" data-i18n-ph="qaCodePh">
             </div>
 
@@ -2022,7 +2246,7 @@
                 </div>
                 <div class="chat-foot">
                     <input id="qa-chat-input" data-i18n-ph="chatPh">
-                    <button id="qa-chat-send" onclick="sendQaMsg()">
+                    <button id="qa-chat-send" onclick="sendQaMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                     </button>
                 </div>
@@ -2072,7 +2296,7 @@
         var successEl = document.getElementById("qa-success");
 
         if (!url) { showErr(err, t.qaUrl || "URL required"); return; }
-        if (!(localStorage.getItem("wr_user_token") || "")) { showErr(err, t.authRequired || "Please sign in first."); return; }
+        if (!(await hasPortalSession())) { showErr(err, t.authRequired || "Please sign in first."); return; }
         if (!code) { showErr(err, t.qaCode || "Code required"); return; }
         hideErr(err);
         btn.disabled = true;
@@ -2088,9 +2312,7 @@
         for (var i = 0; i < files.length; i++) fd.append("pdfs", files[i]);
 
         try {
-            var userToken = localStorage.getItem("wr_user_token") || "";
-            var headers = {};
-            if (userToken) headers["X-User-Token"] = userToken;
+            var headers = userHeaders();
             var resp = await fetch(API + "/api/quick-activate", { method: "POST", headers: headers, body: fd });
             var data = await resp.json();
 
@@ -2153,25 +2375,30 @@
         body.scrollTop = body.scrollHeight;
         document.getElementById("qa-chat-send").disabled = true;
 
+        var streamedMessage = null;
+        var streamedText = "";
         try {
-            var resp = await fetch(API + "/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ site_id: qaSiteId, query: query, session_id: "qa_" + qaSiteId })
+            var data = await requestStreamingChat({
+                site_id: qaSiteId,
+                query: query,
+                session_id: "qa_" + qaSiteId,
+            }, function(delta) {
+                streamedText += delta;
+                if (!streamedMessage) {
+                    typing.style.display = "none";
+                    streamedMessage = document.createElement("div");
+                    streamedMessage.className = "msg bot";
+                    streamedMessage.style.whiteSpace = "pre-wrap";
+                    body.insertBefore(streamedMessage, typing);
+                }
+                streamedMessage.textContent = streamedText;
+                body.scrollTop = body.scrollHeight;
             });
-            var data = await resp.json();
-
-            var botMsg = document.createElement("div");
-            botMsg.className = "msg bot";
-            botMsg.innerHTML = (data.answer || "No answer").replace(/\n/g, "<br>");
-            if (data.sources && data.sources.length) {
-                var src = '<div style="margin-top:6px;font-size:11px;color:var(--text2);">';
-                data.sources.forEach(function(s, i) { src += '<a href="'+s.url+'" target="_blank" style="color:var(--accent);display:block;">['+(i+1)+'] '+s.title+'</a>'; });
-                src += '</div>';
-                botMsg.innerHTML += src;
-            }
-            body.insertBefore(botMsg, typing);
+            var botMsg = createBotMessage(data.answer || "No answer", data.sources, data.confidence);
+            if (streamedMessage) streamedMessage.replaceWith(botMsg);
+            else body.insertBefore(botMsg, typing);
         } catch(e) {
+            if (streamedMessage) streamedMessage.remove();
             var errMsg = document.createElement("div");
             errMsg.className = "msg sys";
             errMsg.textContent = "Error sending message";

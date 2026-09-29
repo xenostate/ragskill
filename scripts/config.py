@@ -32,6 +32,7 @@ RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
 APP_ENV = os.environ.get("APP_ENV", "development")
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8090").rstrip("/")
+ENABLE_API_DOCS = os.environ.get("ENABLE_API_DOCS", "false").lower() in ("true", "1", "yes")
 HEALTHCHECK_TIMEOUT = float(os.environ.get("HEALTHCHECK_TIMEOUT", "5"))
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
@@ -43,6 +44,11 @@ APP_ADMIN_EMAIL = os.environ.get("APP_ADMIN_EMAIL", "").strip().lower()
 APP_ADMIN_PASSWORD = os.environ.get("APP_ADMIN_PASSWORD", "")
 APP_ADMIN_NAME = os.environ.get("APP_ADMIN_NAME", "Admin").strip() or "Admin"
 APP_SESSION_TTL_HOURS = int(os.environ.get("APP_SESSION_TTL_HOURS", "720"))
+USER_SESSION_COOKIE = os.environ.get("USER_SESSION_COOKIE", "wr_user_session")
+USER_SESSION_COOKIE_SECURE = os.environ.get(
+    "USER_SESSION_COOKIE_SECURE",
+    "true" if PUBLIC_URL.startswith("https://") else "false",
+).lower() in ("true", "1", "yes")
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))

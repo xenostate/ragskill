@@ -22,7 +22,7 @@ import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -126,13 +126,127 @@ class PlaywrightRenderer:
             pass
 
 
+def normalize_url(url: str) -> str:
+    """Return a stable crawl URL without credentials, queries, or fragments."""
+    parsed = urlsplit(url.strip())
+    scheme = parsed.scheme.lower()
+    hostname = (parsed.hostname or "").lower()
+    if not scheme or not hostname:
+        return url.strip()
+
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    default_port = (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    netloc = hostname if port is None or default_port else f"{hostname}:{port}"
+
+    path = re.sub(r"/{2,}", "/", parsed.path or "/")
+    path = path.rstrip("/") or "/"
+    return urlunsplit((scheme, netloc, path, "", ""))
+
+
+def should_index_page(html: str) -> bool:
+    """Honor noindex and avoid storing authentication forms as knowledge."""
+    soup = BeautifulSoup(html, "lxml")
+    for meta in soup.find_all("meta"):
+        name = str(meta.get("name") or "").strip().lower()
+        if name in {"robots", "googlebot"}:
+            directives = {
+                part.strip().lower()
+                for part in re.split(r"[,\s]+", str(meta.get("content") or ""))
+                if part.strip()
+            }
+            if "noindex" in directives or "none" in directives:
+                return False
+
+    password_input = soup.find("input", attrs={"type": re.compile(r"^password$", re.IGNORECASE)})
+    if password_input is None:
+        return True
+
+    visible_words = len(soup.get_text(" ", strip=True).split())
+    page_heading = " ".join([
+        soup.title.get_text(" ", strip=True) if soup.title else "",
+        " ".join(tag.get_text(" ", strip=True) for tag in soup.find_all(["h1", "h2"])),
+    ])
+    auth_heading = re.search(
+        r"\b(log[ -]?in|sign[ -]?in|register|password|auth|вход|войти|пароль|кіру|құпиясөз)\b",
+        page_heading,
+        re.IGNORECASE,
+    )
+    return not (visible_words < 200 or auth_heading)
+
+
+def needs_js_rendering(html: str, extracted_text: str) -> bool:
+    """Detect pages whose meaningful copy is populated by client-side JavaScript."""
+    soup = BeautifulSoup(html, "lxml")
+    empty_bindings = 0
+    for tag in soup.select("[data-i18n], [data-i18n-html], [data-bind], [data-v-app]"):
+        if not tag.get_text(" ", strip=True):
+            empty_bindings += 1
+
+    app_shell = soup.select_one("#root, #app, [data-reactroot], [data-v-app]")
+    app_shell_empty = bool(app_shell and not app_shell.get_text(" ", strip=True))
+    sparse_text = len(extracted_text.split()) < 200
+    return sparse_text and (empty_bindings >= 3 or app_shell_empty)
+
+
+class AdaptiveRenderer:
+    """Fetch statically first, then render likely app shells with Playwright."""
+
+    def __init__(self):
+        self.static = StaticRenderer()
+        self.playwright = None
+        self.playwright_unavailable = False
+
+    def _get_playwright(self):
+        if self.playwright is None and not self.playwright_unavailable:
+            try:
+                self.playwright = PlaywrightRenderer()
+            except Exception as exc:
+                self.playwright_unavailable = True
+                print(f"[render] Playwright fallback unavailable: {exc}")
+        return self.playwright
+
+    def fetch(self, url: str) -> tuple[str, int] | None:
+        result = self.static.fetch(url)
+        if result is None:
+            return None
+        html, status = result
+        if status != 200:
+            return result
+
+        _, static_text = clean_html(html)
+        if not needs_js_rendering(html, static_text):
+            return result
+
+        playwright = self._get_playwright()
+        if playwright is None:
+            return result
+
+        print(f"[render] Client-rendered page detected, using Playwright: {url}")
+        rendered = playwright.fetch(url)
+        if rendered is None or rendered[1] != 200:
+            return result
+
+        _, rendered_text = clean_html(rendered[0])
+        return rendered if len(rendered_text) > len(static_text) else result
+
+    def close(self):
+        self.static.close()
+        if self.playwright is not None:
+            self.playwright.close()
+
+
 def get_renderer(name: str):
     if name == "playwright":
         print("[render] Using Playwright (headless Chromium)")
         return PlaywrightRenderer()
-    else:
+    if name == "static":
         print("[render] Using static requests")
         return StaticRenderer()
+    print("[render] Using adaptive static/Playwright rendering")
+    return AdaptiveRenderer()
 
 
 # ── HTML cleaning ──────────────────────────────────────────────────────────
@@ -336,20 +450,20 @@ def extract_links(html: str, base_url: str, allowed_domain: str) -> list[str]:
     """Extract same-domain links from HTML."""
     soup = BeautifulSoup(html, "lxml")
     links = []
+    seen = set()
+    allowed_host = (urlparse(f"//{allowed_domain}").hostname or allowed_domain).lower()
     for a in soup.find_all("a", href=True):
         href = a["href"]
         full = urljoin(base_url, href)
         parsed = urlparse(full)
         # Same domain, no fragments, no common non-page extensions
-        if parsed.netloc == allowed_domain and not parsed.fragment:
+        if parsed.scheme in {"http", "https"} and (parsed.hostname or "").lower() == allowed_host:
             skip_ext = (".pdf", ".zip", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".mp4", ".mp3")
             if not parsed.path.lower().endswith(skip_ext):
-                # Normalize: remove trailing slash for consistency
-                clean_path = parsed.path.rstrip('/')
-                if not clean_path:
-                    clean_path = '/'
-                clean = parsed._replace(fragment="", query="", path=clean_path).geturl()
-                links.append(clean)
+                clean = normalize_url(full)
+                if clean not in seen:
+                    seen.add(clean)
+                    links.append(clean)
     return links
 
 
@@ -365,10 +479,10 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def index_site(site_id: int, max_pages: int, start_url: str | None = None, renderer_name: str = "static"):
+def index_site(site_id: int, max_pages: int, start_url: str | None = None, renderer_name: str = "auto"):
     site = fetch_site_config(site_id)
     domain = site["domain"]
-    base = start_url or f"https://{domain}"
+    base = normalize_url(start_url or f"https://{domain}")
     allowed_domain = urlparse(base).netloc
 
     print(f"[crawl] Site #{site_id}: {domain}")
@@ -380,6 +494,7 @@ def index_site(site_id: int, max_pages: int, start_url: str | None = None, rende
 
     queue = deque([base])
     visited = set()
+    seen_content_hashes = set()
 
     stats = {
         "pages_crawled": 0,
@@ -409,6 +524,11 @@ def index_site(site_id: int, max_pages: int, start_url: str | None = None, rende
                 print(f"  skip  {url} (HTTP {status})")
                 continue
 
+            if not should_index_page(html):
+                stats["pages_skipped"] += 1
+                print(f"  skip  {url} (noindex or authentication page)")
+                continue
+
             title, text = clean_html(html)
 
             if len(text) < 50:
@@ -422,6 +542,14 @@ def index_site(site_id: int, max_pages: int, start_url: str | None = None, rende
 
             # Check if content changed (dedup via hash)
             c_hash = content_hash(text)
+            if c_hash in seen_content_hashes:
+                stats["pages_skipped"] += 1
+                print(f"  skip  {url} (duplicate content)")
+                for link in extract_links(html, url, allowed_domain):
+                    if link not in visited:
+                        queue.append(link)
+                continue
+            seen_content_hashes.add(c_hash)
             existing = (
                 sb.table("documents")
                 .select("id, content_hash")
@@ -521,8 +649,8 @@ def main():
     parser.add_argument("--max-pages", type=int, default=100, help="Max pages to crawl")
     parser.add_argument("--start-url", type=str, default=None, help="Override start URL")
     parser.add_argument(
-        "--renderer", type=str, default="static", choices=["static", "playwright"],
-        help="Renderer: 'static' (requests) or 'playwright' (headless browser for JS sites)"
+        "--renderer", type=str, default="auto", choices=["auto", "static", "playwright"],
+        help="Renderer: 'auto' (static with JS fallback), 'static', or 'playwright'"
     )
     args = parser.parse_args()
 

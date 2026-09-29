@@ -301,3 +301,97 @@ def do_rag_sync(site_id: int, query: str, top_k: int,
         for r in retrieval["results"]
     ]
     return {"answer": answer, "sources": sources, "confidence": retrieval["confidence"]}
+
+
+def do_rag_stream_sync(site_id: int, query: str, top_k: int,
+                       session_id: str | None = None,
+                       language: str | None = None,
+                       behavior: dict | None = None,
+                       low_confidence_answer: str | None = None):
+    """Yield answer deltas and a final RAG result from the synchronous OpenAI client.
+
+    The caller is expected to iterate this generator in a worker thread. The final
+    event contains the same answer/source/confidence fields as ``do_rag_sync`` so
+    clients can progressively render without giving up the stable JSON endpoint.
+    """
+    if behavior is None:
+        behavior = get_site_behavior(site_id)
+    is_broad = bool(_BROAD_PATTERNS.search(query))
+    s_key = _session_key(site_id, session_id) if session_id else None
+
+    retrieval_query = query
+    if s_key:
+        with cfg._session_lock:
+            history = cfg._session_history.get(s_key, [])
+        if history and len(query.split()) < 6:
+            last_user = next(
+                (m["content"] for m in reversed(history) if m["role"] == "user"),
+                None,
+            )
+            if last_user:
+                retrieval_query = f"{last_user} {query}"
+
+    effective_top_k = min(top_k * 2, 15) if is_broad else top_k
+    retrieval = retrieve_chunks(site_id, retrieval_query, effective_top_k)
+    context = build_context(retrieval["results"])
+    system = get_system_prompt(language, behavior)
+    messages = [{"role": "system", "content": system}]
+
+    if s_key:
+        with cfg._session_lock:
+            history = cfg._session_history.get(s_key, [])
+        if history:
+            messages.extend(history[-cfg.SESSION_HISTORY_LIMIT * 2:])
+
+    messages.append({
+        "role": "user",
+        "content": f"Source chunks:\n{context}\n\nQuestion: {query}",
+    })
+
+    answer_parts: list[str] = []
+    if low_confidence_answer and retrieval["confidence"] == "low":
+        answer_parts.append(low_confidence_answer)
+        yield {"type": "delta", "text": low_confidence_answer}
+    elif cfg.openai_client is None:
+        fallback = "LLM not configured. Set OPENAI_API_KEY in .env to enable answers."
+        answer_parts.append(fallback)
+        yield {"type": "delta", "text": fallback}
+    else:
+        stream = cfg.openai_client.chat.completions.create(
+            model=cfg.RAG_MODEL,
+            messages=messages,
+            temperature=0.1,
+            max_tokens=2000,
+            stream=True,
+        )
+        for chunk in stream:
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            text = getattr(getattr(choices[0], "delta", None), "content", None)
+            if not text:
+                continue
+            answer_parts.append(text)
+            yield {"type": "delta", "text": text}
+
+    answer = "".join(answer_parts)
+    if s_key:
+        with cfg._session_lock:
+            if s_key not in cfg._session_history:
+                cfg._session_history[s_key] = []
+            cfg._session_history[s_key].append({"role": "user", "content": query})
+            cfg._session_history[s_key].append({"role": "assistant", "content": answer})
+            if len(cfg._session_history[s_key]) > cfg.SESSION_HISTORY_LIMIT * 2:
+                cfg._session_history[s_key] = cfg._session_history[s_key][-(cfg.SESSION_HISTORY_LIMIT * 2):]
+            cfg._session_last_access[s_key] = time.time()
+
+    sources = [
+        {"title": row["title"], "url": row["url"], "score": row["score"]}
+        for row in retrieval["results"]
+    ]
+    yield {
+        "type": "done",
+        "answer": answer,
+        "sources": sources,
+        "confidence": retrieval["confidence"],
+    }

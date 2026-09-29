@@ -9,6 +9,9 @@ from scripts.indexer import (
     extract_headings,
     extract_links,
     content_hash,
+    normalize_url,
+    needs_js_rendering,
+    should_index_page,
     _split_sentences,
 )
 
@@ -204,6 +207,48 @@ class TestExtractLinks:
         html = '<html><body><a href="subpage">Sub</a></body></html>'
         links = extract_links(html, "https://example.com/docs/", "example.com")
         assert any("subpage" in link for link in links)
+
+    def test_deduplicates_root_and_removes_query(self):
+        html = '''
+        <a href="https://example.com">Root</a>
+        <a href="https://example.com/?campaign=test">Root campaign</a>
+        <a href="/#top">Root fragment</a>
+        '''
+        links = extract_links(html, "https://example.com", "example.com")
+        assert links == ["https://example.com/"]
+
+
+class TestUrlAndRenderDetection:
+    def test_normalize_url_canonicalizes_root(self):
+        assert normalize_url("HTTPS://Example.COM:443?campaign=x#top") == "https://example.com/"
+        assert normalize_url("https://example.com/docs/") == "https://example.com/docs"
+
+    def test_detects_empty_client_translation_bindings(self):
+        html = '''
+        <html><body>
+          <h1 data-i18n="title"></h1>
+          <p data-i18n="summary"></p>
+          <button data-i18n="cta"></button>
+          <script src="/app.js"></script>
+        </body></html>
+        '''
+        assert needs_js_rendering(html, "Navigation") is True
+
+    def test_does_not_flag_content_rich_page(self):
+        text = " ".join(["useful"] * 250)
+        html = f'<html><body><main>{text}</main><span data-i18n="label"></span></body></html>'
+        assert needs_js_rendering(html, text) is False
+
+    def test_skips_noindex_and_password_pages(self):
+        assert should_index_page('<meta name="robots" content="noindex, follow"><p>Private</p>') is False
+        assert should_index_page('<meta name="robots" content="noindex nofollow"><p>Private</p>') is False
+        assert should_index_page('<form><input type="password"></form>') is False
+        assert should_index_page('<main><p>Public documentation</p></main>') is True
+
+    def test_does_not_skip_content_rich_page_with_login_modal(self):
+        copy = " ".join(["documentation"] * 220)
+        html = f'<title>Product docs</title><main>{copy}</main><form><input type="password"></form>'
+        assert should_index_page(html) is True
 
 
 # ── content_hash ───────────────────────────────────────────────────────────

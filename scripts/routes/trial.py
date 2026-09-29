@@ -15,14 +15,15 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Request, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from pypdf import PdfReader
 
 import scripts.config as cfg
 from scripts.utils import rate_limit_check, is_url_safe, is_valid_pdf, verify_user
 from scripts.indexer import (
     clean_html, chunk_text, extract_headings, extract_links,
-    content_hash, StaticRenderer, PlaywrightRenderer,
+    content_hash, AdaptiveRenderer, PlaywrightRenderer, normalize_url,
+    should_index_page,
 )
 from scripts.jobs import (
     complete_indexing_job,
@@ -59,13 +60,15 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
 
         # ── Phase 1: Crawl the URL ──
         update_indexing_job(job_id, site_id, message="Crawling website", status="running")
-        renderer = PlaywrightRenderer() if use_playwright else StaticRenderer()
+        renderer = PlaywrightRenderer() if use_playwright else AdaptiveRenderer()
 
         try:
-            queue = deque([url])
+            normalized_start_url = normalize_url(url)
+            queue = deque([normalized_start_url])
             visited = set()
+            seen_content_hashes = set()
             pages_crawled = 0
-            allowed_domain = urlparse(url).netloc
+            allowed_domain = urlparse(normalized_start_url).netloc
 
             while queue and pages_crawled < max_pages:
                 page_url = queue.popleft()
@@ -80,12 +83,31 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
                 if status != 200:
                     continue
 
+                if not should_index_page(html):
+                    cfg.log.info(
+                        "Skipping noindex or authentication page",
+                        extra={"event": "indexing.page_skipped", "site_id": site_id, "url": page_url},
+                    )
+                    continue
+
                 title, text = clean_html(html)
                 if len(text) < 50:
                     for link in extract_links(html, page_url, allowed_domain):
                         if link not in visited:
                             queue.append(link)
                     continue
+
+                page_content_hash = content_hash(text)
+                if page_content_hash in seen_content_hashes:
+                    cfg.log.info(
+                        "Skipping duplicate page content",
+                        extra={"event": "indexing.page_duplicate", "site_id": site_id, "url": page_url},
+                    )
+                    for link in extract_links(html, page_url, allowed_domain):
+                        if link not in visited:
+                            queue.append(link)
+                    continue
+                seen_content_hashes.add(page_content_hash)
 
                 all_docs.append((page_url, title or page_url, text, html))
                 pages_crawled += 1
@@ -249,7 +271,7 @@ def schedule_indexing_job(
 
 @router.get("/")
 async def root_redirect():
-    return RedirectResponse(url="/trial")
+    return RedirectResponse(url="/trial", status_code=308)
 
 
 @router.get("/trial")
@@ -257,7 +279,35 @@ async def serve_trial_page():
     html_path = cfg.WIDGET_DIR / "trial.html"
     if not html_path.exists():
         return JSONResponse({"error": "trial.html not found"}, status_code=404)
-    return FileResponse(html_path, media_type="text/html")
+    return FileResponse(html_path, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/robots.txt", response_class=PlainTextResponse)
+async def serve_robots():
+    return "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /app",
+        "Disallow: /admin",
+        "Disallow: /designs",
+        "Disallow: /internal/",
+        "Disallow: /api/",
+        f"Sitemap: {cfg.PUBLIC_URL}/sitemap.xml",
+        "",
+    ])
+
+
+@router.get("/sitemap.xml")
+async def serve_sitemap():
+    last_modified = datetime.now(timezone.utc).date().isoformat()
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f'<url><loc>{cfg.PUBLIC_URL}/trial</loc><lastmod>{last_modified}</lastmod>'
+        '<changefreq>weekly</changefreq><priority>1.0</priority></url>'
+        '</urlset>'
+    )
+    return Response(content=xml, media_type="application/xml", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/designs")
@@ -278,7 +328,11 @@ async def serve_editorial_styles():
     css_path = cfg.WIDGET_DIR / "editorial.css"
     if not css_path.exists():
         return JSONResponse({"error": "editorial.css not found"}, status_code=404)
-    return FileResponse(css_path, media_type="text/css")
+    return FileResponse(
+        css_path,
+        media_type="text/css",
+        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=86400"},
+    )
 
 
 @router.post("/api/trial/start")

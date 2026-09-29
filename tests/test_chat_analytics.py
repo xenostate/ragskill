@@ -1,8 +1,11 @@
 import asyncio
 from unittest.mock import MagicMock
 
+from starlette.requests import Request
+
 import scripts.config as cfg
-from scripts.routes.chat import _log_query
+import scripts.routes.chat as chat_routes
+from scripts.routes.chat import ChatRequest, _log_query
 
 
 def test_chat_log_stores_answer_identity_timing_sources_and_session(monkeypatch):
@@ -61,3 +64,61 @@ def test_chat_log_stores_failures(monkeypatch):
     assert payload["status"] == "error"
     assert payload["error_code"] == "TimeoutError"
     assert payload["error_message"] == "request timed out"
+
+
+def test_streaming_chat_emits_incremental_and_final_events(monkeypatch):
+    monkeypatch.setattr(chat_routes, "rate_limit_check", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        chat_routes,
+        "_authorize_site_request",
+        lambda *_args, **_kwargs: ({"settings": {}}, None),
+    )
+    monkeypatch.setattr(chat_routes, "get_site_language_cached", lambda _site_id: "en")
+    monkeypatch.setattr(chat_routes, "get_assistant_config", lambda _settings: {"behavior": {}})
+    monkeypatch.setattr(
+        chat_routes,
+        "match_intent_actions",
+        lambda *_args, **_kwargs: {"actions": [], "response_message": None},
+    )
+
+    def fake_stream(*_args, **_kwargs):
+        yield {"type": "delta", "text": "Hello"}
+        yield {
+            "type": "done",
+            "answer": "Hello",
+            "sources": [],
+            "confidence": "high",
+        }
+
+    async def ignore_log(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(chat_routes, "do_rag_stream_sync", fake_stream)
+    monkeypatch.setattr(chat_routes, "_log_query", ignore_log)
+
+    async def exercise():
+        request = Request({
+            "type": "http",
+            "method": "POST",
+            "path": "/api/chat/stream",
+            "query_string": b"",
+            "headers": [],
+            "scheme": "https",
+            "server": ("testserver", 443),
+            "client": ("127.0.0.1", 1234),
+        })
+        response = await chat_routes.chat_stream(
+            ChatRequest(site_id=1, query="Hi", session_id="session-1"),
+            request,
+        )
+        chunks = [chunk async for chunk in response.body_iterator]
+        await asyncio.sleep(0)
+        return response, "".join(chunks)
+
+    response, body = asyncio.run(exercise())
+
+    assert response.media_type == "text/event-stream"
+    assert response.headers["x-accel-buffering"] == "no"
+    assert '"type": "delta", "text": "Hello"' in body
+    assert '"type": "done", "answer": "Hello"' in body
+    assert '"message_id": "msg_' in body

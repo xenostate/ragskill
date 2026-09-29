@@ -66,6 +66,21 @@ def _create_user_session(user_id: int, request: Request) -> str:
     return token
 
 
+def _session_response(payload: dict, token: str, status_code: int = 200) -> JSONResponse:
+    """Return auth data and bind the session to a JS-inaccessible browser cookie."""
+    response = JSONResponse(payload, status_code=status_code)
+    response.set_cookie(
+        key=cfg.USER_SESSION_COOKIE,
+        value=token,
+        max_age=cfg.APP_SESSION_TTL_HOURS * 3600,
+        httponly=True,
+        secure=cfg.USER_SESSION_COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
 def bootstrap_app_user_ownership() -> None:
     """Ensure a bootstrap admin app user exists and owns legacy data."""
     try:
@@ -168,7 +183,7 @@ async def serve_user_page():
     html_path = cfg.WIDGET_DIR / "user.html"
     if not html_path.exists():
         return JSONResponse({"error": "user.html not found"}, status_code=404)
-    return FileResponse(html_path, media_type="text/html")
+    return FileResponse(html_path, media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/api/user/signup")
@@ -203,7 +218,7 @@ async def user_signup(request: Request):
     user = created.data[0]
     token = _create_user_session(user["id"], request)
     cfg.log.info(f"App user signup: {email}")
-    return {
+    return _session_response({
         "success": True,
         "token": token,
         "user": {
@@ -213,7 +228,7 @@ async def user_signup(request: Request):
             "role": "client",
             "status": "active",
         },
-    }
+    }, token)
 
 
 @router.post("/api/user/login")
@@ -248,7 +263,7 @@ async def user_login(request: Request):
         "last_login_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", user["id"]).execute()
     token = _create_user_session(user["id"], request)
-    return {
+    return _session_response({
         "success": True,
         "token": token,
         "user": {
@@ -258,16 +273,17 @@ async def user_login(request: Request):
             "role": user["role"],
             "status": user["status"],
         },
-    }
+    }, token)
 
 
 @router.post("/api/user/logout")
 async def user_logout(request: Request):
     user = verify_user(request)
-    if not user:
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    cfg.sb.table("app_sessions").delete().eq("token", user["token"]).execute()
-    return {"success": True}
+    if user:
+        cfg.sb.table("app_sessions").delete().eq("token", user["token"]).execute()
+    response = JSONResponse({"success": True})
+    response.delete_cookie(cfg.USER_SESSION_COOKIE, path="/", samesite="lax")
+    return response
 
 
 @router.get("/api/user/me")
@@ -285,7 +301,7 @@ async def user_me(request: Request):
     sites_count = sites_count_query.execute().count or 0
     assistants_count = assistants_count_query.execute().count or 0
 
-    return {
+    payload = {
         "user": {
             "id": user["user_id"],
             "email": user["email"],
@@ -298,6 +314,7 @@ async def user_me(request: Request):
             "assistants": assistants_count,
         },
     }
+    return _session_response(payload, user["token"])
 
 
 @router.get("/api/user/sites")

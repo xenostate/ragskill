@@ -1813,6 +1813,53 @@
   }
 
   // ── Chat sending ───────────────────────────────────────────────────────
+  async function requestStreamingChat(payload, onDelta) {
+    const resp = await fetch(`${API_URL}/api/chat/stream`, {
+      method: "POST",
+      headers: requestHeaders(true),
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      let message = "Request failed";
+      try {
+        const error = await resp.json();
+        message = error.error || message;
+      } catch (e) {}
+      throw new Error(message);
+    }
+    if (!resp.body) throw new Error("Streaming is not supported by this browser");
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let result = null;
+
+    const handleBlock = (block) => {
+      const serialized = block
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n");
+      if (!serialized) return;
+      const event = JSON.parse(serialized);
+      if (event.type === "delta") onDelta(event.text || "");
+      if (event.type === "done") result = event;
+      if (event.type === "error") throw new Error(event.error || "Request failed");
+    };
+
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const blocks = buffer.split(/\r?\n\r?\n/);
+      buffer = blocks.pop() || "";
+      blocks.forEach(handleBlock);
+      if (done) break;
+    }
+    if (buffer.trim()) handleBlock(buffer);
+    if (!result) throw new Error("The response stream ended unexpectedly");
+    return result;
+  }
+
   async function send(queryOverride, visibleText) {
     const query = String(queryOverride || input.value || "").trim();
     if (!query) return;
@@ -1826,30 +1873,35 @@
     announce("Assistant is typing");
     scrollToBottom();
 
+    let streamedMessage = null;
+    let streamedText = "";
     try {
-      const resp = await fetch(`${API_URL}/api/chat`, {
-        method: "POST",
-        headers: requestHeaders(true),
-        body: JSON.stringify({
-          site_id: parseInt(SITE_ID, 10),
-          query,
-          session_id: sessionId,
-          origin_domain: window.location.hostname,
-          response_language: selectedLanguage || undefined,
-        }),
+      const data = await requestStreamingChat({
+        site_id: parseInt(SITE_ID, 10),
+        query,
+        session_id: sessionId,
+        origin_domain: window.location.hostname,
+        response_language: selectedLanguage || undefined,
+      }, (delta) => {
+        streamedText += delta;
+        if (!streamedMessage) {
+          typing.classList.remove("active");
+          streamedMessage = addMessage("", "bot", null, null, { announce: false });
+          streamedMessage.style.whiteSpace = "pre-wrap";
+        }
+        streamedMessage.textContent = streamedText;
+        scrollToBottom();
       });
 
-      const data = await resp.json();
-      debugLog("chat response", { status: resp.status, ok: resp.ok, body: data });
-      if (!resp.ok) {
-        throw new Error(data.error || "Request failed");
-      }
+      debugLog("streaming chat response", data);
+      if (streamedMessage) streamedMessage.remove();
       addMessage(data.answer, "bot", data.sources, data.confidence, {
         feedback: true,
         messageId: data.message_id,
       });
       renderResponseActions(data.actions || []);
     } catch (err) {
+      if (streamedMessage) streamedMessage.remove();
       addMessage("Sorry, something went wrong. Please try again.", "bot");
       console.error("web-rag widget error:", err);
       debugLog("chat exception", err.message || String(err));

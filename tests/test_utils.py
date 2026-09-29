@@ -419,3 +419,27 @@ class TestVerifyUser:
         user = verify_user(req)
         assert user is not None
         assert user["name"] == "Client"
+
+    def test_verify_user_reads_http_only_cookie(self):
+        cfg.sb = _FakeSupabase(
+            session_data=[{
+                "token": "usr_cookie",
+                "user_id": 8,
+                "expires_at": "2099-01-01T00:00:00+00:00",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }],
+            user_data=[{
+                "id": 8,
+                "email": "cookie@example.com",
+                "name": "Cookie User",
+                "role": "client",
+                "status": "active",
+            }],
+        )
+        req = MagicMock()
+        req.headers = {}
+        req.cookies = {cfg.USER_SESSION_COOKIE: "usr_cookie"}
+
+        user = verify_user(req)
+        assert user is not None
+        assert user["name"] == "Cookie User"

@@ -25,6 +25,7 @@ def test_create_job_persists_safe_payload_and_memory_state(monkeypatch):
     assert row["id"] == job_id
     assert row["payload"]["url"] == "https://example.com/path"
     assert row["payload"]["pdf_count"] == 1
+    assert row["payload"]["renderer"] == "auto"
     assert cfg.trial_progress[42]["job_id"] == job_id
     assert cfg.trial_progress[42]["status"] == "queued"
 

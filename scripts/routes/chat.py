@@ -5,12 +5,13 @@ Chat, health, and widget endpoints.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import uuid
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 import scripts.config as cfg
@@ -22,7 +23,12 @@ from scripts.assistant_features import (
     submit_assistant_form,
 )
 from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent, verify_admin_token
-from scripts.rag_core import do_rag_sync, get_site_language_cached, resolve_response_language
+from scripts.rag_core import (
+    do_rag_stream_sync,
+    do_rag_sync,
+    get_site_language_cached,
+    resolve_response_language,
+)
 
 router = APIRouter()
 _health_cache: tuple[float, dict, int] | None = None
@@ -300,6 +306,134 @@ async def chat(req: ChatRequest, request: Request):
     )
 
 
+@router.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest, request: Request):
+    """Stream answer deltas over SSE while preserving the regular JSON API."""
+    blocked = rate_limit_check(request, "chat", 20, 60)
+    if blocked:
+        return blocked
+
+    site, error = _authorize_site_request(req.site_id, request)
+    if error:
+        return error
+
+    started = time.time()
+    interaction_id = f"msg_{uuid.uuid4().hex}"
+    language = resolve_response_language(
+        req.query,
+        req.response_language,
+        get_site_language_cached(req.site_id),
+    )
+    assistant_config = get_assistant_config(site.get("settings") or {})
+    intent_result = match_intent_actions(assistant_config, req.query)
+    intent_fallback = None
+    if intent_result["actions"]:
+        intent_fallback = resolve_text_value(
+            intent_result.get("response_message"),
+            language,
+        ) or resolve_text_value({
+            "ru": "Я могу помочь с этим. Выберите подходящее действие ниже.",
+            "en": "I can help with that. Choose one of the options below.",
+            "ko": "도와드릴 수 있어요. 아래에서 원하는 작업을 선택해 주세요.",
+        }, language)
+
+    async def events():
+        event_queue: asyncio.Queue[dict] = asyncio.Queue()
+        loop = asyncio.get_running_loop()
+
+        def produce() -> None:
+            try:
+                for event in do_rag_stream_sync(
+                    req.site_id,
+                    req.query,
+                    req.top_k,
+                    req.session_id,
+                    language,
+                    assistant_config.get("behavior"),
+                    intent_fallback,
+                ):
+                    loop.call_soon_threadsafe(event_queue.put_nowait, event)
+            except Exception as exc:
+                cfg.log.exception(
+                    f"streaming chat failed site={req.site_id} interaction={interaction_id}"
+                )
+                loop.call_soon_threadsafe(event_queue.put_nowait, {
+                    "type": "error",
+                    "error": "The assistant could not answer this question",
+                    "error_code": exc.__class__.__name__,
+                    "error_message": str(exc)[:500],
+                })
+            finally:
+                loop.call_soon_threadsafe(event_queue.put_nowait, {"type": "_end"})
+
+        producer = asyncio.create_task(asyncio.to_thread(produce))
+        yield f"data: {json.dumps({'type': 'start', 'message_id': interaction_id})}\n\n"
+
+        while True:
+            event = await event_queue.get()
+            event_type = event.get("type")
+            if event_type == "_end":
+                break
+
+            elapsed_ms = int((time.time() - started) * 1000)
+            if event_type == "done":
+                event["message_id"] = interaction_id
+                event["actions"] = intent_result["actions"]
+                asyncio.create_task(_log_query(
+                    site_id=req.site_id,
+                    query=req.query,
+                    confidence=event["confidence"],
+                    response_ms=elapsed_ms,
+                    chunk_count=len(event["sources"]),
+                    interaction_id=interaction_id,
+                    session_id=req.session_id,
+                    answer=event.get("answer", ""),
+                    sources=event.get("sources", []),
+                ))
+                cfg.log.info(
+                    "streaming chat completed",
+                    extra={
+                        "event": "chat.completed",
+                        "site_id": req.site_id,
+                        "query_length": len(req.query),
+                        "confidence": event["confidence"],
+                        "chunk_count": len(event["sources"]),
+                        "intent_action_count": len(intent_result["actions"]),
+                        "duration_ms": elapsed_ms,
+                    },
+                )
+            elif event_type == "error":
+                asyncio.create_task(_log_query(
+                    site_id=req.site_id,
+                    query=req.query,
+                    confidence="low",
+                    response_ms=elapsed_ms,
+                    chunk_count=0,
+                    interaction_id=interaction_id,
+                    session_id=req.session_id,
+                    status="error",
+                    error_code=event.get("error_code"),
+                    error_message=event.get("error_message"),
+                ))
+
+            public_event = {
+                key: value for key, value in event.items()
+                if key not in {"error_code", "error_message"}
+            }
+            yield f"data: {json.dumps(public_event, ensure_ascii=False)}\n\n"
+
+        await producer
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/api/widget/config/{site_id}", response_model=WidgetConfigResponse)
 async def widget_config(site_id: int, request: Request):
     blocked = rate_limit_check(request, "widget_config", 60, 60)
@@ -458,9 +592,7 @@ async def serve_widget():
         js_path,
         media_type="application/javascript",
         headers={
-            "Cache-Control": "no-store, max-age=0, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=86400",
         },
     )
 

@@ -52,7 +52,7 @@ def create_indexing_job(
         "payload": {
             "url": _safe_url(url),
             "max_pages": max_pages,
-            "renderer": "playwright" if use_playwright else "static",
+            "renderer": "playwright" if use_playwright else "auto",
             "pdf_count": pdf_count,
         },
         "step": 0,

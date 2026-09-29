@@ -270,16 +270,53 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             request_id_var.reset(token)
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Apply browser hardening headers without affecting embeddable widget.js."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+
+        forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower()
+        is_https = request.url.scheme == "https" or forwarded_proto == "https"
+        if is_https:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
+        content_type = response.headers.get("content-type", "").lower()
+        if "text/html" in content_type and request.url.path not in {"/docs", "/redoc"}:
+            response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+            policy = (
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; "
+                "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; "
+                "form-action 'self'"
+            )
+            if is_https:
+                policy += "; upgrade-insecure-requests"
+            response.headers.setdefault("Content-Security-Policy", policy)
+        return response
+
+
 # ── App ─────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="web-rag API", lifespan=lifespan)
+app = FastAPI(
+    title="web-rag API",
+    lifespan=lifespan,
+    docs_url="/docs" if cfg.ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if cfg.ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if cfg.ENABLE_API_DOCS else None,
+)
 
 # Middleware (order: last added = outermost = runs first)
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS: open for widget.js (embedded on customer sites).
-# Auth uses custom headers, not cookies, so allow_credentials is not needed.
+# CORS: open for the public widget API, but never allow cross-origin credentials.
+# The customer portal is same-origin and uses an HttpOnly session cookie.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -278,8 +278,15 @@ def verify_user_token(token: str) -> dict | None:
 
 
 def verify_user(request: Request, require_active: bool = True) -> dict | None:
-    """Check X-User-Token against app_sessions and return the current user."""
-    user = verify_user_token(request.headers.get("x-user-token", ""))
+    """Resolve a user session from a legacy header or the HttpOnly portal cookie."""
+    from scripts.config import USER_SESSION_COOKIE
+
+    token = request.headers.get("x-user-token", "")
+    if not token:
+        cookie_token = request.cookies.get(USER_SESSION_COOKIE, "")
+        if isinstance(cookie_token, str):
+            token = cookie_token
+    user = verify_user_token(token)
     if not user:
         return None
     if require_active and user.get("status") != "active":
