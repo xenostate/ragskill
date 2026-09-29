@@ -1,9 +1,7 @@
 import asyncio
 
-from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import HTMLResponse
-from starlette.routing import Route
-from starlette.testclient import TestClient
 
 import scripts.config as cfg
 from scripts.routes.trial import root_redirect, serve_robots, serve_sitemap
@@ -27,15 +25,30 @@ def test_robots_and_sitemap_publish_only_the_public_landing(monkeypatch):
     assert asyncio.run(root_redirect()).status_code == 308
 
 
-def test_security_headers_are_added_to_html_responses():
-    async def homepage(_request):
+async def _security_response(*, forwarded_proto: str | None = None):
+    headers = []
+    if forwarded_proto:
+        headers.append((b"x-forwarded-proto", forwarded_proto.encode()))
+    request = Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "query_string": b"",
+        "headers": headers,
+        "scheme": "http",
+        "server": ("localhost", 80),
+        "client": ("127.0.0.1", 1234),
+    })
+    middleware = SecurityHeadersMiddleware(lambda _scope, _receive, _send: None)
+
+    async def call_next(_request):
         return HTMLResponse("<h1>Safe</h1>")
 
-    app = Starlette(routes=[Route("/", homepage)])
-    app.add_middleware(SecurityHeadersMiddleware)
+    return await middleware.dispatch(request, call_next)
 
-    with TestClient(app) as client:
-        response = client.get("/", headers={"X-Forwarded-Proto": "https"})
+
+def test_security_headers_are_added_to_html_responses():
+    response = asyncio.run(_security_response(forwarded_proto="https"))
 
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "SAMEORIGIN"
@@ -45,14 +58,7 @@ def test_security_headers_are_added_to_html_responses():
 
 
 def test_http_development_pages_do_not_upgrade_local_assets():
-    async def homepage(_request):
-        return HTMLResponse("<h1>Local</h1>")
-
-    app = Starlette(routes=[Route("/", homepage)])
-    app.add_middleware(SecurityHeadersMiddleware)
-
-    with TestClient(app, base_url="http://localhost") as client:
-        response = client.get("/")
+    response = asyncio.run(_security_response())
 
     assert "upgrade-insecure-requests" not in response.headers["content-security-policy"]
 
