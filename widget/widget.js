@@ -704,21 +704,6 @@
       }
     ` : ""}
 
-    ${DARK_THEME ? `
-      .wr-panel { background: transparent; color: #f2f5ef; }
-      .wr-messages { background: #1c242b; }
-      .wr-msg.bot { background: #27313a; color: #f2f5ef; }
-      .wr-input-row { background: #1c242b; border-top-color: #3a4650; }
-      .wr-input {
-        background: #111920;
-        border-color: #58636a;
-        color: #f2f5ef;
-      }
-      .wr-input::placeholder { color: #798681; }
-      .wr-send { color: #101419; }
-      .wr-card-text, .wr-inline-status { color: #b9c4bf; }
-      .wr-chip { background: #202831; border-color: #45534a; }
-    ` : ""}
   `;
   shadow.appendChild(style);
 
@@ -957,6 +942,35 @@
     .wr-panel[data-preset="minimal"] .wr-input-row,
     .wr-panel[data-preset="minimal"] .wr-contact { border-color: color-mix(in srgb, var(--wr-ink) 45%, transparent); }
     :host([data-preset="minimal"]) .wr-bubble { border: 1px solid var(--wr-ink); border-radius: 5px; box-shadow: 4px 4px 0 var(--wr-ink); }
+
+    ${DARK_THEME ? `
+      :host {
+        --wr-ink: #f2f5ef;
+        --wr-muted: #a1aaa9;
+        --wr-surface: #1c242b;
+        --wr-canvas: #111920;
+        --wr-line: #3a4650;
+        --wr-accent-ink: var(--wr-brand) !important;
+        --wr-shadow: none;
+      }
+      .wr-panel[data-preset] {
+        --wr-panel-radius: 0;
+        --wr-shadow: none;
+        border-color: #46535c;
+      }
+      .wr-panel { background: #1c242b; color: var(--wr-ink); }
+      .wr-messages { background: #1c242b; }
+      .wr-msg.bot, .wr-typing { background: #27313a; color: var(--wr-ink); }
+      .wr-input-row { background: #1c242b; border-top-color: var(--wr-line); }
+      .wr-input {
+        background: var(--wr-canvas);
+        border-color: #58636a;
+        color: var(--wr-ink);
+      }
+      .wr-input::placeholder { color: #798681; }
+      .wr-contact, .wr-chip { background: #202831; }
+      .wr-field label, .wr-card-text, .wr-inline-status { color: #b9c4bf; }
+    ` : ""}
 
     @media (max-width: 560px) {
       .wr-bubble.panel-open { display: none !important; }
