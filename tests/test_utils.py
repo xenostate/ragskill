@@ -4,9 +4,8 @@ Tests for scripts/utils.py — rate limiter, SSRF protection, IP resolution, PDF
 
 import time
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 # We need to mock config before importing utils, since utils imports from config
 import scripts.config as cfg

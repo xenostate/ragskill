@@ -25,6 +25,8 @@ from scripts.utils import rate_limit_check, get_client_ip, parse_user_agent, ver
 from scripts.rag_core import do_rag_sync, get_site_language_cached, resolve_response_language
 
 router = APIRouter()
+_health_cache: tuple[float, dict, int] | None = None
+_HEALTH_CACHE_SECONDS = 20
 
 
 class ChatRequest(BaseModel):
@@ -71,14 +73,85 @@ class FeedbackRequest(BaseModel):
     page_url: str | None = Field(default=None, max_length=2000)
 
 
-@router.get("/health")
-async def health():
+@router.get("/health/live")
+async def liveness():
     return {
         "status": "ok",
-        "model_loaded": cfg.embed_model is not None,
-        "llm_enabled": cfg.openai_client is not None,
-        "uptime_seconds": round(time.time() - cfg.start_time, 1),
+        "environment": cfg.APP_ENV,
+        "version": cfg.APP_VERSION,
+        "uptime_seconds": round(max(0, time.time() - cfg.start_time), 1),
     }
+
+
+@router.get("/health")
+async def health():
+    global _health_cache
+    now = time.monotonic()
+    if _health_cache and now - _health_cache[0] < _HEALTH_CACHE_SECONDS:
+        return JSONResponse(_health_cache[1], status_code=_health_cache[2])
+
+    async def run_check(name: str, callback) -> tuple[str, dict]:
+        started = time.perf_counter()
+        try:
+            await asyncio.wait_for(
+                asyncio.to_thread(callback),
+                timeout=cfg.HEALTHCHECK_TIMEOUT,
+            )
+            return name, {
+                "status": "ok",
+                "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            }
+        except asyncio.TimeoutError:
+            return name, {
+                "status": "error",
+                "error": "timeout",
+                "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            }
+        except Exception as exc:
+            cfg.log.warning(
+                "health dependency check failed",
+                extra={
+                    "event": "health.check_failed",
+                    "dependency": name,
+                    "error_code": exc.__class__.__name__,
+                },
+            )
+            return name, {
+                "status": "error",
+                "error": exc.__class__.__name__,
+                "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+            }
+
+    def check_database() -> None:
+        if cfg.sb is None:
+            raise RuntimeError("database client is not initialized")
+        cfg.sb.table("sites").select("id").limit(1).execute()
+
+    def check_openai() -> None:
+        if cfg.openai_client is None:
+            raise RuntimeError("OpenAI client is not initialized")
+        cfg.openai_client.models.retrieve(cfg.RAG_MODEL)
+
+    checks = dict(await asyncio.gather(run_check("database", check_database)))
+    if cfg.OPENAI_API_KEY:
+        checks.update(await asyncio.gather(run_check("openai", check_openai)))
+    else:
+        checks["openai"] = {"status": "skipped", "reason": "not_configured"}
+
+    checks["embedding_model"] = {
+        "status": "ok" if cfg.embed_model is not None else "error",
+    }
+    ready = all(item["status"] in {"ok", "skipped"} for item in checks.values())
+    payload = {
+        "status": "ok" if ready else "degraded",
+        "environment": cfg.APP_ENV,
+        "version": cfg.APP_VERSION,
+        "uptime_seconds": round(max(0, time.time() - cfg.start_time), 1),
+        "checks": checks,
+    }
+    status_code = 200 if ready else 503
+    _health_cache = (time.monotonic(), payload, status_code)
+    return JSONResponse(payload, status_code=status_code)
 
 
 def _extract_origin_domain(request: Request) -> str:
@@ -195,10 +268,16 @@ async def chat(req: ChatRequest, request: Request):
 
     elapsed_ms = int((time.time() - t0) * 1000)
     cfg.log.info(
-        f"chat site={req.site_id} q=\"{req.query[:50]}\" "
-        f"confidence={result['confidence']} chunks={len(result['sources'])} "
-        f"intent_actions={len(intent_result['actions'])} "
-        f"time={elapsed_ms}ms"
+        "chat completed",
+        extra={
+            "event": "chat.completed",
+            "site_id": req.site_id,
+            "query_length": len(req.query),
+            "confidence": result["confidence"],
+            "chunk_count": len(result["sources"]),
+            "intent_action_count": len(intent_result["actions"]),
+            "duration_ms": elapsed_ms,
+        },
     )
 
     # Fire-and-forget analytics log (never blocks the response)

@@ -1,0 +1,21 @@
+name: External uptime monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check production and optional staging
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL || 'https://wrs.kz' }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: python scripts/check_uptime.py "$PRODUCTION_URL" "$STAGING_URL"

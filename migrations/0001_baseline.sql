@@ -1,0 +1,3 @@
+-- Imported pre-migration schema. This include is expanded and checksummed by
+-- scripts/migrate.py; references/schema.sql is immutable after this baseline.
+-- wrs:include references/schema.sql

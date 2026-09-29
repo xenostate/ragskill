@@ -13,7 +13,6 @@ Used by server.py — not run standalone.
 from __future__ import annotations
 
 import logging
-import os
 
 import requests as http_requests
 from supabase import Client as SupabaseClient

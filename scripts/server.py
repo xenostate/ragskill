@@ -7,7 +7,9 @@ Start: uvicorn scripts.server:app --host 0.0.0.0 --port 8090
 """
 
 import asyncio
+import re
 import time
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -20,6 +22,8 @@ from sentence_transformers import SentenceTransformer
 from supabase import create_client
 
 import scripts.config as cfg
+from scripts.jobs import mark_interrupted_jobs
+from scripts.observability import request_id_var, sentry_before_send
 from scripts.utils import rate_limiter
 
 # Route modules
@@ -30,6 +34,33 @@ from scripts.routes.auth import router as auth_router
 from scripts.routes.internal import router as internal_router
 from scripts.routes.user import router as user_router, bootstrap_app_user_ownership
 from scripts.routes.whatsapp import router as whatsapp_router
+
+
+def setup_error_tracking() -> None:
+    """Enable Sentry only when a DSN is configured."""
+    if not cfg.SENTRY_DSN:
+        cfg.log.info("Sentry disabled", extra={"event": "sentry.disabled"})
+        return
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=cfg.SENTRY_DSN,
+            environment=cfg.APP_ENV,
+            release=cfg.APP_VERSION,
+            traces_sample_rate=cfg.SENTRY_TRACES_SAMPLE_RATE,
+            send_default_pii=False,
+            before_send=sentry_before_send,
+        )
+        cfg.log.info("Sentry initialized", extra={"event": "sentry.initialized"})
+    except ImportError:
+        cfg.log.error(
+            "SENTRY_DSN is set but sentry-sdk is not installed",
+            extra={"event": "sentry.missing_dependency"},
+        )
+
+
+setup_error_tracking()
 
 
 # ── Background cleanup task ─────────────────────────────────────────────────
@@ -127,6 +158,19 @@ async def lifespan(app: FastAPI):
     cfg.sb = create_client(cfg.SUPABASE_URL, cfg.SUPABASE_KEY)
     cfg.log.info("Supabase client initialized (service key)")
 
+    try:
+        interrupted = mark_interrupted_jobs()
+        if interrupted:
+            cfg.log.warning(
+                "marked interrupted indexing jobs as failed",
+                extra={"event": "indexing_job.recovered", "job_count": interrupted},
+            )
+    except Exception as exc:
+        cfg.log.warning(
+            "durable job recovery unavailable; apply database migrations",
+            extra={"event": "indexing_job.recovery_failed", "error_code": exc.__class__.__name__},
+        )
+
     # Public client uses anon key (subject to RLS) for unauthenticated endpoints.
     # Falls back to service key if SUPABASE_ANON_KEY is not set.
     if cfg.SUPABASE_ANON_KEY:
@@ -197,12 +241,42 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    """Attach a safe correlation ID and emit one structured access log."""
+
+    async def dispatch(self, request: Request, call_next):
+        supplied_id = request.headers.get("x-request-id", "")
+        if not re.fullmatch(r"[A-Za-z0-9._-]{8,128}", supplied_id):
+            supplied_id = uuid.uuid4().hex
+        token = request_id_var.set(supplied_id)
+        started = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers["X-Request-ID"] = supplied_id
+            return response
+        finally:
+            cfg.log.info(
+                "request completed",
+                extra={
+                    "event": "http.request",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                },
+            )
+            request_id_var.reset(token)
+
+
 # ── App ─────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="web-rag API", lifespan=lifespan)
 
 # Middleware (order: last added = outermost = runs first)
 app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(RequestContextMiddleware)
 
 # CORS: open for widget.js (embedded on customer sites).
 # Auth uses custom headers, not cookies, so allow_credentials is not needed.

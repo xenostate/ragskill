@@ -1,0 +1,19 @@
+# Direct production dependencies. Compile this file with:
+#   uv pip compile scripts/requirements.in -o scripts/requirements.txt --python-version 3.11
+requests
+beautifulsoup4
+lxml
+sentence-transformers
+supabase
+python-dotenv
+tiktoken
+fastapi
+uvicorn[standard]
+openai
+python-telegram-bot
+pypdf
+python-multipart
+playwright
+bcrypt
+sentry-sdk[fastapi]
+psycopg[binary]

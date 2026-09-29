@@ -4,7 +4,6 @@ Registration and activation endpoints.
 
 from __future__ import annotations
 
-import asyncio
 import os
 import uuid
 from urllib.parse import urlparse
@@ -14,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 import scripts.config as cfg
 from scripts.utils import rate_limit_check, is_url_safe, verify_user
-from scripts.routes.trial import run_trial_indexing
+from scripts.routes.trial import schedule_indexing_job
 
 router = APIRouter()
 
@@ -119,26 +118,24 @@ async def activate(request: Request):
         update_payload["owner_user_id"] = current_user["user_id"]
     cfg.sb.table("sites").update(update_payload).eq("id", site_id).execute()
 
+    job_id = None
     if source_url and max_pages > 0:
-        cfg.trial_progress[site_id] = {
-            "step": 0, "total": 0, "message": "Re-indexing with full page count...",
-            "done": False, "error": None,
-        }
-
-        def reindex():
-            docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
-            for doc in (docs.data or []):
-                cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
-            cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
-            run_trial_indexing(site_id, source_url, max_pages, [])
-
-        asyncio.get_event_loop().create_task(asyncio.to_thread(reindex))
+        job_id = schedule_indexing_job(
+            site_id,
+            source_url,
+            max_pages,
+            [],
+            kind="activation",
+            replace_existing=True,
+            message="Full activation re-index queued",
+        )
 
     cfg.log.info(f"Site {site_id} activated by {reg_email or 'unknown'} — re-indexing {max_pages} pages")
 
     return {
         "success": True,
         "site_id": site_id,
+        "job_id": job_id,
         "widget_code": _widget_snippet(site_id),
         "source_url": source_url,
     }
@@ -234,17 +231,21 @@ async def quick_activate(
         }).execute()
         site_id = site_resp.data[0]["id"]
 
-    cfg.trial_progress[site_id] = {"step": 0, "total": 0, "message": "Starting...", "done": False, "error": None}
-
     pw = use_playwright == "1"
-    asyncio.get_event_loop().create_task(
-        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
+    job_id = schedule_indexing_job(
+        site_id,
+        url,
+        max_pages,
+        pdf_data,
+        pw,
+        kind="activation",
+        message="Quick activation indexing queued",
     )
 
-    public_url = os.environ.get("PUBLIC_URL", "https://wrs.kz")
     cfg.log.info(f"Quick-activate: site_id={site_id} domain={domain} url={url} pdfs={len(pdf_data)}")
     return {
         "success": True,
         "site_id": site_id,
+        "job_id": job_id,
         "widget_code": _widget_snippet(site_id),
     }

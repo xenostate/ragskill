@@ -24,6 +24,15 @@ from scripts.indexer import (
     clean_html, chunk_text, extract_headings, extract_links,
     content_hash, StaticRenderer, PlaywrightRenderer,
 )
+from scripts.jobs import (
+    complete_indexing_job,
+    create_indexing_job,
+    fail_indexing_job,
+    latest_indexing_job,
+    progress_payload,
+    start_indexing_job,
+    update_indexing_job,
+)
 
 router = APIRouter()
 
@@ -31,15 +40,25 @@ router = APIRouter()
 # ── Background indexing ─────────────────────────────────────────────────────
 
 def run_trial_indexing(site_id: int, url: str, max_pages: int,
-                       pdf_data: list[dict], use_playwright: bool = False):
+                       pdf_data: list[dict], use_playwright: bool = False,
+                       job_id: str | None = None):
     """Synchronous trial indexing — runs in asyncio.to_thread."""
-    progress = cfg.trial_progress[site_id]
+    if job_id is None:
+        job_id = create_indexing_job(
+            site_id,
+            "crawl",
+            url=url,
+            max_pages=max_pages,
+            use_playwright=use_playwright,
+            pdf_count=len(pdf_data),
+        )
+    start_indexing_job(job_id, site_id)
 
     try:
         all_docs = []
 
         # ── Phase 1: Crawl the URL ──
-        progress["message"] = f"Crawling {url}..."
+        update_indexing_job(job_id, site_id, message="Crawling website", status="running")
         renderer = PlaywrightRenderer() if use_playwright else StaticRenderer()
 
         try:
@@ -70,7 +89,13 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
 
                 all_docs.append((page_url, title or page_url, text, html))
                 pages_crawled += 1
-                progress["message"] = f"Crawled {pages_crawled} page(s)..."
+                update_indexing_job(
+                    job_id,
+                    site_id,
+                    message=f"Crawled {pages_crawled} page(s)",
+                    step=pages_crawled,
+                    status="running",
+                )
 
                 if pages_crawled < max_pages:
                     for link in extract_links(html, page_url, allowed_domain):
@@ -83,7 +108,12 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
 
         # ── Phase 2: Extract text from PDFs ──
         for pdf_item in pdf_data:
-            progress["message"] = f"Processing PDF: {pdf_item['filename']}..."
+            update_indexing_job(
+                job_id,
+                site_id,
+                message=f"Processing PDF: {pdf_item['filename'][:120]}",
+                status="running",
+            )
             try:
                 if not is_valid_pdf(pdf_item["content"]):
                     cfg.log.warning(f"Skipping invalid PDF (bad magic bytes): {pdf_item['filename']}")
@@ -109,18 +139,26 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
                 cfg.log.warning(f"Trial PDF extraction failed for {pdf_item['filename']}: {e}")
 
         if not all_docs:
-            progress["error"] = "No content could be extracted from the URL or PDFs."
-            progress["done"] = True
-            progress["_finished_at"] = time.time()
+            fail_indexing_job(
+                job_id,
+                site_id,
+                RuntimeError("No content could be extracted from the URL or PDFs."),
+            )
             return
 
         # ── Phase 3: Chunk, embed, store ──
         total_chunks = 0
-        progress["total"] = len(all_docs)
+        update_indexing_job(job_id, site_id, total=len(all_docs), step=0, status="running")
 
         for doc_idx, (doc_url, doc_title, doc_text, doc_html) in enumerate(all_docs):
-            progress["step"] = doc_idx + 1
-            progress["message"] = f"Indexing {doc_idx+1}/{len(all_docs)}: {doc_title[:50]}..."
+            update_indexing_job(
+                job_id,
+                site_id,
+                step=doc_idx + 1,
+                total=len(all_docs),
+                message=f"Indexing {doc_idx + 1}/{len(all_docs)}: {doc_title[:80]}",
+                status="running",
+            )
 
             c_hash = content_hash(doc_text)
 
@@ -144,7 +182,7 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
             )
 
             rows = []
-            for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
                 rows.append({
                     "document_id": doc_id,
                     "chunk_index": i,
@@ -156,16 +194,55 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
             cfg.sb.table("chunks").insert(rows).execute()
             total_chunks += len(rows)
 
-        progress["message"] = f"Done! Indexed {len(all_docs)} document(s), {total_chunks} chunks."
-        progress["done"] = True
-        progress["_finished_at"] = time.time()
+        result_message = f"Done! Indexed {len(all_docs)} document(s), {total_chunks} chunks."
+        complete_indexing_job(
+            job_id,
+            site_id,
+            result_message,
+            step=len(all_docs),
+            total=len(all_docs),
+        )
         cfg.log.info(f"Trial site {site_id}: indexed {len(all_docs)} docs, {total_chunks} chunks")
 
     except Exception as e:
-        cfg.log.error(f"Trial indexing error for site {site_id}: {e}")
-        progress["error"] = str(e)
-        progress["done"] = True
-        progress["_finished_at"] = time.time()
+        fail_indexing_job(job_id, site_id, e)
+
+
+def schedule_indexing_job(
+    site_id: int,
+    url: str,
+    max_pages: int,
+    pdf_data: list[dict],
+    use_playwright: bool = False,
+    *,
+    kind: str = "crawl",
+    replace_existing: bool = False,
+    message: str = "Queued",
+) -> str:
+    """Persist job state, then start the existing in-process worker."""
+    job_id = create_indexing_job(
+        site_id,
+        kind,
+        url=url,
+        max_pages=max_pages,
+        use_playwright=use_playwright,
+        pdf_count=len(pdf_data),
+        message=message,
+    )
+
+    def run() -> None:
+        try:
+            if replace_existing:
+                docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
+                for doc in (docs.data or []):
+                    cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
+                cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
+            run_trial_indexing(site_id, url, max_pages, pdf_data, use_playwright, job_id)
+        except Exception as exc:
+            fail_indexing_job(job_id, site_id, exc)
+
+    asyncio.get_event_loop().create_task(asyncio.to_thread(run))
+    return job_id
 
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
@@ -260,18 +337,19 @@ async def trial_start(
             )
         pdf_data.append({"filename": pdf.filename, "content": content})
 
-    cfg.trial_progress[site_id] = {
-        "step": 0, "total": 0, "message": "Starting...",
-        "done": False, "error": None,
-    }
-
     pw = use_playwright == "1"
-    asyncio.get_event_loop().create_task(
-        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
+    job_id = schedule_indexing_job(
+        site_id,
+        url,
+        max_pages,
+        pdf_data,
+        pw,
+        kind="trial",
+        message="Trial indexing queued",
     )
 
     cfg.log.info(f"Trial started: site_id={site_id} url={url} pdfs={len(pdf_data)} max_pages={max_pages} playwright={pw}")
-    return {"site_id": site_id, "message": "Indexing started", "expires_at": expires_at}
+    return {"site_id": site_id, "job_id": job_id, "message": "Indexing started", "expires_at": expires_at}
 
 
 @router.get("/api/trial/progress/{site_id}")
@@ -283,6 +361,16 @@ async def trial_progress_stream(site_id: int, request: Request):
     async def event_generator():
         while True:
             progress = cfg.trial_progress.get(site_id)
+            if progress is None:
+                try:
+                    durable_job = await asyncio.to_thread(latest_indexing_job, site_id)
+                    if durable_job:
+                        progress = progress_payload(durable_job)
+                except Exception:
+                    cfg.log.exception(
+                        "could not read durable indexing progress",
+                        extra={"event": "indexing_job.progress_read_failed", "site_id": site_id},
+                    )
             if progress is None:
                 yield f"data: {json.dumps({'error': 'Unknown site_id'})}\n\n"
                 break

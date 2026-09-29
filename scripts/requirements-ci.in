@@ -1,0 +1,9 @@
+# Unit tests mock heavyweight integrations, so CI does not need PyTorch,
+# Playwright browsers, Supabase, or OpenAI installed.
+beautifulsoup4
+fastapi
+lxml
+python-dotenv
+requests
+pytest
+ruff

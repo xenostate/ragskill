@@ -1,0 +1,16 @@
+{$STAGING_HOST} {
+    encode zstd gzip
+    reverse_proxy app:8090
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

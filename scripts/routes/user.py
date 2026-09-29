@@ -27,7 +27,7 @@ from scripts.assistant_features import normalize_assistant_config
 from scripts.config_assistant import ConfigAssistantError, draft_assistant_config
 from scripts.indexer import chunk_text, content_hash
 from scripts.knowledge import index_answer_document
-from scripts.routes.trial import run_trial_indexing
+from scripts.routes.trial import schedule_indexing_job
 from scripts.utils import (
     rate_limit_check,
     verify_user,
@@ -570,7 +570,7 @@ async def user_upload_pdf(
             "text": chunk,
             "headings": [],
             "embedding": emb.tolist(),
-        } for i, (chunk, emb) in enumerate(zip(chunks, embeddings))]
+        } for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True))]
         cfg.sb.table("chunks").insert(rows).execute()
         return {"success": True, "doc_id": doc_id, "chunks": len(rows), "filename": pdf.filename}
 
@@ -610,26 +610,19 @@ async def user_recrawl_site(site_id: int, request: Request):
     if not safe:
         return JSONResponse({"error": reason}, status_code=400)
 
-    cfg.trial_progress[site_id] = {
-        "step": 0,
-        "total": 0,
-        "message": "Re-indexing started...",
-        "done": False,
-        "error": None,
-    }
-
     settings = site.get("settings") or {}
     use_playwright = bool(settings.get("use_playwright", False))
-
-    def reindex():
-        docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
-        for doc in (docs.data or []):
-            cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
-        cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
-        run_trial_indexing(site_id, source_url, max_pages, [], use_playwright)
-
-    asyncio.get_event_loop().create_task(asyncio.to_thread(reindex))
-    return {"success": True, "message": "Re-crawl started"}
+    job_id = schedule_indexing_job(
+        site_id,
+        source_url,
+        max_pages,
+        [],
+        use_playwright,
+        kind="recrawl",
+        replace_existing=True,
+        message="Customer re-crawl queued",
+    )
+    return {"success": True, "job_id": job_id, "message": "Re-crawl started"}
 
 
 @router.get("/api/user/internal-assistants")

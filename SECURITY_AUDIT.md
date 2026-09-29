@@ -239,4 +239,4 @@ Run: `python3 -m pytest tests/ -v`
 - **Multi-model embeddings** — support OpenAI embeddings as alternative to local model
 
 ### Code Quality
-- **Dependency health check** — extend `/health` to verify Supabase and OpenAI connectivity
+- **Dependency health check** — completed in Sprint 6; `/health` verifies Supabase and OpenAI connectivity

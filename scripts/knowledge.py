@@ -45,7 +45,7 @@ def index_answer_document(site_id: int, question: str, answer: str, title: str |
                 "headings": ["Customer-provided answer"],
                 "embedding": embedding.tolist(),
             }
-            for index, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+            for index, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True))
         ]).execute()
 
     return {"document_id": doc_id, "title": document_title, "chunks": len(chunks)}

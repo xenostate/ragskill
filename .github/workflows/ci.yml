@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/requirements-ci.txt
+      - name: Install pinned CI dependencies
+        run: python -m pip install -r scripts/requirements-ci.txt
+      - name: Verify dependency locks are current
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.15"
+      - run: |
+          cp scripts/requirements.txt /tmp/requirements.txt
+          cp scripts/requirements-ci.txt /tmp/requirements-ci.txt
+          uv pip compile scripts/requirements.in --python-version 3.11 --universal --no-emit-index-url --no-header --no-upgrade -o /tmp/requirements.txt
+          uv pip compile scripts/requirements-ci.in --python-version 3.11 --universal --no-emit-index-url --no-header --no-upgrade -o /tmp/requirements-ci.txt
+          diff -u scripts/requirements.txt /tmp/requirements.txt
+          diff -u scripts/requirements-ci.txt /tmp/requirements-ci.txt
+      - name: Lint
+        run: ruff check scripts tests
+      - name: Test
+        run: pytest

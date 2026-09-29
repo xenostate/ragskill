@@ -1,0 +1,11 @@
+[Unit]
+Description=Run WRS PostgreSQL backup every night
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=wrs-backup.service
+
+[Install]
+WantedBy=timers.target

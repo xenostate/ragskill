@@ -1,0 +1,2 @@
+-- Imported pre-migration optional WhatsApp schema.
+-- wrs:include references/whatsapp_migration.sql

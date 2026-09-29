@@ -281,8 +281,8 @@ class WhatsAppHandler:
         """Reply to non-text message types (image, video, audio, etc.)."""
         self._send_reply(
             account["api_token"], sender_phone,
-            f"I can only process text messages at this time. "
-            f"Please send your question as text.",
+            "I can only process text messages at this time. "
+            "Please send your question as text.",
             account.get("provider", "360dialog"),
         )
         log.info(f"Unsupported message type '{msg_type}' from {self._hash_phone(sender_phone)[:8]}...")

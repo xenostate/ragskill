@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import bcrypt
-import hashlib
 import io
 import os
 import re
@@ -32,7 +31,7 @@ from scripts.config_assistant import ConfigAssistantError, draft_assistant_confi
 from scripts.utils import rate_limit_check, get_client_ip, verify_admin, is_url_safe, is_valid_pdf
 from scripts.indexer import chunk_text, content_hash
 from scripts.knowledge import index_answer_document
-from scripts.routes.trial import run_trial_indexing
+from scripts.routes.trial import schedule_indexing_job
 
 router = APIRouter()
 
@@ -164,7 +163,7 @@ def setup_landing_site():
         )
 
         rows = []
-        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
             rows.append({
                 "document_id": doc_id,
                 "chunk_index": i,
@@ -287,7 +286,7 @@ async def admin_add_document(request: Request):
         embeddings = cfg.embed_model.encode(texts_to_embed, show_progress_bar=False, normalize_embeddings=True)
 
         rows = []
-        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
             rows.append({"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()})
 
         cfg.sb.table("chunks").insert(rows).execute()
@@ -568,7 +567,7 @@ async def admin_upload_pdf(
             return {"success": True, "doc_id": doc_id, "chunks": 0}
         texts_to_embed = [f"passage: {c}" for c in chunks]
         embeddings = cfg.embed_model.encode(texts_to_embed, show_progress_bar=False, normalize_embeddings=True)
-        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings))]
+        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True))]
         cfg.sb.table("chunks").insert(rows).execute()
         return {"success": True, "doc_id": doc_id, "chunks": len(rows), "filename": pdf.filename}
 
@@ -615,19 +614,25 @@ async def admin_recrawl_site(site_id: int, request: Request):
         settings["source_url"] = body["url"]
         cfg.sb.table("sites").update({"settings": settings}).eq("id", site_id).execute()
 
-    cfg.trial_progress[site_id] = {"step": 0, "total": 0, "message": "Starting re-crawl...", "done": False, "error": None}
-
-    def do_recrawl():
-        docs = cfg.sb.table("documents").select("id").eq("site_id", site_id).execute()
-        for doc in (docs.data or []):
-            cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
-        cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
-        run_trial_indexing(site_id, source_url, max_pages, [], use_playwright)
-
-    asyncio.get_event_loop().create_task(asyncio.to_thread(do_recrawl))
+    job_id = schedule_indexing_job(
+        site_id,
+        source_url,
+        max_pages,
+        [],
+        use_playwright,
+        kind="recrawl",
+        replace_existing=True,
+        message="Admin re-crawl queued",
+    )
 
     cfg.log.info(f"Admin triggered re-crawl for site {site_id}: url={source_url} max_pages={max_pages}")
-    return {"success": True, "site_id": site_id, "source_url": source_url, "message": "Re-crawl started"}
+    return {
+        "success": True,
+        "site_id": site_id,
+        "job_id": job_id,
+        "source_url": source_url,
+        "message": "Re-crawl started",
+    }
 
 
 @router.post("/api/admin/quick-activate")
@@ -701,14 +706,19 @@ async def admin_quick_activate(
         site_resp = cfg.sb.table("sites").insert(insert_payload).execute()
         site_id = site_resp.data[0]["id"]
 
-    cfg.trial_progress[site_id] = {"step": 0, "total": 0, "message": "Starting...", "done": False, "error": None}
     pw = use_playwright == "1"
-    asyncio.get_event_loop().create_task(
-        asyncio.to_thread(run_trial_indexing, site_id, url, max_pages, pdf_data, pw)
+    job_id = schedule_indexing_job(
+        site_id,
+        url,
+        max_pages,
+        pdf_data,
+        pw,
+        kind="activation",
+        message="Activation indexing queued",
     )
 
     cfg.log.info(f"Admin quick-activate: site_id={site_id} domain={domain} url={url} pdfs={len(pdf_data)}")
-    return {"success": True, "site_id": site_id, "widget_code": _widget_snippet(site_id)}
+    return {"success": True, "site_id": site_id, "job_id": job_id, "widget_code": _widget_snippet(site_id)}
 
 
 @router.post("/api/admin/internal/setup")
@@ -809,19 +819,19 @@ async def admin_analytics(request: Request):
 
     # Aggregate from week_logs
     week_count = len(week_logs)
-    ms_values = [l["response_time_ms"] for l in week_logs if l.get("response_time_ms")]
+    ms_values = [entry["response_time_ms"] for entry in week_logs if entry.get("response_time_ms")]
     avg_ms = int(sum(ms_values) / len(ms_values)) if ms_values else 0
 
     conf_dist: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
     days_map: dict[str, int] = defaultdict(int)
     site_counts: dict[int, int] = defaultdict(int)
-    for l in week_logs:
-        c = l.get("confidence") or "low"
+    for entry in week_logs:
+        c = entry.get("confidence") or "low"
         conf_dist[c] = conf_dist.get(c, 0) + 1
-        day = (l.get("created_at") or "")[:10]
+        day = (entry.get("created_at") or "")[:10]
         if day:
             days_map[day] += 1
-        sid = l.get("site_id")
+        sid = entry.get("site_id")
         if sid:
             site_counts[sid] += 1
 

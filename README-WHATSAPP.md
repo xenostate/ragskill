@@ -25,10 +25,10 @@ Meta conversation fees: ~$0.02-0.08 per conversation depending on country.
 
 ## 2. Run the Database Migration
 
-In Supabase SQL Editor, run the contents of:
+Apply the versioned migrations (the WhatsApp tables are migration `0002`):
 
-```
-references/whatsapp_migration.sql
+```bash
+.venv/bin/python3 -m scripts.migrate
 ```
 
 This creates two tables:
@@ -131,7 +131,7 @@ Customer WhatsApp ← BSP (360dialog) ← Reply
 ### Key files:
 - `scripts/whatsapp_handler.py` — handler class (parsing, BSP API, conversation persistence)
 - `scripts/server.py` — endpoints (`/api/whatsapp/webhook`, `/api/whatsapp/register`)
-- `references/whatsapp_migration.sql` — database tables
+- `migrations/0002_whatsapp.sql` — versioned database migration
 
 ### Multi-tenant:
 Each business gets their own row in `whatsapp_accounts` with their own phone number, API token, and linked `site_id`. All messages route through the same webhook — the handler resolves which business account to use based on the phone number in the webhook metadata.

@@ -2,7 +2,6 @@
 Tests for scripts/indexer.py — chunking, HTML cleaning, link extraction, content hashing.
 """
 
-import pytest
 
 from scripts.indexer import (
     clean_html,
@@ -124,7 +123,7 @@ class TestChunkText:
         c0_words = set(chunks[0].split())
         c1_first_words = chunks[1].split()[:12]
         overlap_found = any(w in c0_words for w in c1_first_words)
-        assert overlap_found, f"No overlap found between chunks"
+        assert overlap_found, "No overlap found between chunks"
 
     def test_multiple_paragraphs(self):
         paragraphs = [f"Paragraph {i} content." for i in range(10)]
@@ -186,14 +185,14 @@ class TestExtractLinks:
     def test_same_domain_links(self):
         html = '<html><body><a href="/about">About</a><a href="https://other.com">Other</a></body></html>'
         links = extract_links(html, "https://example.com/", "example.com")
-        assert any("/about" in l for l in links)
-        assert not any("other.com" in l for l in links)
+        assert any("/about" in link for link in links)
+        assert not any("other.com" in link for link in links)
 
     def test_skips_media_files(self):
         html = '<html><body><a href="/image.png">Pic</a><a href="/page">Page</a></body></html>'
         links = extract_links(html, "https://example.com/", "example.com")
-        assert not any(".png" in l for l in links)
-        assert any("/page" in l for l in links)
+        assert not any(".png" in link for link in links)
+        assert any("/page" in link for link in links)
 
     def test_no_fragments(self):
         html = '<html><body><a href="/page#section">Section</a></body></html>'
@@ -204,7 +203,7 @@ class TestExtractLinks:
     def test_relative_urls_resolved(self):
         html = '<html><body><a href="subpage">Sub</a></body></html>'
         links = extract_links(html, "https://example.com/docs/", "example.com")
-        assert any("subpage" in l for l in links)
+        assert any("subpage" in link for link in links)
 
 
 # ── content_hash ───────────────────────────────────────────────────────────

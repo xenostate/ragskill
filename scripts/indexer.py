@@ -190,7 +190,7 @@ def clean_html(html: str) -> tuple[str, str]:
             if row.find("th") and not row.find("td"):
                 headers = cell_texts
             elif headers and len(cell_texts) == len(headers):
-                pairs = [f"{h}: {v}" for h, v in zip(headers, cell_texts) if v]
+                pairs = [f"{h}: {v}" for h, v in zip(headers, cell_texts, strict=True) if v]
                 if pairs:
                     text_lines.append(" | ".join(pairs))
             else:
@@ -478,7 +478,7 @@ def index_site(site_id: int, max_pages: int, start_url: str | None = None, rende
 
             # Insert chunks
             rows = []
-            for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+            for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
                 rows.append({
                     "document_id": doc_id,
                     "chunk_index": i,

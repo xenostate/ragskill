@@ -69,7 +69,7 @@ python3 -m venv .venv
 3. Once created, go to **Settings → API** and copy:
    - **Project URL** (e.g. `https://xxxxx.supabase.co`)
    - **Service role key** (the `service_role` one, NOT `anon`)
-4. Go to **SQL Editor** → paste and run everything in `references/schema.sql`
+4. Copy the direct database connection string from **Settings → Database**.
 
 ### 3. Configure environment
 
@@ -82,6 +82,8 @@ Edit `.env` with your credentials:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=eyJ...your-service-role-key
+SUPABASE_ANON_KEY=eyJ...your-anon-key
+DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
 EMBED_MODEL=intfloat/multilingual-e5-base
 OPENAI_API_KEY=sk-proj-...your-openai-key
 TELEGRAM_BOT_TOKEN=123456:ABC...your-bot-token    # optional
@@ -93,7 +95,15 @@ SMTP_FROM=alerts@example.com                      # optional
 SMTP_USE_TLS=true                                 # optional
 ```
 
-### 4. Add a site to index
+### 4. Apply database migrations
+
+```bash
+.venv/bin/python3 -m scripts.migrate
+```
+
+Migrations are ordered, transactional, protected by a Postgres advisory lock, and checksummed in `schema_migrations`. Never edit an applied migration; add the next numbered file in `migrations/`.
+
+### 5. Add a site to index
 
 In the Supabase **SQL Editor**:
 
@@ -102,7 +112,7 @@ INSERT INTO sites (domain, language) VALUES ('example.com', 'en');
 -- Note the returned ID (e.g. 1)
 ```
 
-### 5. Crawl and index the site
+### 6. Crawl and index the site
 
 ```bash
 # For normal HTML sites:
@@ -112,7 +122,7 @@ INSERT INTO sites (domain, language) VALUES ('example.com', 'en');
 .venv/bin/python3 scripts/indexer.py --site-id 1 --max-pages 50 --renderer playwright
 ```
 
-### 6. Start the server
+### 7. Start the server
 
 ```bash
 ./start.sh
@@ -127,6 +137,8 @@ curl -s -X POST http://localhost:8090/api/chat \
   -H "Content-Type: application/json" \
   -d '{"site_id": 1, "query": "What does this company do?"}' | python3 -m json.tool
 ```
+
+`/health` checks the embedding model, Supabase/Postgres access, and OpenAI access and returns HTTP 503 if a required dependency is unavailable. `/health/live` is a lightweight process liveness endpoint.
 
 ## Commands Cheatsheet
 
@@ -321,7 +333,7 @@ Manual workflow:
 
 The design surface is deliberately constrained. `appearance.preset` accepts only `professional`, `friendly`, or `minimal`; launcher icons accept `chat`, `message`, `sparkles`, or `question`; launcher positions accept `left` or `right`. Existing embed attributes remain valid as fallbacks, so older installations do not need to change their script tag.
 
-Run the latest `references/schema.sql` migration before enabling feedback analytics. If the optional `assistant_feedback` table is not present yet, feedback remains non-blocking for visitors and the widget continues normally.
+Run `.venv/bin/python3 -m scripts.migrate` before enabling feedback analytics. If the optional `assistant_feedback` table is not present yet, feedback remains non-blocking for visitors and the widget continues normally.
 
 ## Pilot Analytics and Improvement Loop
 
@@ -337,7 +349,7 @@ Each customer site now has a **Pilot outcomes** panel in `/app` → **My Sites**
 
 From a flagged question, the customer can add an approved answer. WRS indexes it as a new knowledge document and marks that interaction resolved. Customers can also upload a supporting PDF from the same site page. **Export monthly CSV** downloads the selected month's summary and full question/answer detail.
 
-Run the complete `references/schema.sql` in Supabase before deploying this feature. The migration adds answer, error, response-source, resolution, session, and stable interaction fields to `chat_logs` while remaining safe to re-run.
+Run `.venv/bin/python3 -m scripts.migrate` before deploying this feature. The baseline migration adds answer, error, response-source, resolution, session, and stable interaction fields to `chat_logs` while remaining safe on an existing database.
 
 ### Starter Actions
 
@@ -502,10 +514,18 @@ Important:
 .
 ├── .env.example             # Template for environment variables
 ├── start.sh                 # One-command server launcher
+├── Dockerfile               # Pinned production/staging image
+├── compose.staging.yml      # App + Caddy staging topology
+├── migrations/              # Ordered, checksummed database migrations
+├── ops/                     # Staging deploy and backup/restore automation
 ├── scripts/
-│   ├── requirements.txt     # Python dependencies
+│   ├── requirements.txt     # Fully pinned cross-platform dependencies
+│   ├── requirements-linux.txt # Fully pinned CPU-only VPS dependencies
 │   ├── server.py            # FastAPI entry point (lifespan, middleware)
 │   ├── config.py            # Shared config, constants, mutable globals
+│   ├── jobs.py              # Durable crawl/indexing job state
+│   ├── migrate.py           # Transactional migration runner
+│   ├── observability.py     # JSON logs and sensitive-field filtering
 │   ├── assistant_features.py # Assistant config, forms, notification routing
 │   ├── analytics.py         # Pilot metrics, quality triage, monthly CSV export
 │   ├── config_assistant.py  # LLM-assisted, validated config drafting
@@ -537,7 +557,7 @@ Important:
 │   ├── admin.html           # Admin dashboard
 │   └── assistant.html       # Internal assistant page
 └── references/
-    ├── schema.sql           # Supabase database schema (run once)
+    ├── schema.sql           # Immutable pre-migration baseline
     └── korean_school_assistant.ru.json # Example tenant assistant config
 ```
 
@@ -567,34 +587,21 @@ Then crawl it:
 .venv/bin/python3 scripts/indexer.py --site-id 3 --max-pages 100
 ```
 
-## Deployment (Production)
+## Deployment and operations
 
 For always-on hosting without running on your local machine:
 
-### VPS (Recommended — $4-6/mo)
+### Staging on a VPS
 
-1. Get a VPS (Hetzner, DigitalOcean, etc.)
-2. Clone repo, create `.venv`, install deps
-3. Set up as a systemd service:
+The repository includes a staging environment with the app, automatic TLS through Caddy, health checks, restart policies, bounded JSON logs, a persistent embedding-model cache, and a one-shot migration service:
 
-```ini
-# /etc/systemd/system/web-rag.service
-[Unit]
-Description=Web-RAG Server
-After=network.target
-
-[Service]
-WorkingDirectory=/opt/web-rag
-ExecStart=/opt/web-rag/.venv/bin/uvicorn scripts.server:app --host 0.0.0.0 --port 8090
-Restart=always
-EnvironmentFile=/opt/web-rag/.env
-
-[Install]
-WantedBy=multi-user.target
+```bash
+cp .env.staging.example .env.staging
+# Fill secrets and point STAGING_HOST DNS at the VPS.
+ops/deploy-staging.sh
 ```
 
-4. Reverse proxy with Caddy or Nginx for HTTPS
-5. Register Telegram webhook once with the permanent domain
+See `ops/README.md` for staging, migration, backup, restore, off-site copy, and systemd timer instructions.
 
 ### Docker
 
@@ -603,10 +610,19 @@ docker build -t web-rag .
 docker run -d --env-file .env -p 8090:8090 web-rag
 ```
 
+### Monitoring and error tracking
+
+The scheduled GitHub Actions uptime workflow checks production every five minutes and checks staging when the `STAGING_URL` repository variable is set. Set `PRODUCTION_URL` to override the default `https://wrs.kz` target. Configure `SENTRY_DSN` to enable sanitized FastAPI error reporting; default PII collection is disabled.
+
+Application logs are JSON by default. Request IDs are returned in `X-Request-ID`; credentials, bearer tokens, JWTs, email addresses, and IP addresses are filtered before logs or Sentry events leave the process.
+
+Indexing is still executed by the application process, but every job and progress transition is durable in `indexing_jobs`. Jobs interrupted by a process restart are explicitly marked failed and can be retried instead of disappearing from memory.
+
 ### Running Tests
 
 ```bash
-python3 -m pytest tests/ -v
+python3 -m pytest
+ruff check scripts tests
 ```
 
 Tests cover rate limiting, auth, assistant config normalization, form validation, SSRF protection, HTML cleaning, chunking, and link extraction.
@@ -645,6 +661,14 @@ cloudflared tunnel --url http://localhost:8090
 | `TRUSTED_PROXIES` | `127.0.0.1,::1` | Trusted reverse proxy IPs/CIDRs for X-Forwarded-For |
 | `THREAD_POOL_SIZE` | `4` | Max concurrent embedding/PDF threads |
 | `WHATSAPP_ENABLED` | `false` | Enable WhatsApp Business webhook |
+| `DATABASE_URL` | *(none)* | Direct/session-pooler Postgres URL for migrations and backups |
+| `APP_ENV` | `development` | Environment tag used by health, logs, and Sentry |
+| `APP_VERSION` | `dev` | Release/version tag used by health and Sentry |
+| `LOG_FORMAT` | `json` | `json` for structured logs or `text` for local readability |
+| `LOG_LEVEL` | `INFO` | Application log threshold |
+| `SENTRY_DSN` | *(none)* | Enables error tracking when configured |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.05` | Fraction of requests retained for tracing |
+| `HEALTHCHECK_TIMEOUT` | `5` | Timeout per external dependency check in seconds |
 
 ## Cost
 

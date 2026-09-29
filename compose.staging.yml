@@ -1,0 +1,65 @@
+name: wrs-staging
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.staging
+    environment:
+      APP_ENV: staging
+      LOG_FORMAT: json
+      HF_HOME: /home/wrs/.cache/huggingface
+    expose:
+      - "8090"
+    restart: unless-stopped
+    init: true
+    volumes:
+      - model-cache:/home/wrs/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health/live', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  proxy:
+    image: caddy:2.10.2-alpine
+    env_file:
+      - .env.staging
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - ./ops/Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.staging
+    command: ["python", "-m", "scripts.migrate"]
+    profiles: ["tools"]
+
+volumes:
+  model-cache:
+  caddy-data:
+  caddy-config:

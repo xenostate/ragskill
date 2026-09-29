@@ -1,0 +1,4 @@
+# Production/VPS lock input. The explicit CPU wheel avoids pulling CUDA onto
+# hosts that run the embedding model on CPU.
+-r requirements.in
+torch==2.14.0+cpu

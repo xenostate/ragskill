@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import ipaddress
 import json
-import logging
 import os
 import threading
 import time
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+from scripts.observability import configure_logging
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # ── Config ──────────────────────────────────────────────────────────────────
@@ -28,6 +29,13 @@ EMBED_MODEL = os.environ.get("EMBED_MODEL", "intfloat/multilingual-e5-base")
 RAG_MODEL = os.environ.get("RAG_MODEL", "gpt-4o-mini")
 ASSISTANT_CONFIG_MODEL = os.environ.get("ASSISTANT_CONFIG_MODEL", RAG_MODEL)
 RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "5"))
+APP_ENV = os.environ.get("APP_ENV", "development")
+APP_VERSION = os.environ.get("APP_VERSION", "dev")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "http://localhost:8090").rstrip("/")
+HEALTHCHECK_TIMEOUT = float(os.environ.get("HEALTHCHECK_TIMEOUT", "5"))
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.05"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("OPENAI_KEY", ""))
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -73,8 +81,7 @@ LANDING_DOMAIN = "landing.wrs.kz"
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-log = logging.getLogger("rag-server")
+log = configure_logging()
 
 # ── Mutable globals (warm on startup) ───────────────────────────────────────
 

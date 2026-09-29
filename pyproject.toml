@@ -1,0 +1,17 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = ["B008"] # FastAPI intentionally uses File()/Form() in parameter defaults.
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/indexer.py" = ["E402"]
+"scripts/rag.py" = ["E402"]
+"scripts/retriever.py" = ["E402"]
+"tests/conftest.py" = ["E402"]

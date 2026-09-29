@@ -33,6 +33,7 @@ cloudpickle==3.1.2
     # via joblib
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
+    #   pytest
     #   tqdm
     #   typer
 cryptography==50.0.1
@@ -107,6 +108,8 @@ idna==3.20
     #   httpx2
     #   requests
     #   yarl
+iniconfig==2.3.0
+    # via pytest
 jinja2==3.1.6
     # via torch
 jiter==0.17.0
@@ -190,9 +193,12 @@ packaging==26.3
     # via
     #   deprecation
     #   huggingface-hub
+    #   pytest
     #   transformers
 playwright==1.63.0
     # via -r scripts/requirements.in
+pluggy==1.6.0
+    # via pytest
 postgrest==2.31.0
     # via supabase
 propcache==0.5.4
@@ -216,11 +222,15 @@ pydantic-core==2.46.5
 pyee==13.0.1
     # via playwright
 pygments==2.21.0
-    # via rich
+    # via
+    #   pytest
+    #   rich
 pyjwt==2.15.1
     # via supabase-auth
 pypdf==6.19.0
     # via -r scripts/requirements.in
+pytest==9.1.1
+    # via -r scripts/requirements-dev.in
 python-dotenv==1.2.3
     # via
     #   -r scripts/requirements.in
@@ -246,6 +256,8 @@ requests==2.34.2
     #   tiktoken
 rich==15.0.0
     # via typer
+ruff==0.16.9
+    # via -r scripts/requirements-dev.in
 safetensors==0.8.0
     # via transformers
 scikit-learn==1.9.1

@@ -21,7 +21,7 @@ from pypdf import PdfReader
 import scripts.config as cfg
 from scripts.utils import rate_limit_check, verify_internal, verify_user, is_url_safe, is_valid_pdf
 from scripts.indexer import chunk_text, content_hash
-from scripts.routes.trial import run_trial_indexing
+from scripts.routes.trial import schedule_indexing_job
 
 router = APIRouter()
 
@@ -192,7 +192,7 @@ async def internal_add_text(slug: str, request: Request):
             return {"success": True, "doc_id": doc_id, "chunks": 0}
         texts_to_embed = [f"passage: {c}" for c in chunks]
         embeddings = cfg.embed_model.encode(texts_to_embed, show_progress_bar=False, normalize_embeddings=True)
-        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings))]
+        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True))]
         cfg.sb.table("chunks").insert(rows).execute()
         return {"success": True, "doc_id": doc_id, "chunks": len(rows)}
 
@@ -233,7 +233,7 @@ async def internal_upload_pdf(slug: str, request: Request, pdf: UploadFile = Fil
             return {"success": True, "doc_id": doc_id, "chunks": 0}
         texts_to_embed = [f"passage: {c}" for c in chunks]
         embeddings = cfg.embed_model.encode(texts_to_embed, show_progress_bar=False, normalize_embeddings=True)
-        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings))]
+        rows = [{"document_id": doc_id, "chunk_index": i, "text": chunk, "headings": [], "embedding": emb.tolist()} for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True))]
         cfg.sb.table("chunks").insert(rows).execute()
         return {"success": True, "doc_id": doc_id, "chunks": len(rows), "filename": pdf.filename}
 
@@ -267,15 +267,18 @@ async def internal_crawl(slug: str, request: Request):
         return JSONResponse({"error": reason}, status_code=400)
 
     site_id = session["site_id"]
-    cfg.trial_progress[site_id] = {"step": 0, "total": 0, "message": "Starting crawl...", "done": False, "error": None}
-
-    def do_crawl():
-        run_trial_indexing(site_id, url, max_pages, [], False)
-
-    asyncio.get_event_loop().create_task(asyncio.to_thread(do_crawl))
+    job_id = schedule_indexing_job(
+        site_id,
+        url,
+        max_pages,
+        [],
+        False,
+        kind="internal_crawl",
+        message="Internal knowledge crawl queued",
+    )
 
     cfg.log.info(f"Internal assistant {slug}: started crawl url={url} max_pages={max_pages}")
-    return {"success": True, "site_id": site_id, "message": "Crawl started"}
+    return {"success": True, "site_id": site_id, "job_id": job_id, "message": "Crawl started"}
 
 
 @router.delete("/api/internal/{slug}/chunks/{chunk_id}")

@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.git
+.github
+.pytest_cache
+.ruff_cache
+.venv
+.tokens.json
+__pycache__
+*.py[cod]
+*.docx
+backups
+tests
