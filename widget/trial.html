@@ -1262,6 +1262,7 @@
             trialBtn: "Запустить индексацию",
             trialErrUrl: "Пожалуйста, введите URL.",
             trialErrNet: "Ошибка сети.",
+            demoServerError: "Не удалось запустить индексацию. Попробуйте позже.",
             progTitle: "Индексация...",
             progSub: "Сканируем и индексируем контент вашего сайта. Обычно это занимает 10-30 секунд.",
             progLoading: "Загрузка...",
@@ -1397,6 +1398,7 @@
             trialBtn: "Index & Launch Assistant",
             trialErrUrl: "Please enter a URL.",
             trialErrNet: "Network error.",
+            demoServerError: "Could not start indexing. Please try again later.",
             progTitle: "Indexing...",
             progSub: "We're crawling and embedding your content. This usually takes 10-30 seconds.",
             progLoading: "Loading...",
@@ -1532,6 +1534,7 @@
             trialBtn: "Индекстеуді бастау",
             trialErrUrl: "URL енгізіңіз.",
             trialErrNet: "Желі қатесі.",
+            demoServerError: "Индекстеуді бастау мүмкін болмады. Кейінірек қайталап көріңіз.",
             progTitle: "Индекстеу...",
             progSub: "Сайт мазмұнын сканерлеу және индекстеу жүруде. Әдетте 10-30 секунд алады.",
             progLoading: "Жүктелуде...",
@@ -1890,13 +1893,21 @@
                 method: "POST",
                 body: fd,
             });
-            const data = await resp.json();
+            let data = null;
+            try { data = await resp.json(); } catch (e) {}
             if (requestId !== activeDemoRequest) {
-                if (resp.ok) deleteDemo(data.site_id);
+                if (resp.ok && data?.site_id) deleteDemo(data.site_id);
                 return;
             }
 
-            if (!resp.ok) { showDemoError(data.error || t.trialErrNet); return; }
+            if (!resp.ok) {
+                const message = data?.code === "INDEXING_UNAVAILABLE"
+                    ? t.demoServerError
+                    : (data?.error || `${t.demoServerError} (HTTP ${resp.status})`);
+                showDemoError(message);
+                return;
+            }
+            if (!data?.site_id) { showDemoError(t.demoServerError); return; }
 
             siteId = data.site_id;
             chatSessionId = `trial_${siteId}_${Math.random().toString(36).slice(2, 10)}`;

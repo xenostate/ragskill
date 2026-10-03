@@ -540,16 +540,27 @@ async def trial_start(
     site_id = site_resp.data[0]["id"]
 
     pw = use_playwright == "1" or _is_spa_route(url)
-    job_id = schedule_indexing_job(
-        site_id,
-        url,
-        max_pages,
-        pdf_data,
-        pw,
-        kind="trial",
-        message="Trial indexing queued",
-        auto_language=auto_language,
-    )
+    try:
+        job_id = schedule_indexing_job(
+            site_id,
+            url,
+            max_pages,
+            pdf_data,
+            pw,
+            kind="trial",
+            message="Trial indexing queued",
+            auto_language=auto_language,
+        )
+    except Exception:
+        cfg.log.exception("could not queue trial indexing", extra={"event": "trial.queue_failed", "site_id": site_id})
+        try:
+            cfg.sb.table("sites").delete().eq("id", site_id).execute()
+        except Exception:
+            cfg.log.exception("could not remove failed trial site", extra={"event": "trial.cleanup_failed", "site_id": site_id})
+        return JSONResponse(
+            {"error": "Could not start indexing. Please try again later.", "code": "INDEXING_UNAVAILABLE"},
+            status_code=503,
+        )
     if not auto_language:
         cfg.trial_progress[site_id]["language"] = initial_language
 

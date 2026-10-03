@@ -2,8 +2,10 @@
 Tests for scripts/indexer.py — chunking, HTML cleaning, link extraction, content hashing.
 """
 
+from requests import Response
 
 from scripts.indexer import (
+    StaticRenderer,
     clean_html,
     chunk_text,
     extract_headings,
@@ -14,6 +16,20 @@ from scripts.indexer import (
     should_index_page,
     _split_sentences,
 )
+
+
+def test_static_renderer_decodes_utf8_without_http_charset(monkeypatch):
+    response = Response()
+    response.status_code = 200
+    response.headers["content-type"] = "text/html"
+    response._content = '<html><head><title>Roman Ten — Applied AI</title></head></html>'.encode("utf-8")
+    renderer = StaticRenderer()
+    monkeypatch.setattr(renderer.session, "get", lambda *_args, **_kwargs: response)
+
+    html, status = renderer.fetch("https://example.com")
+
+    assert status == 200
+    assert "Roman Ten — Applied AI" in html
 
 
 # ── clean_html ─────────────────────────────────────────────────────────────

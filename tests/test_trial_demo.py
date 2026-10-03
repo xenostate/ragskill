@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from postgrest.exceptions import APIError
 
 import scripts.config as cfg
 import scripts.routes.trial as trial
@@ -25,10 +26,16 @@ class FakeQuery:
         self.action, self.payload = "update", payload
         return self
 
+    def delete(self):
+        self.action, self.payload = "delete", None
+        return self
+
     def eq(self, *_args):
         return self
 
     def execute(self):
+        if self.table == "indexing_jobs" and self.database.jobs_table_missing:
+            raise APIError({"code": "PGRST205", "message": "Could not find indexing_jobs"})
         self.database.writes.append((self.table, self.action, self.payload))
         return SimpleNamespace(data=[{"id": 17 if self.table == "sites" else 31}])
 
@@ -36,6 +43,7 @@ class FakeQuery:
 class FakeDatabase:
     def __init__(self):
         self.writes = []
+        self.jobs_table_missing = False
 
     def table(self, name):
         return FakeQuery(self, name)
@@ -68,6 +76,47 @@ def test_homepage_demo_defaults_to_ten_auto_rendered_pages_and_one_hour(monkeypa
     assert args[:3] == (17, "https://example.com/ru", 10)
     assert args[4] is False  # Adaptive rendering chooses Playwright only when needed.
     assert options["auto_language"] is True
+
+
+def test_trial_start_returns_json_and_removes_site_when_queueing_fails(monkeypatch):
+    database = FakeDatabase()
+    monkeypatch.setattr(cfg, "sb", database)
+    monkeypatch.setattr(trial, "rate_limit_check", lambda *_args: None)
+    monkeypatch.setattr(trial, "verify_user", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(trial, "is_url_safe", lambda _url: (True, ""))
+
+    def fail_queue(*_args, **_kwargs):
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(trial, "schedule_indexing_job", fail_queue)
+    app = FastAPI()
+    app.include_router(trial.router)
+
+    response = TestClient(app).post("/api/trial/start", data={"url": "https://example.com"})
+
+    assert response.status_code == 503
+    assert response.json()["error"] == "Could not start indexing. Please try again later."
+    assert ("sites", "delete", None) in database.writes
+
+
+def test_trial_start_succeeds_when_jobs_migration_is_missing(monkeypatch):
+    database = FakeDatabase()
+    database.jobs_table_missing = True
+    monkeypatch.setattr(cfg, "sb", database)
+    monkeypatch.setattr(cfg, "trial_progress", {})
+    monkeypatch.setattr(trial, "rate_limit_check", lambda *_args: None)
+    monkeypatch.setattr(trial, "verify_user", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(trial, "is_url_safe", lambda _url: (True, ""))
+    monkeypatch.setattr(trial, "run_trial_indexing", lambda *_args, **_kwargs: None)
+    app = FastAPI()
+    app.include_router(trial.router)
+
+    response = TestClient(app).post("/api/trial/start", data={"url": "https://tenroman.com"})
+
+    assert response.status_code == 200
+    assert response.json()["site_id"] == 17
+    assert cfg.trial_progress[17]["_volatile"] is True
+    assert cfg.trial_progress[17]["status"] == "queued"
 
 
 def test_trial_crawl_keeps_query_locale_and_publishes_page_language(monkeypatch):

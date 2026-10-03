@@ -15,6 +15,11 @@ from scripts.observability import redact_text
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled"}
 
 
+def _jobs_table_missing(exc: Exception) -> bool:
+    """Recognize PostgREST's specific missing-table error, not other DB failures."""
+    return getattr(exc, "code", None) == "PGRST205"
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -61,7 +66,17 @@ def create_indexing_job(
         "created_at": now,
         "updated_at": now,
     }
-    cfg.sb.table("indexing_jobs").insert(row).execute()
+    volatile = False
+    try:
+        cfg.sb.table("indexing_jobs").insert(row).execute()
+    except Exception as exc:
+        if not _jobs_table_missing(exc):
+            raise
+        volatile = True
+        cfg.log.warning(
+            "indexing_jobs table is unavailable; progress will be kept in memory until the migration runs",
+            extra={"event": "indexing_job.volatile", "site_id": site_id, "job_id": job_id},
+        )
     cfg.trial_progress[site_id] = {
         "job_id": job_id,
         "step": 0,
@@ -70,6 +85,7 @@ def create_indexing_job(
         "done": False,
         "error": None,
         "status": "queued",
+        "_volatile": volatile,
     }
     cfg.log.info(
         "indexing job queued",
@@ -96,9 +112,19 @@ def update_indexing_job(job_id: str, site_id: int, **changes: Any) -> None:
     if payload.get("status") == "running" and "heartbeat_at" not in payload:
         payload["heartbeat_at"] = payload["updated_at"]
 
-    cfg.sb.table("indexing_jobs").update(payload).eq("id", job_id).execute()
-
     progress = cfg.trial_progress.setdefault(site_id, {"job_id": job_id})
+    if not progress.get("_volatile"):
+        try:
+            cfg.sb.table("indexing_jobs").update(payload).eq("id", job_id).execute()
+        except Exception as exc:
+            if not _jobs_table_missing(exc):
+                raise
+            progress["_volatile"] = True
+            cfg.log.warning(
+                "indexing_jobs table became unavailable; progress will be kept in memory",
+                extra={"event": "indexing_job.volatile", "site_id": site_id, "job_id": job_id},
+            )
+
     for key in ("step", "total", "message", "error", "status"):
         if key in payload:
             progress[key] = payload[key]
@@ -176,14 +202,19 @@ def fail_indexing_job(job_id: str, site_id: int, exc: Exception) -> None:
 
 
 def latest_indexing_job(site_id: int) -> dict | None:
-    response = (
-        cfg.sb.table("indexing_jobs")
-        .select("id,site_id,kind,status,step,total,message,error,error_code,created_at,started_at,finished_at,updated_at")
-        .eq("site_id", site_id)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
+    try:
+        response = (
+            cfg.sb.table("indexing_jobs")
+            .select("id,site_id,kind,status,step,total,message,error,error_code,created_at,started_at,finished_at,updated_at")
+            .eq("site_id", site_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        if not _jobs_table_missing(exc):
+            raise
+        return None
     return response.data[0] if response.data else None
 
 
@@ -207,17 +238,22 @@ def progress_payload(job: dict) -> dict:
 def mark_interrupted_jobs() -> int:
     """Make work abandoned by a prior process restart explicit and observable."""
     now = _now_iso()
-    response = (
-        cfg.sb.table("indexing_jobs")
-        .update({
-            "status": "failed",
-            "message": "Interrupted by application restart; retry the indexing job",
-            "error": "The worker stopped before this job completed.",
-            "error_code": "WorkerRestart",
-            "finished_at": now,
-            "updated_at": now,
-        })
-        .in_("status", ["queued", "running"])
-        .execute()
-    )
+    try:
+        response = (
+            cfg.sb.table("indexing_jobs")
+            .update({
+                "status": "failed",
+                "message": "Interrupted by application restart; retry the indexing job",
+                "error": "The worker stopped before this job completed.",
+                "error_code": "WorkerRestart",
+                "finished_at": now,
+                "updated_at": now,
+            })
+            .in_("status", ["queued", "running"])
+            .execute()
+        )
+    except Exception as exc:
+        if not _jobs_table_missing(exc):
+            raise
+        return 0
     return len(response.data or [])

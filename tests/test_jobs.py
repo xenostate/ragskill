@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+from postgrest.exceptions import APIError
+
 import scripts.config as cfg
 from scripts.jobs import create_indexing_job, progress_payload, update_indexing_job
 
@@ -51,6 +53,27 @@ def test_update_job_mirrors_terminal_progress(monkeypatch):
     assert cfg.trial_progress[9]["done"] is True
     assert cfg.trial_progress[9]["step"] == 3
     assert cfg.trial_progress[9]["message"] == "Done"
+
+
+def test_missing_jobs_table_keeps_trial_progress_in_memory(monkeypatch):
+    missing_table = APIError({"code": "PGRST205", "message": "Could not find the table 'public.indexing_jobs'"})
+    table = MagicMock()
+    table.insert.return_value.execute.side_effect = missing_table
+    table.update.side_effect = AssertionError("volatile job must not write to missing table")
+    client = MagicMock()
+    client.table.return_value = table
+    monkeypatch.setattr(cfg, "sb", client)
+    monkeypatch.setattr(cfg, "trial_progress", {})
+
+    job_id = create_indexing_job(
+        42, "trial", url="https://example.com", max_pages=10, use_playwright=False,
+    )
+    update_indexing_job(job_id, 42, status="succeeded", step=2, total=2, message="Done")
+
+    assert cfg.trial_progress[42]["_volatile"] is True
+    assert cfg.trial_progress[42]["done"] is True
+    assert cfg.trial_progress[42]["step"] == 2
+    table.update.assert_not_called()
 
 
 def test_progress_payload_has_legacy_sse_shape():

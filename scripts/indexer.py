@@ -74,6 +74,8 @@ class StaticRenderer:
             resp = self.session.get(url, timeout=15)
             if "text/html" not in resp.headers.get("content-type", ""):
                 return None
+            if "charset=" not in resp.headers.get("content-type", "").lower():
+                resp.encoding = resp.apparent_encoding or "utf-8"
             return resp.text, resp.status_code
         except requests.RequestException as e:
             print(f"  skip  {url} ({e})")
