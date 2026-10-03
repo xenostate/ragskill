@@ -884,17 +884,55 @@
         <h1 data-i18n-html="heroTitle">Подарите <span class="gradient-text">умного помощника</span> вашему сайту</h1>
         <p data-i18n="heroSub">Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.</p>
         <form class="demo-form" id="hero-demo-form" onsubmit="startTrial(event)">
+            <div class="demo-form-heading">
+                <span class="demo-form-index" data-i18n="demoFormIndex">01 / ДЕМО</span>
+                <span class="demo-form-limit" data-i18n="demoFormLimit">10 СТРАНИЦ · АВТО</span>
+            </div>
             <label for="hero-demo-url" data-i18n="demoUrlLabel">Введите адрес вашего сайта</label>
-            <textarea id="hero-demo-url" name="url" rows="1" placeholder="https://yoursite.com" aria-describedby="hero-demo-hint" required></textarea>
+            <div class="demo-url-field">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 2.93l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21.07l1.7-1.7"/></svg>
+                <textarea id="hero-demo-url" name="url" rows="1" placeholder="https://yoursite.com" aria-describedby="hero-demo-hint" required></textarea>
+            </div>
             <div class="demo-form-bottom">
-                <span id="hero-demo-hint" data-i18n="demoUrlHint">Мы загрузим до 10 страниц и откроем ваш демо-чат.</span>
+                <span id="hero-demo-hint" data-i18n="demoUrlHint">Загрузим до 10 страниц. Ассистент появится ниже.</span>
                 <button class="hero-cta" type="submit">
-                    <span data-i18n="demoSubmit">Запустить демо</span>
+                    <span data-i18n="demoSubmit">Начать</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </button>
             </div>
             <div class="err demo-form-error" id="hero-demo-error" role="alert"></div>
         </form>
+
+        <div class="demo-assistant" id="demo-assistant" hidden aria-live="polite">
+            <div class="demo-assistant-head">
+                <div>
+                    <span class="demo-assistant-label" data-i18n="demoAssistantLabel">ДЕМО-АССИСТЕНТ</span>
+                    <h2 id="c-title">Assistant</h2>
+                </div>
+                <button class="demo-close" type="button" onclick="resetAll()" data-i18n-aria="demoClose" aria-label="Close demo">&times;</button>
+            </div>
+            <div class="demo-chat-progress" id="c-progress" role="status" aria-live="polite">
+                <span id="c-progress-text" data-i18n="progStart">Начинаем...</span>
+                <div class="progress-bar-track"><div class="progress-bar-val pulse" id="c-progress-bar"></div></div>
+            </div>
+            <div class="chat-box">
+                <div class="chat-body" id="c-body">
+                    <div class="msg bot" id="c-greeting" hidden></div>
+                    <div class="typing" id="c-typing"><span></span><span></span><span></span></div>
+                </div>
+                <div class="chat-foot">
+                    <input id="c-input" data-i18n-ph="chatPh" disabled>
+                    <button id="c-send" onclick="sendMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="err" id="c-error" role="alert"></div>
+            <button class="btn btn-primary demo-retry" id="c-retry" type="button" onclick="retryDemo()" data-i18n="demoRetry">Попробовать ещё раз</button>
+            <div class="demo-actions">
+                <button class="btn btn-ghost" onclick="resetAll()"><span data-i18n="chatTryAnother"></span></button>
+            </div>
+        </div>
     </section>
 
     <!-- Features -->
@@ -960,7 +998,7 @@
 </div>
 
 <!-- ══════════ APP FLOW ══════════ -->
-<div class="app" id="app-flow" role="dialog" aria-modal="true" aria-labelledby="demo-dialog-title">
+<div class="app" id="app-flow">
 <div class="page">
 
     <!-- Step dots -->
@@ -1074,43 +1112,6 @@
         <div class="err" id="p-err"></div>
     </div>
 
-    <!-- ═══ STEP 3: Chat ═══ -->
-    <div id="s-chat" class="section">
-        <button class="demo-close" type="button" onclick="resetAll()" data-i18n-aria="demoClose" aria-label="Close demo">&times;</button>
-        <h1 class="section-title" id="demo-dialog-title" data-i18n="chatTitle" tabindex="-1"></h1>
-        <p class="section-sub" data-i18n="chatSub"></p>
-
-        <div class="chat-box">
-            <div class="chat-bar">
-                <span id="c-title">Assistant</span>
-                <small data-i18n="trialBadge">пробный</small>
-            </div>
-            <div class="demo-chat-progress" id="c-progress" role="status" aria-live="polite">
-                <span id="c-progress-text" data-i18n="progStart">Начинаем...</span>
-                <div class="progress-bar-track"><div class="progress-bar-val pulse" id="c-progress-bar"></div></div>
-            </div>
-            <div class="chat-body" id="c-body">
-                <div class="msg bot" id="c-greeting" hidden></div>
-                <div class="typing" id="c-typing"><span></span><span></span><span></span></div>
-            </div>
-            <div class="chat-foot">
-                <input id="c-input" data-i18n-ph="chatPh" disabled>
-                <button id="c-send" onclick="sendMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend" disabled>
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                </button>
-            </div>
-        </div>
-
-        <div class="err" id="c-error" role="alert"></div>
-        <button class="btn btn-primary demo-retry" id="c-retry" type="button" onclick="retryDemo()" data-i18n="demoRetry">Попробовать ещё раз</button>
-
-        <div class="demo-actions">
-            <button class="btn btn-ghost" onclick="resetAll()">
-                <span data-i18n="chatTryAnother"></span>
-            </button>
-        </div>
-    </div>
-
     <!-- ═══ STEP 4: Activate ═══ -->
     <div id="s-activate" class="section">
         <h1 class="section-title" data-i18n="actTitle"></h1>
@@ -1169,9 +1170,12 @@
             heroTitle: 'Подарите <span class="gradient-text">умного помощника</span> вашему сайту',
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
+            demoFormIndex: "01 / ДЕМО",
+            demoFormLimit: "10 СТРАНИЦ · АВТО",
             demoUrlLabel: "Адрес вашего сайта",
-            demoUrlHint: "Проиндексируем до 10 страниц и откроем демо-чат.",
-            demoSubmit: "Открыть демо-чат",
+            demoUrlHint: "Загрузим до 10 страниц. Ассистент появится ниже.",
+            demoSubmit: "Начать",
+            demoAssistantLabel: "ДЕМО-АССИСТЕНТ",
             demoClose: "Закрыть демо-чат",
             demoRetry: "Попробовать ещё раз",
             demoExpired: "Время демо истекло. Запустите новое демо, чтобы продолжить.",
@@ -1301,9 +1305,12 @@
             heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
+            demoFormIndex: "01 / DEMO",
+            demoFormLimit: "10 PAGES · AUTO",
             demoUrlLabel: "Your website URL",
-            demoUrlHint: "We'll index up to 10 pages and open your demo chat.",
-            demoSubmit: "Open demo chat",
+            demoUrlHint: "We'll read up to 10 pages. Your assistant appears below.",
+            demoSubmit: "Start",
+            demoAssistantLabel: "DEMO ASSISTANT",
             demoClose: "Close demo chat",
             demoRetry: "Try again",
             demoExpired: "This demo has expired. Start a new demo to continue.",
@@ -1433,9 +1440,12 @@
             heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
+            demoFormIndex: "01 / ДЕМО",
+            demoFormLimit: "10 БЕТ · АВТО",
             demoUrlLabel: "Сайтыңыздың мекенжайы",
-            demoUrlHint: "10 бетке дейін индекстеп, демо-чатыңызды ашамыз.",
-            demoSubmit: "Демо-чатын ашу",
+            demoUrlHint: "10 бетке дейін жүктейміз. Көмекші төменде пайда болады.",
+            demoSubmit: "Бастау",
+            demoAssistantLabel: "ДЕМО-КӨМЕКШІ",
             demoClose: "Демо-чатын жабу",
             demoRetry: "Қайта көру",
             demoExpired: "Демо уақыты аяқталды. Жалғастыру үшін жаңа демо бастаңыз.",
@@ -1715,7 +1725,7 @@
     }
 
     window.goLanding = function() {
-        if (document.getElementById("app-flow").classList.contains("demo-active")) {
+        if (!document.getElementById("demo-assistant").hidden) {
             resetAll();
             return;
         }
@@ -1732,6 +1742,16 @@
         field.scrollIntoView({ behavior: "smooth", block: "center" });
         field.focus({ preventScroll: true });
     };
+
+    function revealDemoAssistant() {
+        const assistant = document.getElementById("demo-assistant");
+        assistant.hidden = false;
+        requestAnimationFrame(() => {
+            const top = assistant.getBoundingClientRect().top + window.scrollY;
+            const visibleBelowForm = Math.min(430, window.innerHeight * 0.48);
+            window.scrollTo({ top: Math.max(0, top - visibleBelowForm), behavior: "smooth" });
+        });
+    }
 
     // Auto-login if already registered — go straight to trial on CTA click
     // But stay on landing by default
@@ -1859,10 +1879,7 @@
         demoLanguage = "";
         resetDemoView();
         document.getElementById("c-title").textContent = demoName;
-        document.getElementById("app-flow").classList.add("active", "demo-active");
-        document.body.classList.add("demo-modal-open");
-        go("chat", 3);
-        document.getElementById("demo-dialog-title").focus();
+        revealDemoAssistant();
 
         const fd = new FormData();
         fd.append("url", url);
@@ -1931,7 +1948,7 @@
                 document.getElementById("c-progress").classList.add("done");
                 document.getElementById("c-input").disabled = false;
                 document.getElementById("c-send").disabled = false;
-                document.getElementById("c-input").focus();
+                document.getElementById("c-input").focus({ preventScroll: true });
             }
         };
 
@@ -2039,7 +2056,7 @@
             if (requestId === activeDemoRequest) {
                 document.getElementById("c-typing").classList.remove("on");
                 document.getElementById("c-send").disabled = !demoReady;
-                if (demoReady) inp.focus();
+                if (demoReady) inp.focus({ preventScroll: true });
             }
         }
     };
@@ -2166,7 +2183,9 @@
 
     // ── Step 4: Activate ──
     window.goActivate = function() { go("activate", 4); };
-    window.goChat = function() { go("chat", 3); };
+    window.goChat = function() {
+        revealDemoAssistant();
+    };
     window.goPortalFromChat = function() { window.location.href = "/app"; };
 
     window.doActivate = async function() {
@@ -2223,8 +2242,7 @@
         document.querySelector("#hero-demo-form button[type=submit]").disabled = false;
         hideErr(document.getElementById("hero-demo-error"));
         resetDemoView();
-        document.getElementById("app-flow").classList.remove("active", "demo-active");
-        document.body.classList.remove("demo-modal-open");
+        document.getElementById("demo-assistant").hidden = true;
         document.getElementById("landing").classList.remove("hidden");
         focusDemoUrl();
     };
@@ -2253,9 +2271,6 @@
     document.getElementById("t-url").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); startTrial(); } });
     document.getElementById("hero-demo-url").addEventListener("keydown", e => {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); startTrial(); }
-    });
-    document.addEventListener("keydown", e => {
-        if (e.key === "Escape" && document.getElementById("app-flow").classList.contains("demo-active")) resetAll();
     });
     document.getElementById("a-code").addEventListener("keydown", e => { if (e.key === "Enter") doActivate(); });
 })();
