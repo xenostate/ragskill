@@ -20,7 +20,7 @@ Rules:
 3. Only say "I don't have enough information to answer this" if the sources are truly empty or completely irrelevant to the question.
 4. Keep answers concise and factual. Do not speculate beyond what the sources state.
 5. Do NOT list sources or citations in your answer. Just provide the answer as plain text.
-6. Answer in the same language as the user's question.
+6. Answer in the requested response language when one is provided; otherwise use the same language as the user's question.
 7. If the user's question is a follow-up referencing a previous message, use the conversation history to understand their intent, but still answer only from the provided source chunks.
 8. Be conversational and helpful. If the sources partially cover the topic, answer what you can and note what you couldn't find.
 """
@@ -98,6 +98,18 @@ def resolve_response_language(query: str | None, requested: str | None,
     fallback = str(site_language or "").strip().lower().replace("-", "_")
     base_fallback = fallback.split("_", 1)[0]
     return base_fallback if base_fallback in LANGUAGE_NAMES else None
+
+
+def resolve_trial_response_language(query: str | None, requested: str | None,
+                                    site_language: str | None) -> str | None:
+    """Keep a trial in its chosen page language, even for other-language queries."""
+    explicit = resolve_response_language(None, requested, None)
+    if explicit:
+        return explicit
+    page_language = resolve_response_language(None, None, site_language)
+    if page_language:
+        return page_language
+    return detect_query_language(query)
 
 
 # ── Retrieval ───────────────────────────────────────────────────────────────

@@ -12,8 +12,9 @@ import time
 import uuid
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlsplit, urlunsplit
 
+from bs4 import BeautifulSoup
 from fastapi import APIRouter, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from pypdf import PdfReader
@@ -34,15 +35,128 @@ from scripts.jobs import (
     start_indexing_job,
     update_indexing_job,
 )
+from scripts.site_language import SUPPORTED_LANGUAGES, detect_page_language
 
 router = APIRouter()
+
+QUICK_DEMO_TTL = timedelta(hours=1)
+REGISTERED_TRIAL_TTL = timedelta(hours=3)
+
+
+def _fallback_website_name(url: str) -> str:
+    host = (urlsplit(url).hostname or "website").removeprefix("www.")
+    return host[:80]
+
+
+def _website_name(html: str, title: str, url: str) -> str:
+    """Get a short, plain-text name for the demo greeting."""
+    soup = BeautifulSoup(html, "lxml")
+    name = ""
+    for meta in soup.find_all("meta"):
+        key = str(meta.get("property") or meta.get("name") or "").lower()
+        if key == "og:site_name":
+            name = str(meta.get("content") or "")
+            break
+    if not name:
+        parts = [part.strip() for part in re.split(r"\s+[|—–-]\s+", title or "") if part.strip()]
+        if parts:
+            generic = {"home", "homepage", "главная", "welcome"}
+            name = parts[-1] if parts[0].casefold() in generic and len(parts) > 1 else parts[0]
+            if name.casefold() in generic:
+                name = ""
+    name = re.sub(r"[\x00-\x1f\x7f]+", " ", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name[:80] or _fallback_website_name(url)
+
+
+def _locale_query(url: str) -> str:
+    """Carry an explicitly selected language to same-site pages in this demo."""
+    for key, value in parse_qsl(urlsplit(url).query, keep_blank_values=False):
+        if key.lower() not in {"lang", "language", "locale", "hl"}:
+            continue
+        code = value.lower().replace("_", "-").split("-", 1)[0]
+        if code in SUPPORTED_LANGUAGES:
+            return urlencode({key: value})
+    return ""
+
+
+def _is_spa_route(url: str) -> bool:
+    return urlsplit(url).fragment.lstrip("!").startswith("/")
+
+
+def _locale_path_code(segment: str) -> str | None:
+    if not re.fullmatch(r"[a-z]{2}(?:[-_][a-z]{2})?", segment, flags=re.IGNORECASE):
+        return None
+    code = segment.lower().replace("_", "-").split("-", 1)[0]
+    return code if code in SUPPORTED_LANGUAGES else None
+
+
+def _trial_page_links(html: str, page_url: str, allowed_domain: str,
+                      locale_query: str, locale_path: str, spa_locale: str | None) -> list[str]:
+    links = extract_links(html, page_url, allowed_domain)
+    if locale_path:
+        links = [
+            link for link in links
+            if urlsplit(link).path == locale_path.rstrip("/") or urlsplit(link).path.startswith(locale_path)
+        ]
+    if locale_query:
+        selected_code = parse_qsl(locale_query)[0][1].lower().replace("_", "-").split("-", 1)[0]
+        links = [
+            link for link in links
+            if not (
+                (segment := urlsplit(link).path.strip("/").split("/", 1)[0])
+                and (code := _locale_path_code(segment))
+                and code != selected_code
+            )
+        ]
+        links = [urlunsplit((*urlsplit(link)[:3], locale_query, "")) for link in links]
+    if spa_locale is not None:
+        soup = BeautifulSoup(html, "lxml")
+        allowed_host = urlsplit(page_url).hostname
+        route_links = []
+        for anchor in soup.find_all("a", href=True):
+            full = urljoin(page_url, str(anchor["href"]))
+            parsed = urlsplit(full)
+            if parsed.scheme in {"http", "https"} and parsed.hostname == allowed_host and _is_spa_route(full):
+                route_path = parsed.fragment.lstrip("!")
+                route_segment = route_path.strip("/").split("/", 1)[0]
+                route_locale = _locale_path_code(route_segment)
+                if spa_locale and route_locale != spa_locale:
+                    continue
+                route_links.append(full)
+        # extract_links() strips hash routes. Do not also crawl their bare root,
+        # which may show a different language from the submitted SPA route.
+        route_bases = {normalize_url(link) for link in route_links}
+        links = [link for link in links if normalize_url(link) not in route_bases]
+        links.extend(route_links)
+    links = list(dict.fromkeys(links))
+    return links
+
+
+def purge_trial_runtime_state(site_ids: set[int]) -> None:
+    """Drop in-process state belonging to deleted temporary sites."""
+    if not site_ids:
+        return
+    for site_id in site_ids:
+        cfg.trial_progress.pop(site_id, None)
+        cfg._site_lang_cache.pop(site_id, None)
+    prefixes = tuple(f"{site_id}:" for site_id in site_ids)
+    with cfg._session_lock:
+        keys = {
+            key for key in (*cfg._session_history, *cfg._session_last_access)
+            if key.startswith(prefixes)
+        }
+        for key in keys:
+            cfg._session_history.pop(key, None)
+            cfg._session_last_access.pop(key, None)
 
 
 # ── Background indexing ─────────────────────────────────────────────────────
 
 def run_trial_indexing(site_id: int, url: str, max_pages: int,
                        pdf_data: list[dict], use_playwright: bool = False,
-                       job_id: str | None = None):
+                       job_id: str | None = None, *, trial_metadata: bool = False,
+                       auto_language: bool = False):
     """Synchronous trial indexing — runs in asyncio.to_thread."""
     if job_id is None:
         job_id = create_indexing_job(
@@ -63,12 +177,23 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
         renderer = PlaywrightRenderer() if use_playwright else AdaptiveRenderer()
 
         try:
-            normalized_start_url = normalize_url(url)
-            queue = deque([normalized_start_url])
+            # Preserve the selected locale query or SPA hash on the first fetch.
+            # normalize_url() intentionally removes both, which would index a
+            # different language version from the one the visitor submitted.
+            queue = deque([url if trial_metadata else normalize_url(url)])
             visited = set()
             seen_content_hashes = set()
             pages_crawled = 0
-            allowed_domain = urlparse(normalized_start_url).netloc
+            allowed_domain = urlparse(url).netloc
+            locale_query = _locale_query(url) if trial_metadata else ""
+            segments = [segment for segment in urlsplit(url).path.split("/") if segment]
+            locale_segment = segments[0] if segments else ""
+            locale_path = f"/{locale_segment}/" if trial_metadata and _locale_path_code(locale_segment) else ""
+            spa_locale = None
+            if trial_metadata and _is_spa_route(url):
+                route_segment = urlsplit(url).fragment.lstrip("!").strip("/").split("/", 1)[0]
+                spa_locale = _locale_path_code(route_segment) or ""
+            metadata_captured = False
 
             while queue and pages_crawled < max_pages:
                 page_url = queue.popleft()
@@ -91,8 +216,21 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
                     continue
 
                 title, text = clean_html(html)
+                if trial_metadata and not metadata_captured:
+                    metadata_captured = True
+                    progress = cfg.trial_progress.get(site_id)
+                    if progress is not None:
+                        progress["website_name"] = _website_name(html, title, url)
+                    if auto_language:
+                        detected_language = detect_page_language(html, url, text)
+                        if detected_language:
+                            cfg.sb.table("sites").update({"language": detected_language}).eq("id", site_id).execute()
+                            cfg._site_lang_cache.pop(site_id, None)
+                        if progress is not None:
+                            progress["language"] = detected_language or "en"
+
                 if len(text) < 50:
-                    for link in extract_links(html, page_url, allowed_domain):
+                    for link in _trial_page_links(html, page_url, allowed_domain, locale_query, locale_path, spa_locale):
                         if link not in visited:
                             queue.append(link)
                     continue
@@ -103,7 +241,7 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
                         "Skipping duplicate page content",
                         extra={"event": "indexing.page_duplicate", "site_id": site_id, "url": page_url},
                     )
-                    for link in extract_links(html, page_url, allowed_domain):
+                    for link in _trial_page_links(html, page_url, allowed_domain, locale_query, locale_path, spa_locale):
                         if link not in visited:
                             queue.append(link)
                     continue
@@ -120,7 +258,7 @@ def run_trial_indexing(site_id: int, url: str, max_pages: int,
                 )
 
                 if pages_crawled < max_pages:
-                    for link in extract_links(html, page_url, allowed_domain):
+                    for link in _trial_page_links(html, page_url, allowed_domain, locale_query, locale_path, spa_locale):
                         if link not in visited:
                             queue.append(link)
 
@@ -240,6 +378,7 @@ def schedule_indexing_job(
     kind: str = "crawl",
     replace_existing: bool = False,
     message: str = "Queued",
+    auto_language: bool = False,
 ) -> str:
     """Persist job state, then start the existing in-process worker."""
     job_id = create_indexing_job(
@@ -251,6 +390,8 @@ def schedule_indexing_job(
         pdf_count=len(pdf_data),
         message=message,
     )
+    if kind == "trial":
+        cfg.trial_progress[site_id]["website_name"] = _fallback_website_name(url)
 
     def run() -> None:
         try:
@@ -259,7 +400,10 @@ def schedule_indexing_job(
                 for doc in (docs.data or []):
                     cfg.sb.table("chunks").delete().eq("document_id", doc["id"]).execute()
                 cfg.sb.table("documents").delete().eq("site_id", site_id).execute()
-            run_trial_indexing(site_id, url, max_pages, pdf_data, use_playwright, job_id)
+            run_trial_indexing(
+                site_id, url, max_pages, pdf_data, use_playwright, job_id,
+                trial_metadata=kind == "trial", auto_language=auto_language,
+            )
         except Exception as exc:
             fail_indexing_job(job_id, site_id, exc)
 
@@ -339,9 +483,9 @@ async def serve_editorial_styles():
 async def trial_start(
     request: Request,
     url: str = Form(...),
-    max_pages: int = Form(default=5),
-    language: str = Form(default="en"),
-    use_playwright: str = Form(default="0"),
+    max_pages: int = Form(default=10),
+    language: str = Form(default="auto"),
+    use_playwright: str = Form(default="auto"),
     token: str = Form(default=""),
     pdfs: list[UploadFile] = File(default=[]),
 ):
@@ -350,6 +494,7 @@ async def trial_start(
         return blocked
     current_user = verify_user(request, require_active=True)
 
+    url = url.strip()
     parsed = urlparse(url)
     if not parsed.scheme:
         url = f"https://{url}"
@@ -363,23 +508,16 @@ async def trial_start(
         return JSONResponse({"error": reason}, status_code=400)
 
     max_pages = max(1, min(max_pages, 50))
+    auto_language = language.strip().lower() in {"", "auto"}
+    initial_language = "en" if auto_language else language.strip().lower()
+    quick_demo = not token.strip()
 
     domain = f"trial-{uuid.uuid4().hex[:8]}.demo"
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=3)).isoformat()
+    expires_at = (datetime.now(timezone.utc) + (QUICK_DEMO_TTL if quick_demo else REGISTERED_TRIAL_TTL)).isoformat()
 
-    site_settings = {"source_url": url, "trial": True}
+    site_settings = {"source_url": url, "trial": True, "quick_demo": quick_demo}
     if token.strip():
         site_settings["owner_token"] = token.strip()
-
-    site_resp = cfg.sb.table("sites").insert({
-        "domain": domain,
-        "language": language,
-        "is_trial": True,
-        "expires_at": expires_at,
-        "owner_user_id": current_user["user_id"] if current_user else None,
-        "settings": site_settings,
-    }).execute()
-    site_id = site_resp.data[0]["id"]
 
     pdf_data = []
     for pdf in pdfs:
@@ -391,7 +529,17 @@ async def trial_start(
             )
         pdf_data.append({"filename": pdf.filename, "content": content})
 
-    pw = use_playwright == "1"
+    site_resp = cfg.sb.table("sites").insert({
+        "domain": domain,
+        "language": initial_language,
+        "is_trial": True,
+        "expires_at": expires_at,
+        "owner_user_id": current_user["user_id"] if current_user else None,
+        "settings": site_settings,
+    }).execute()
+    site_id = site_resp.data[0]["id"]
+
+    pw = use_playwright == "1" or _is_spa_route(url)
     job_id = schedule_indexing_job(
         site_id,
         url,
@@ -400,10 +548,19 @@ async def trial_start(
         pw,
         kind="trial",
         message="Trial indexing queued",
+        auto_language=auto_language,
     )
+    if not auto_language:
+        cfg.trial_progress[site_id]["language"] = initial_language
 
     cfg.log.info(f"Trial started: site_id={site_id} url={url} pdfs={len(pdf_data)} max_pages={max_pages} playwright={pw}")
-    return {"site_id": site_id, "job_id": job_id, "message": "Indexing started", "expires_at": expires_at}
+    return {
+        "site_id": site_id,
+        "job_id": job_id,
+        "message": "Indexing started",
+        "expires_at": expires_at,
+        "website_name": _fallback_website_name(url),
+    }
 
 
 @router.get("/api/trial/progress/{site_id}")
@@ -447,7 +604,7 @@ async def trial_stop(site_id: int):
         if not site.data or not site.data[0].get("is_trial"):
             return JSONResponse({"error": "Not a trial site"}, status_code=400)
         cfg.sb.table("sites").delete().eq("id", site_id).execute()
-        cfg.trial_progress.pop(site_id, None)
+        purge_trial_runtime_state({site_id})
         cfg.log.info(f"Trial site {site_id} stopped and deleted by user")
         return {"success": True, "message": "Trial data deleted"}
     except Exception as e:
@@ -463,5 +620,7 @@ async def trigger_trial_cleanup():
         .eq("is_trial", True) \
         .lt("expires_at", now_iso) \
         .execute()
-    deleted = len(resp.data) if resp.data else 0
+    deleted_ids = {row["id"] for row in (resp.data or [])}
+    purge_trial_runtime_state(deleted_ids)
+    deleted = len(deleted_ids)
     return {"deleted": deleted}

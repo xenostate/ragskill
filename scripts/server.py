@@ -28,7 +28,7 @@ from scripts.utils import rate_limiter
 
 # Route modules
 from scripts.routes.chat import router as chat_router
-from scripts.routes.trial import router as trial_router
+from scripts.routes.trial import router as trial_router, purge_trial_runtime_state
 from scripts.routes.admin import router as admin_router, setup_landing_site
 from scripts.routes.auth import router as auth_router
 from scripts.routes.internal import router as internal_router
@@ -68,7 +68,6 @@ setup_error_tracking()
 async def cleanup_expired_trials():
     """Periodic task: delete expired trial sites + clean rate limiter + tokens."""
     while True:
-        await asyncio.sleep(3600)
         rate_limiter.cleanup()
 
         # Clean expired trial sites
@@ -81,8 +80,7 @@ async def cleanup_expired_trials():
                 .execute()
             if resp.data:
                 expired_ids = {row["id"] for row in resp.data}
-                for sid in expired_ids:
-                    cfg.trial_progress.pop(sid, None)
+                purge_trial_runtime_state(expired_ids)
                 cfg.log.info(f"Cleaned up {len(resp.data)} expired trial site(s)")
         except Exception as e:
             cfg.log.error(f"Trial cleanup error: {e}")
@@ -139,6 +137,8 @@ async def cleanup_expired_trials():
             cfg.sb.table("app_sessions").delete().lt("expires_at", now_iso).execute()
         except Exception as e:
             cfg.log.error(f"App session cleanup error: {e}")
+
+        await asyncio.sleep(15 * 60)
 
 
 # ── App lifespan ────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ async def lifespan(app: FastAPI):
 
     # Start background cleanup task
     cleanup_task = asyncio.create_task(cleanup_expired_trials())
-    cfg.log.info("Cleanup task started (runs hourly)")
+    cfg.log.info("Cleanup task started (runs on startup and every 15 minutes)")
 
     # Setup landing chat site
     try:

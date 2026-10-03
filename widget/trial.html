@@ -883,10 +883,18 @@
     <section class="hero">
         <h1 data-i18n-html="heroTitle">Подарите <span class="gradient-text">умного помощника</span> вашему сайту</h1>
         <p data-i18n="heroSub">Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.</p>
-        <button class="hero-cta" onclick="goToRegister()">
-            <span data-i18n="heroCta">Попробовать бесплатно</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
+        <form class="demo-form" id="hero-demo-form" onsubmit="startTrial(event)">
+            <label for="hero-demo-url" data-i18n="demoUrlLabel">Введите адрес вашего сайта</label>
+            <textarea id="hero-demo-url" name="url" rows="1" placeholder="https://yoursite.com" aria-describedby="hero-demo-hint" required></textarea>
+            <div class="demo-form-bottom">
+                <span id="hero-demo-hint" data-i18n="demoUrlHint">Мы загрузим до 10 страниц и откроем ваш демо-чат.</span>
+                <button class="hero-cta" type="submit">
+                    <span data-i18n="demoSubmit">Запустить демо</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+            <div class="err demo-form-error" id="hero-demo-error" role="alert"></div>
+        </form>
     </section>
 
     <!-- Features -->
@@ -931,13 +939,6 @@
                     <p data-i18n="tut3Desc">Задайте вопросы в чате и убедитесь, что ассистент отвечает точно и по делу.</p>
                 </div>
             </div>
-            <div class="tutorial-step">
-                <div class="tutorial-num">4</div>
-                <div class="tutorial-content">
-                    <h4 data-i18n="tut4Title">Установите виджет на сайт</h4>
-                    <p data-i18n="tut4Desc">Скопируйте одну строчку кода и вставьте в HTML вашего сайта. Готово!</p>
-                </div>
-            </div>
         </div>
     </section>
 
@@ -945,8 +946,8 @@
     <section class="bottom-cta">
         <h2 data-i18n="ctaTitle">Готовы попробовать?</h2>
         <p data-i18n="ctaSub">Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас</p>
-        <button class="hero-cta" onclick="goToRegister()">
-            <span data-i18n="ctaBtn">Начать бесплатно</span>
+        <button class="hero-cta" onclick="focusDemoUrl()">
+            <span data-i18n="ctaBtn">Введите адрес сайта</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
 
@@ -959,7 +960,7 @@
 </div>
 
 <!-- ══════════ APP FLOW ══════════ -->
-<div class="app" id="app-flow">
+<div class="app" id="app-flow" role="dialog" aria-modal="true" aria-labelledby="demo-dialog-title">
 <div class="page">
 
     <!-- Step dots -->
@@ -1075,35 +1076,39 @@
 
     <!-- ═══ STEP 3: Chat ═══ -->
     <div id="s-chat" class="section">
-        <h1 class="section-title" data-i18n="chatTitle"></h1>
+        <button class="demo-close" type="button" onclick="resetAll()" data-i18n-aria="demoClose" aria-label="Close demo">&times;</button>
+        <h1 class="section-title" id="demo-dialog-title" data-i18n="chatTitle" tabindex="-1"></h1>
         <p class="section-sub" data-i18n="chatSub"></p>
 
         <div class="chat-box">
             <div class="chat-bar">
                 <span id="c-title">Assistant</span>
-                <small data-i18n="trialBadge">пробный &middot; 3 ч</small>
+                <small data-i18n="trialBadge">пробный</small>
+            </div>
+            <div class="demo-chat-progress" id="c-progress" role="status" aria-live="polite">
+                <span id="c-progress-text" data-i18n="progStart">Начинаем...</span>
+                <div class="progress-bar-track"><div class="progress-bar-val pulse" id="c-progress-bar"></div></div>
             </div>
             <div class="chat-body" id="c-body">
-                <div class="msg sys" data-i18n="chatReady"></div>
+                <div class="msg bot" id="c-greeting" hidden></div>
                 <div class="typing" id="c-typing"><span></span><span></span><span></span></div>
             </div>
             <div class="chat-foot">
-                <input id="c-input" data-i18n-ph="chatPh">
-                <button id="c-send" onclick="sendMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend">
+                <input id="c-input" data-i18n-ph="chatPh" disabled>
+                <button id="c-send" onclick="sendMsg()" aria-label="Отправить сообщение" data-i18n-aria="chatSend" disabled>
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
         </div>
 
-        <button class="btn btn-primary" style="margin-top:16px" onclick="goPortalFromChat()">
-            <span data-i18n="chatGetCode"></span>
-        </button>
-        <button class="btn btn-ghost" style="margin-top:8px" onclick="resetAll()">
-            <span data-i18n="chatTryAnother"></span>
-        </button>
-        <button class="btn btn-stop" style="margin-top:8px" onclick="stopTrial()">
-            <span data-i18n="chatStopTrial"></span>
-        </button>
+        <div class="err" id="c-error" role="alert"></div>
+        <button class="btn btn-primary demo-retry" id="c-retry" type="button" onclick="retryDemo()" data-i18n="demoRetry">Попробовать ещё раз</button>
+
+        <div class="demo-actions">
+            <button class="btn btn-ghost" onclick="resetAll()">
+                <span data-i18n="chatTryAnother"></span>
+            </button>
+        </div>
     </div>
 
     <!-- ═══ STEP 4: Activate ═══ -->
@@ -1164,6 +1169,14 @@
             heroTitle: 'Подарите <span class="gradient-text">умного помощника</span> вашему сайту',
             heroSub: "Ваши клиенты получат мгновенные и точные ответы на основе содержимого вашего сайта. Без обучения. Без сложных настроек. Просто подключите и работайте.",
             heroCta: "Попробовать бесплатно",
+            demoUrlLabel: "Адрес вашего сайта",
+            demoUrlHint: "Проиндексируем до 10 страниц и откроем демо-чат.",
+            demoSubmit: "Открыть демо-чат",
+            demoClose: "Закрыть демо-чат",
+            demoRetry: "Попробовать ещё раз",
+            demoExpired: "Время демо истекло. Запустите новое демо, чтобы продолжить.",
+            demoInvalidUrl: "Введите корректный адрес сайта.",
+            demoGreeting: "Привет! Я ассистент сайта «{name}». Спросите меня об этом сайте.",
             portalBtn: "Личный кабинет",
             lcWelcome: "Привет! Я AI-ассистент WebRAG. Задайте мне любой вопрос о нашем продукте.",
             lcPlaceholder: "Спросите что-нибудь о WebRAG...",
@@ -1175,18 +1188,18 @@
             feat3Title: "Мультиязычность",
             feat3Desc: "Поддержка русского, английского, казахского и других языков. Ассистент отвечает на языке вашей аудитории.",
             tutorialTitle: "Как это работает",
-            tutorialSub: "Четыре простых шага чтобы протестировать потенциального ассистента",
-            tut1Title: "Зарегистрируйтесь",
-            tut1Desc: "Укажите login и email — это займёт 30 секунд.",
-            tut2Title: "Вставьте URL вашего сайта",
-            tut2Desc: "Наш AI просканирует страницы и загрузит контент. Можно также добавить PDF-файлы.",
+            tutorialSub: "От адреса сайта до работающего чата за три шага",
+            tut1Title: "Вставьте URL вашего сайта",
+            tut1Desc: "Укажите адрес сайта прямо на этой странице. Регистрация для демо не нужна.",
+            tut2Title: "Мы загрузим 10 страниц",
+            tut2Desc: "Автоматически выберем способ загрузки и язык сайта.",
             tut3Title: "Протестируйте ассистента",
-            tut3Desc: "Задайте вопросы в чате и убедитесь, что ассистент отвечает точно и по делу.",
+            tut3Desc: "Задайте вопросы в чате и проверьте ответы по содержимому сайта.",
             tut4Title: "Установите виджет на сайт",
-            tut4Desc: "Скопируйте одну строчку кода и вставьте в HTML вашего сайта. Готово!",
+            tut4Desc: "Если захотите подключить ассистента, создайте аккаунт в личном кабинете.",
             ctaTitle: "Готовы попробовать?",
             ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
-            ctaBtn: "Начать бесплатно",
+            ctaBtn: "Введите адрес сайта",
             iaTitle: "Внутренний ассистент",
             iaSub: "Создайте собственную базу знаний для вашей команды — с отдельным чатом и панелью управления",
             iaBtn: "Создать ассистента",
@@ -1240,7 +1253,7 @@
             trialPages: "Страницы",
             trialLang: "Язык ответов",
             trialPlaywright: "Использовать Playwright для сайтов с динамическим JavaScript-контентом",
-            trialBadge: "пробный · 3 ч",
+            trialBadge: "демо · 1 ч",
             trialAutoLanguage: "Определить автоматически",
             trialBtn: "Запустить индексацию",
             trialErrUrl: "Пожалуйста, введите URL.",
@@ -1253,8 +1266,8 @@
             progError: "Ошибка",
             progFail: "Ошибка.",
             progLost: "Соединение потеряно. Попробуйте обновить страницу.",
-            chatTitle: "Ваш ассистент работает",
-            chatSub: "Задайте любой вопрос по содержимому проиндексированного сайта.",
+            chatTitle: "Ассистент вашего сайта",
+            chatSub: "После загрузки сайта вы сможете задавать вопросы в чате.",
             chatReady: "Контент проиндексирован. Задайте мне вопрос!",
             chatPh: "Введите вопрос...",
             chatGetCode: "Перейти в личный кабинет",
@@ -1288,6 +1301,14 @@
             heroTitle: 'Turn your website into a <span class="gradient-text">smart assistant</span>',
             heroSub: "Your customers get instant, accurate answers based on your website content. No training. No complex setup. Just connect and go.",
             heroCta: "Try for free",
+            demoUrlLabel: "Your website URL",
+            demoUrlHint: "We'll index up to 10 pages and open your demo chat.",
+            demoSubmit: "Open demo chat",
+            demoClose: "Close demo chat",
+            demoRetry: "Try again",
+            demoExpired: "This demo has expired. Start a new demo to continue.",
+            demoInvalidUrl: "Enter a valid website URL.",
+            demoGreeting: "Hey, I am assistant for {name}, ask me about the website.",
             portalBtn: "Customer Portal",
             lcWelcome: "Hi! I'm the WebRAG AI assistant. Ask me anything about our product.",
             lcPlaceholder: "Ask something about WebRAG...",
@@ -1299,18 +1320,18 @@
             feat3Title: "Multilingual support",
             feat3Desc: "Supports Russian, English, Kazakh and more. The assistant responds in your audience's language.",
             tutorialTitle: "How it works",
-            tutorialSub: "Four simple steps from registration to a working assistant",
-            tut1Title: "Register",
-            tut1Desc: "Enter your name, email, and company — takes 30 seconds.",
-            tut2Title: "Paste your website URL",
-            tut2Desc: "Our AI will crawl your pages and index the content. You can also upload PDF files.",
+            tutorialSub: "From website URL to a working chat in three steps",
+            tut1Title: "Paste your website URL",
+            tut1Desc: "Enter your website address on this page. No signup is needed for the demo.",
+            tut2Title: "We index 10 pages",
+            tut2Desc: "We automatically choose how to load the pages and detect the website language.",
             tut3Title: "Test the assistant",
-            tut3Desc: "Ask questions in the chat and make sure the assistant answers accurately.",
+            tut3Desc: "Ask questions in the chat and check answers against your website content.",
             tut4Title: "Install the widget on your site",
-            tut4Desc: "Copy one line of code and paste it into your website's HTML. Done!",
+            tut4Desc: "To activate an assistant, create an account in the customer portal.",
             ctaTitle: "Ready to try?",
             ctaSub: "Free demo — index your website and test the assistant right now",
-            ctaBtn: "Start for free",
+            ctaBtn: "Enter your website URL",
             iaTitle: "Internal Assistant",
             iaSub: "Create a private knowledge base for your team — with its own chat and admin panel",
             iaBtn: "Create Assistant",
@@ -1364,7 +1385,7 @@
             trialPages: "Pages",
             trialLang: "Response language",
             trialPlaywright: "Use Playwright for dynamic JavaScript content",
-            trialBadge: "trial · 3h",
+            trialBadge: "demo · 1h",
             trialAutoLanguage: "Auto detect",
             trialBtn: "Index & Launch Assistant",
             trialErrUrl: "Please enter a URL.",
@@ -1377,8 +1398,8 @@
             progError: "Error",
             progFail: "Failed.",
             progLost: "Lost connection. Try refreshing.",
-            chatTitle: "Your assistant is live",
-            chatSub: "Ask anything about the indexed content.",
+            chatTitle: "Your website assistant",
+            chatSub: "You can ask questions once your website is indexed.",
             chatReady: "Content indexed. Ask me anything!",
             chatPh: "Type a question...",
             chatGetCode: "Open Customer Portal",
@@ -1412,6 +1433,14 @@
             heroTitle: 'Сайтыңызды <span class="gradient-text">ақылды көмекшіге</span> айналдырыңыз',
             heroSub: "Тұтынушыларыңыз сайт мазмұнына негізделген жылдам және дәл жауаптар алады. Оқытусыз. Күрделі баптаусыз. Жай қосыңыз да, жұмыс істеңіз.",
             heroCta: "Тегін байқап көру",
+            demoUrlLabel: "Сайтыңыздың мекенжайы",
+            demoUrlHint: "10 бетке дейін индекстеп, демо-чатыңызды ашамыз.",
+            demoSubmit: "Демо-чатын ашу",
+            demoClose: "Демо-чатын жабу",
+            demoRetry: "Қайта көру",
+            demoExpired: "Демо уақыты аяқталды. Жалғастыру үшін жаңа демо бастаңыз.",
+            demoInvalidUrl: "Сайттың дұрыс URL мекенжайын енгізіңіз.",
+            demoGreeting: "Сәлем! Мен {name} сайтының көмекшісімін. Сайт туралы сұрақ қойыңыз.",
             portalBtn: "Жеке кабинет",
             lcWelcome: "Сәлем! Мен WebRAG AI-көмекшісімін. Біздің өнім туралы кез келген сұрақ қойыңыз.",
             lcPlaceholder: "WebRAG туралы сұрақ қойыңыз...",
@@ -1423,18 +1452,18 @@
             feat3Title: "Көптілділік",
             feat3Desc: "Қазақ, орыс, ағылшын және басқа тілдерді қолдайды. Көмекші аудиторияңыздың тілінде жауап береді.",
             tutorialTitle: "Қалай жұмыс істейді",
-            tutorialSub: "Тіркелуден жұмыс істейтін көмекшіге дейін төрт қарапайым қадам",
-            tut1Title: "Тіркеліңіз",
-            tut1Desc: "Атыңызды, email-ді және компания атауын енгізіңіз — 30 секунд алады.",
-            tut2Title: "Сайт URL-ін қойыңыз",
-            tut2Desc: "AI сайт беттерін сканерлеп, мазмұнды индекстейді. PDF файлдарды да жүктеуге болады.",
+            tutorialSub: "Сайт мекенжайынан жұмыс істейтін чатқа дейін үш қадам",
+            tut1Title: "Сайт URL-ін қойыңыз",
+            tut1Desc: "Сайт мекенжайын осы бетке енгізіңіз. Демо үшін тіркелу қажет емес.",
+            tut2Title: "10 бетті индекстейміз",
+            tut2Desc: "Беттерді жүктеу әдісін және сайт тілін автоматты түрде анықтаймыз.",
             tut3Title: "Көмекшіні тексеріңіз",
-            tut3Desc: "Чатта сұрақтар қойып, көмекшінің дәл жауап беретініне көз жеткізіңіз.",
+            tut3Desc: "Чатта сұрақ қойып, жауаптарды сайт мазмұнымен салыстырыңыз.",
             tut4Title: "Виджетті сайтқа орнатыңыз",
-            tut4Desc: "Бір жол кодты көшіріп, сайтыңыздың HTML-іне қойыңыз. Дайын!",
+            tut4Desc: "Көмекшіні қосу үшін жеке кабинетте аккаунт ашыңыз.",
             ctaTitle: "Байқап көруге дайынсыз ба?",
             ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
-            ctaBtn: "Тегін бастау",
+            ctaBtn: "Сайт мекенжайын енгізіңіз",
             iaTitle: "Ішкі көмекші",
             iaSub: "Командаңыз үшін жеке білім базасын жасаңыз — өз чаты мен басқару панелімен",
             iaBtn: "Көмекші жасау",
@@ -1488,7 +1517,7 @@
             trialPages: "Беттер",
             trialLang: "Жауап тілі",
             trialPlaywright: "Динамикалық JavaScript мазмұны үшін Playwright пайдалану",
-            trialBadge: "сынақ · 3 сағ",
+            trialBadge: "демо · 1 сағ",
             trialAutoLanguage: "Автоматты анықтау",
             trialBtn: "Индекстеуді бастау",
             trialErrUrl: "URL енгізіңіз.",
@@ -1501,8 +1530,8 @@
             progError: "Қате",
             progFail: "Қате.",
             progLost: "Байланыс үзілді. Бетті жаңартып көріңіз.",
-            chatTitle: "Көмекшіңіз жұмыс істеуде",
-            chatSub: "Индекстелген мазмұн бойынша кез келген сұрақ қойыңыз.",
+            chatTitle: "Сайтыңыздың көмекшісі",
+            chatSub: "Сайт индекстелгеннен кейін чатта сұрақ қоя аласыз.",
             chatReady: "Мазмұн индекстелді. Маған сұрақ қойыңыз!",
             chatPh: "Сұрақ жазыңыз...",
             chatGetCode: "Жеке кабинетке өту",
@@ -1618,6 +1647,13 @@
     let siteId = null;
     let chatSessionId = "";
     let landingWidgetLoaded = false;
+    let demoUrl = "";
+    let demoName = "";
+    let demoLanguage = "";
+    let demoReady = false;
+    let activeDemoRequest = 0;
+    let activeProgress = null;
+    let demoExpiryTimer = null;
 
     const dots = [1,2,3,4].map(i => document.getElementById("dot-" + i));
 
@@ -1679,18 +1715,22 @@
     }
 
     window.goLanding = function() {
+        if (document.getElementById("app-flow").classList.contains("demo-active")) {
+            resetAll();
+            return;
+        }
         document.getElementById("landing").classList.remove("hidden");
         document.getElementById("app-flow").classList.remove("active");
     };
 
     window.goToRegister = function() {
-        if (token) {
-            showApp();
-            go("trial", 2);
-        } else {
-            showApp();
-            go("register", 1);
-        }
+        focusDemoUrl();
+    };
+
+    window.focusDemoUrl = function() {
+        const field = document.getElementById("hero-demo-url");
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        field.focus({ preventScroll: true });
     };
 
     // Auto-login if already registered — go straight to trial on CTA click
@@ -1732,100 +1772,174 @@
         }
     };
 
-    // ── Step 2: Trial ──
+    // ── Homepage demo ──
     document.getElementById("t-pdfs").addEventListener("change", function() {
         const names = Array.from(this.files).map(f => f.name);
         document.getElementById("t-file-list").textContent = names.length ? names.join(", ") : "";
     });
 
-    window.startTrial = async function() {
-        const t = T[currentLang];
-        const url = document.getElementById("t-url").value.trim();
-        const btn = document.getElementById("t-start-btn");
-        const err = document.getElementById("t-err");
+    function normalizeDemoUrl(value) {
+        const raw = String(value || "").trim();
+        if (!raw || /\s/.test(raw)) return null;
+        try {
+            const parsed = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+            if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password) return null;
+            return parsed.href;
+        } catch (e) {
+            return null;
+        }
+    }
 
-        if (!url) { showErr(err, t.trialErrUrl); return; }
+    function updateDemoGreeting() {
+        const lang = String(demoLanguage || "en").toLowerCase().split(/[-_]/)[0];
+        const template = (T[lang] || T.en).demoGreeting;
+        const name = String(demoName || "website").trim().slice(0, 120);
+        document.getElementById("c-greeting").textContent = template.replace("{name}", name);
+        document.getElementById("c-greeting").hidden = false;
+        document.getElementById("c-title").textContent = name;
+    }
+
+    function updateDemoMetadata(data, allowLanguage = true) {
+        if (data.website_name) demoName = String(data.website_name).trim();
+        if (allowLanguage && data.language) demoLanguage = String(data.language).trim();
+        if (demoLanguage) updateDemoGreeting();
+        else document.getElementById("c-title").textContent = String(demoName).slice(0, 120);
+    }
+
+    function showDemoError(message) {
+        demoReady = false;
+        document.getElementById("c-input").disabled = true;
+        document.getElementById("c-send").disabled = true;
+        document.getElementById("c-progress").classList.add("done");
+        showErr(document.getElementById("c-error"), message);
+        document.getElementById("c-retry").classList.add("on");
+    }
+
+    function resetDemoView() {
+        const progress = document.getElementById("c-progress");
+        const bar = document.getElementById("c-progress-bar");
+        progress.classList.remove("done");
+        document.getElementById("c-progress-text").textContent = T[currentLang].progStart;
+        bar.style.width = "0%";
+        bar.classList.add("pulse");
+        hideErr(document.getElementById("c-error"));
+        document.getElementById("c-retry").classList.remove("on");
+        document.getElementById("c-input").disabled = true;
+        document.getElementById("c-send").disabled = true;
+        document.getElementById("c-input").value = "";
+        document.getElementById("c-body").querySelectorAll(".msg:not(#c-greeting)").forEach(m => m.remove());
+        document.getElementById("c-greeting").hidden = true;
+        demoReady = false;
+    }
+
+    async function deleteDemo(id) {
+        if (!id) return;
+        try { await fetch(API + "/api/trial/stop/" + id, { method: "DELETE" }); } catch (e) {}
+    }
+
+    window.startTrial = async function(event) {
+        if (event) event.preventDefault();
+        const t = T[currentLang];
+        const url = normalizeDemoUrl(document.getElementById("hero-demo-url").value);
+        const btn = document.querySelector("#hero-demo-form button[type=submit]");
+        const err = document.getElementById("hero-demo-error");
+
+        if (!url) { showErr(err, t.demoInvalidUrl); return; }
 
         btn.disabled = true;
         hideErr(err);
+        const requestId = ++activeDemoRequest;
+        if (activeProgress) { activeProgress.close(); activeProgress = null; }
+        if (demoExpiryTimer) { clearTimeout(demoExpiryTimer); demoExpiryTimer = null; }
+        const oldSiteId = siteId;
+        siteId = null;
+        deleteDemo(oldSiteId);
+        demoUrl = url;
+        demoName = new URL(url).hostname.replace(/^www\./i, "");
+        demoLanguage = "";
+        resetDemoView();
+        document.getElementById("c-title").textContent = demoName;
+        document.getElementById("app-flow").classList.add("active", "demo-active");
+        document.body.classList.add("demo-modal-open");
+        go("chat", 3);
+        document.getElementById("demo-dialog-title").focus();
 
         const fd = new FormData();
         fd.append("url", url);
-        fd.append("max_pages", document.getElementById("t-pages").value);
-        fd.append("language", document.getElementById("t-lang").value);
-        fd.append("use_playwright", document.getElementById("t-playwright").checked ? "1" : "0");
-        if (token) fd.append("token", token);
-        for (const f of document.getElementById("t-pdfs").files) fd.append("pdfs", f);
+        fd.append("max_pages", "10");
 
         try {
             const resp = await fetch(API + "/api/trial/start", {
                 method: "POST",
-                headers: userHeaders(),
                 body: fd,
             });
             const data = await resp.json();
-
-            if (!resp.ok) { showErr(err, data.error || t.trialErrNet); btn.disabled = false; return; }
-
-            siteId = data.site_id;
-            chatSessionId = `trial_${siteId}_${Math.random().toString(36).slice(2, 10)}`;
-            document.getElementById("c-title").textContent = url;
-            go("progress", 2);
-            watchProgress(siteId);
-        } catch (e) {
-            showErr(err, t.trialErrNet);
-            btn.disabled = false;
-        }
-    };
-
-    function watchProgress(id) {
-        const t = T[currentLang];
-        const bar = document.getElementById("p-bar");
-        const msg = document.getElementById("p-msg");
-        const status = document.getElementById("p-status");
-        const err = document.getElementById("p-err");
-
-        const es = new EventSource(API + "/api/trial/progress/" + id);
-        es.onmessage = (ev) => {
-            const p = JSON.parse(ev.data);
-
-            if (p.error) {
-                es.close();
-                status.textContent = t.progError;
-                status.style.color = "var(--red)";
-                msg.textContent = t.progFail;
-                bar.style.width = "100%"; bar.style.background = "var(--red)"; bar.classList.remove("pulse");
-                showErr(err, p.error);
+            if (requestId !== activeDemoRequest) {
+                if (resp.ok) deleteDemo(data.site_id);
                 return;
             }
 
-            msg.textContent = p.message;
+            if (!resp.ok) { showDemoError(data.error || t.trialErrNet); return; }
+
+            siteId = data.site_id;
+            chatSessionId = `trial_${siteId}_${Math.random().toString(36).slice(2, 10)}`;
+            updateDemoMetadata(data, false);
+            if (data.expires_at) {
+                const delay = Date.parse(data.expires_at) - Date.now();
+                if (delay > 0) demoExpiryTimer = setTimeout(() => showDemoError(T[currentLang].demoExpired), delay);
+            }
+            watchProgress(siteId, requestId);
+        } catch (e) {
+            if (requestId === activeDemoRequest) showDemoError(t.trialErrNet);
+        } finally {
+            if (requestId === activeDemoRequest) btn.disabled = false;
+        }
+    };
+
+    function watchProgress(id, requestId) {
+        const t = T[currentLang];
+        const bar = document.getElementById("c-progress-bar");
+        const msg = document.getElementById("c-progress-text");
+
+        const es = new EventSource(API + "/api/trial/progress/" + id);
+        activeProgress = es;
+        es.onmessage = (ev) => {
+            if (requestId !== activeDemoRequest) { es.close(); return; }
+            let p;
+            try { p = JSON.parse(ev.data); } catch (e) { return; }
+            updateDemoMetadata(p);
+
+            if (p.error) {
+                es.close();
+                activeProgress = null;
+                showDemoError(p.error);
+                return;
+            }
+
+            if (p.message) msg.textContent = p.message;
 
             if (p.total > 0 && p.step > 0) {
                 bar.classList.remove("pulse");
-                bar.style.width = Math.round(p.step / p.total * 100) + "%";
-                status.textContent = t.progLoading;
+                bar.style.width = Math.min(100, Math.round(p.step / p.total * 100)) + "%";
             }
 
             if (p.done) {
                 es.close();
-                status.textContent = t.progDone;
-                status.style.color = "var(--green)";
-                bar.classList.remove("pulse");
-                bar.style.width = "100%";
-                setTimeout(() => {
-                    go("chat", 3);
-                    document.getElementById("c-input").focus();
-                }, 600);
+                activeProgress = null;
+                if (!demoLanguage) updateDemoGreeting();
+                demoReady = true;
+                document.getElementById("c-progress").classList.add("done");
+                document.getElementById("c-input").disabled = false;
+                document.getElementById("c-send").disabled = false;
+                document.getElementById("c-input").focus();
             }
         };
 
         es.onerror = () => {
+            if (requestId !== activeDemoRequest) { es.close(); return; }
             es.close();
-            status.textContent = t.progError;
-            status.style.color = "var(--red)";
-            msg.textContent = t.progLost;
-            showErr(err, t.progLost);
+            activeProgress = null;
+            showDemoError(t.progLost);
         };
     }
 
@@ -1880,7 +1994,8 @@
         const t = T[currentLang];
         const inp = document.getElementById("c-input");
         const q = inp.value.trim();
-        if (!q || !siteId) return;
+        if (!q || !siteId || !demoReady) return;
+        const requestId = activeDemoRequest;
 
         inp.value = "";
         document.getElementById("c-send").disabled = true;
@@ -1896,6 +2011,7 @@
                 query: q,
                 session_id: chatSessionId || `trial_${siteId}`,
             }, (delta) => {
+                if (requestId !== activeDemoRequest) return;
                 streamedText += delta;
                 if (!streamedMessage) {
                     document.getElementById("c-typing").classList.remove("on");
@@ -1910,17 +2026,21 @@
                 streamedMessage.textContent = streamedText;
                 scrollChat();
             });
+            if (requestId !== activeDemoRequest) return;
             const finalMessage = createBotMessage(data.answer, data.sources, data.confidence);
             if (streamedMessage) streamedMessage.replaceWith(finalMessage);
             else document.getElementById("c-body").insertBefore(finalMessage, document.getElementById("c-typing"));
             scrollChat();
         } catch (e) {
+            if (requestId !== activeDemoRequest) return;
             if (streamedMessage) streamedMessage.remove();
             addChat(t.chatError, "bot");
         } finally {
-            document.getElementById("c-typing").classList.remove("on");
-            document.getElementById("c-send").disabled = false;
-            inp.focus();
+            if (requestId === activeDemoRequest) {
+                document.getElementById("c-typing").classList.remove("on");
+                document.getElementById("c-send").disabled = !demoReady;
+                if (demoReady) inp.focus();
+            }
         }
     };
 
@@ -2088,57 +2208,38 @@
 
     // ── Reset ──
     window.resetAll = function() {
+        ++activeDemoRequest;
+        if (activeProgress) { activeProgress.close(); activeProgress = null; }
+        if (demoExpiryTimer) { clearTimeout(demoExpiryTimer); demoExpiryTimer = null; }
+        const oldSiteId = siteId;
         siteId = null;
         chatSessionId = "";
-        document.getElementById("t-url").value = "";
-        document.getElementById("t-pdfs").value = "";
-        document.getElementById("t-file-list").textContent = "";
-        document.getElementById("t-start-btn").disabled = false;
+        demoUrl = "";
+        demoName = "";
+        demoLanguage = "";
+        demoReady = false;
+        deleteDemo(oldSiteId);
+        document.getElementById("hero-demo-url").value = "";
+        document.querySelector("#hero-demo-form button[type=submit]").disabled = false;
+        hideErr(document.getElementById("hero-demo-error"));
+        resetDemoView();
+        document.getElementById("app-flow").classList.remove("active", "demo-active");
+        document.body.classList.remove("demo-modal-open");
+        document.getElementById("landing").classList.remove("hidden");
+        focusDemoUrl();
+    };
 
-        const bar = document.getElementById("p-bar");
-        bar.style.width = "0%"; bar.style.background = "var(--accent)"; bar.classList.add("pulse");
-        document.getElementById("p-msg").textContent = T[currentLang].progStart;
-        const pStatus = document.getElementById("p-status");
-        pStatus.textContent = T[currentLang].progLoading;
-        pStatus.style.color = "var(--text)";
-        hideErr(document.getElementById("p-err"));
-
-        document.getElementById("c-body").querySelectorAll(".msg:not(.sys)").forEach(m => m.remove());
-
-        document.getElementById("a-code").value = "";
-        document.getElementById("activate-form").style.display = "block";
-        document.getElementById("activate-success").style.display = "none";
-        hideErr(document.getElementById("a-err"));
-        hideErr(document.getElementById("t-err"));
-
-        go("trial", 2);
+    window.retryDemo = function() {
+        if (!demoUrl) return;
+        document.getElementById("hero-demo-url").value = demoUrl;
+        startTrial();
     };
 
     // ── Stop Trial ──
     window.stopTrial = async function() {
         const t = T[currentLang];
         if (!confirm(t.chatStopConfirm)) return;
-
-        // Delete trial data on server
-        if (siteId) {
-            try {
-                await fetch(API + "/api/trial/stop/" + siteId, { method: "DELETE" });
-            } catch (e) {
-                // ignore — we'll navigate away anyway
-            }
-        }
-
-        // Reset local state
-        siteId = null;
-        chatSessionId = "";
-        document.getElementById("t-url").value = "";
-        document.getElementById("t-pdfs").value = "";
-        document.getElementById("t-file-list").textContent = "";
-        document.getElementById("t-start-btn").disabled = false;
-        document.getElementById("c-body").querySelectorAll(".msg:not(.sys)").forEach(m => m.remove());
-
-        // Go back to landing
-        goLanding();
+        resetAll();
     };
 
     // ── Helpers ──
@@ -2150,6 +2251,12 @@
     document.getElementById("reg-name").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("reg-email").focus(); });
     document.getElementById("reg-email").addEventListener("keydown", e => { if (e.key === "Enter") doRegister(); });
     document.getElementById("t-url").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); startTrial(); } });
+    document.getElementById("hero-demo-url").addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); startTrial(); }
+    });
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && document.getElementById("app-flow").classList.contains("demo-active")) resetAll();
+    });
     document.getElementById("a-code").addEventListener("keydown", e => { if (e.key === "Enter") doActivate(); });
 })();
 </script>

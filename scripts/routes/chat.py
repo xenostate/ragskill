@@ -28,6 +28,7 @@ from scripts.rag_core import (
     do_rag_sync,
     get_site_language_cached,
     resolve_response_language,
+    resolve_trial_response_language,
 )
 
 router = APIRouter()
@@ -213,6 +214,13 @@ def _authorize_site_request(site_id: int, request: Request):
     return site, None
 
 
+def _chat_language(site: dict, req: ChatRequest) -> str | None:
+    site_language = get_site_language_cached(req.site_id)
+    if (site.get("settings") or {}).get("trial"):
+        return resolve_trial_response_language(req.query, req.response_language, site_language)
+    return resolve_response_language(req.query, req.response_language, site_language)
+
+
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, request: Request):
     blocked = rate_limit_check(request, "chat", 20, 60)
@@ -225,11 +233,7 @@ async def chat(req: ChatRequest, request: Request):
 
     t0 = time.time()
     interaction_id = f"msg_{uuid.uuid4().hex}"
-    language = resolve_response_language(
-        req.query,
-        req.response_language,
-        get_site_language_cached(req.site_id),
-    )
+    language = _chat_language(site, req)
     assistant_config = get_assistant_config(site.get("settings") or {})
     intent_result = match_intent_actions(assistant_config, req.query)
 
@@ -319,11 +323,7 @@ async def chat_stream(req: ChatRequest, request: Request):
 
     started = time.time()
     interaction_id = f"msg_{uuid.uuid4().hex}"
-    language = resolve_response_language(
-        req.query,
-        req.response_language,
-        get_site_language_cached(req.site_id),
-    )
+    language = _chat_language(site, req)
     assistant_config = get_assistant_config(site.get("settings") or {})
     intent_result = match_intent_actions(assistant_config, req.query)
     intent_fallback = None

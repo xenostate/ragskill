@@ -1,4 +1,11 @@
-from scripts.rag_core import detect_query_language, get_system_prompt, resolve_response_language
+from scripts.rag_core import (
+    detect_query_language,
+    get_system_prompt,
+    resolve_response_language,
+    resolve_trial_response_language,
+)
+from scripts.routes.chat import ChatRequest, _chat_language
+import scripts.routes.chat as chat_routes
 
 
 def test_detects_russian_query_with_english_project_name():
@@ -32,6 +39,24 @@ def test_site_language_is_used_when_detection_is_inconclusive():
 
 def test_unsupported_explicit_language_does_not_disable_detection():
     assert resolve_response_language("Что умеет ассистент?", "xx", "en") == "ru"
+
+
+def test_trial_page_language_overrides_query_language():
+    assert resolve_trial_response_language("What does this site do?", None, "ru-RU") == "ru"
+    assert resolve_trial_response_language("Расскажи об этом сайте", None, "en") == "en"
+
+
+def test_trial_explicit_page_version_takes_priority():
+    assert resolve_trial_response_language("What does this site do?", "ru", "en") == "ru"
+
+
+def test_chat_route_uses_trial_page_language_only_for_trials(monkeypatch):
+    monkeypatch.setattr(chat_routes, "get_site_language_cached", lambda _site_id: "ru")
+    request = ChatRequest(site_id=1, query="What does this site do?")
+    assert _chat_language({"settings": {"trial": True}}, request) == "ru"
+    monkeypatch.setattr(chat_routes, "get_site_language_cached", lambda _site_id: "en")
+    russian_query = ChatRequest(site_id=1, query="Что это за сайт?")
+    assert _chat_language({"settings": {}}, russian_query) == "ru"
 
 
 def test_tenant_behavior_is_added_without_weakening_grounding_rules():
