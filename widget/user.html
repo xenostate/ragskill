@@ -186,8 +186,11 @@
             font-size: 18px;
             font-weight: 800;
             letter-spacing: -0.03em;
+            color: var(--text);
+            text-decoration: none;
         }
         .brand span { color: var(--accent); }
+        .auth-title a { color: inherit; text-decoration: none; }
         .topbar-right {
             display: flex;
             gap: 10px;
@@ -571,7 +574,7 @@
 </div>
 <div class="auth-shell" id="auth-shell">
     <div class="auth-card">
-        <div class="auth-title" data-i18n="auth_title">WebRAG Portal</div>
+        <div class="auth-title"><a href="/" data-i18n="auth_title">WebRAG Portal</a></div>
         <div class="auth-sub" data-i18n="auth_sub">Create your account or sign in to manage your assistants. You can explore the dashboard right away, then unlock paid assistants with your activation code.</div>
         <div class="auth-tabs">
             <button class="auth-tab active" data-auth-tab="login" data-i18n="auth_tab_login" onclick="switchAuthTab('login')">Login</button>
@@ -612,7 +615,7 @@
 
 <div class="dashboard" id="dashboard">
     <div class="topbar">
-        <div class="brand">Web<span>RAG</span> Portal</div>
+        <a class="brand" href="/" aria-label="WebRAG home">Web<span>RAG</span> Portal</a>
         <div class="topbar-right">
             <span id="user-pill"></span>
             <button class="btn btn-sm btn-primary" data-i18n="top_activate" onclick="openWebsiteAssistantForm()">Create Website Assistant</button>
@@ -2345,6 +2348,9 @@ document.addEventListener("keydown", (event) => {
 });
 
 applyTranslations();
+if (new URLSearchParams(window.location.search).get("auth") === "signup") {
+    switchAuthTab("signup");
+}
 bootstrap();
 </script>
 </body>

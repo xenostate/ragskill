@@ -50,7 +50,7 @@
         }
         .gallery-shell { width: min(1320px, 100%); margin: 0 auto; }
         .gallery-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-        .gallery-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.03em; }
+        .gallery-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.03em; color: inherit; text-decoration: none; }
         .gallery-logo-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: #7d6aff; color: #fff; }
         .gallery-meta { color: #898896; font-size: 13px; }
         .gallery-intro { max-width: 840px; padding: 100px 0 54px; }
@@ -434,7 +434,7 @@
         document: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg>'
     };
 
-    const logo = (label = true) => `<a class="brand" href="/designs"><span class="brand-mark">W</span>${label ? '<span class="brand-label">WebRAG Systems</span>' : ''}</a>`;
+    const logo = (label = true) => `<a class="brand" href="/"><span class="brand-mark">W</span>${label ? '<span class="brand-label">WebRAG Systems</span>' : ''}</a>`;
     const nav = (style = '') => `
         <nav class="concept-nav">
             ${logo()}
@@ -448,7 +448,7 @@
     function gallery() {
         return `<section class="gallery">
             <div class="gallery-shell">
-                <div class="gallery-top"><div class="gallery-logo"><span class="gallery-logo-mark">W</span> WebRAG Systems</div><div class="gallery-meta">Landing page exploration · 2026</div></div>
+                <div class="gallery-top"><a class="gallery-logo" href="/"><span class="gallery-logo-mark">W</span> WebRAG Systems</a><div class="gallery-meta">Landing page exploration · 2026</div></div>
                 <div class="gallery-intro"><div class="gallery-kicker">Four creative directions</div><h1>Choose the world<br>your agents live in.</h1><p>Each concept keeps the same product story, but changes the visual personality, hierarchy, and way the agent system is explained. Open any direction to see the full responsive page.</p></div>
                 <div class="concept-grid">
                     <a class="concept-card" href="/designs/1"><div class="concept-card-top"><span class="concept-number">01 / DEEP TECH</span><span class="concept-arrow">↗</span></div><div class="concept-preview preview-1"></div><div class="concept-info"><h2>Neural Atlas</h2><p>Immersive, technical and premium · Indigo, midnight and mint</p></div></a>

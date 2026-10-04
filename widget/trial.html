@@ -72,6 +72,8 @@
             font-size: 18px;
             font-weight: 800;
             letter-spacing: -0.5px;
+            color: var(--text);
+            text-decoration: none;
         }
 
         .logo span { color: var(--accent); }
@@ -865,7 +867,7 @@
 
 <!-- ── Top bar ── -->
 <div class="topbar">
-    <div class="logo" id="logo-link" style="cursor:pointer;">Web<span>RAG</span> Systems</div>
+    <a class="logo" href="/" aria-label="WebRAG Systems home">Web<span>RAG</span> Systems</a>
     <div class="topbar-right">
         <a class="portal-link" href="/app"><span data-i18n="portalBtn"></span><span class="portal-user" id="portal-user"></span></a>
         <div class="lang-switch">
@@ -982,12 +984,12 @@
 
     <!-- Bottom CTA -->
     <section class="bottom-cta">
-        <h2 data-i18n="ctaTitle">Готовы попробовать?</h2>
-        <p data-i18n="ctaSub">Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас</p>
-        <button class="hero-cta" onclick="focusDemoUrl()">
-            <span data-i18n="ctaBtn">Введите адрес сайта</span>
+        <h2 data-i18n="ctaTitle">Готовы добавить ассистента на свой сайт?</h2>
+        <p data-i18n="ctaSub">Создайте аккаунт, чтобы подключить ассистента и управлять им в личном кабинете.</p>
+        <a class="hero-cta" href="/app?auth=signup">
+            <span data-i18n="ctaBtn">Создать аккаунт</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
+        </a>
 
     </section>
 
@@ -1201,9 +1203,9 @@
             tut3Desc: "Задайте вопросы в чате и проверьте ответы по содержимому сайта.",
             tut4Title: "Установите виджет на сайт",
             tut4Desc: "Если захотите подключить ассистента, создайте аккаунт в личном кабинете.",
-            ctaTitle: "Готовы попробовать?",
-            ctaSub: "Бесплатная демонстрация — проиндексируйте свой сайт и протестируйте ассистента прямо сейчас",
-            ctaBtn: "Введите адрес сайта",
+            ctaTitle: "Готовы добавить ассистента на свой сайт?",
+            ctaSub: "Создайте аккаунт, чтобы подключить ассистента и управлять им в личном кабинете.",
+            ctaBtn: "Создать аккаунт",
             iaTitle: "Внутренний ассистент",
             iaSub: "Создайте собственную базу знаний для вашей команды — с отдельным чатом и панелью управления",
             iaBtn: "Создать ассистента",
@@ -1296,7 +1298,6 @@
             actPaste: "Вставьте этот код в HTML вашего сайта:",
             actCopy: "нажмите, чтобы скопировать",
             actBack: "Назад к чату",
-            logoConfirm: "Вы хотите вернуться на главную страницу? Прогресс текущей сессии может быть потерян.",
         },
         en: {
             pageTitle: "Web-RAG — AI Website Assistant",
@@ -1337,9 +1338,9 @@
             tut3Desc: "Ask questions in the chat and check answers against your website content.",
             tut4Title: "Install the widget on your site",
             tut4Desc: "To activate an assistant, create an account in the customer portal.",
-            ctaTitle: "Ready to try?",
-            ctaSub: "Free demo — index your website and test the assistant right now",
-            ctaBtn: "Enter your website URL",
+            ctaTitle: "Ready to add an assistant to your website?",
+            ctaSub: "Create an account to connect your assistant and manage it in the customer portal.",
+            ctaBtn: "Create an account",
             iaTitle: "Internal Assistant",
             iaSub: "Create a private knowledge base for your team — with its own chat and admin panel",
             iaBtn: "Create Assistant",
@@ -1432,7 +1433,6 @@
             actPaste: "Paste this snippet into your website's HTML:",
             actCopy: "click to copy",
             actBack: "Back to chat",
-            logoConfirm: "Do you want to go back to the main page? Current session progress may be lost.",
         },
         kk: {
             pageTitle: "Web-RAG — Сайтыңыз үшін AI-көмекші",
@@ -1473,9 +1473,9 @@
             tut3Desc: "Чатта сұрақ қойып, жауаптарды сайт мазмұнымен салыстырыңыз.",
             tut4Title: "Виджетті сайтқа орнатыңыз",
             tut4Desc: "Көмекшіні қосу үшін жеке кабинетте аккаунт ашыңыз.",
-            ctaTitle: "Байқап көруге дайынсыз ба?",
-            ctaSub: "Тегін демо — сайтыңызды индекстеңіз және көмекшіні қазір тексеріңіз",
-            ctaBtn: "Сайт мекенжайын енгізіңіз",
+            ctaTitle: "Сайтыңызға көмекші қосуға дайынсыз ба?",
+            ctaSub: "Көмекшіні қосу және оны жеке кабинетте басқару үшін аккаунт ашыңыз.",
+            ctaBtn: "Аккаунт ашу",
             iaTitle: "Ішкі көмекші",
             iaSub: "Командаңыз үшін жеке білім базасын жасаңыз — өз чаты мен басқару панелімен",
             iaBtn: "Көмекші жасау",
@@ -1568,7 +1568,6 @@
             actPaste: "Бұл кодты сайтыңыздың HTML-іне қойыңыз:",
             actCopy: "көшіру үшін басыңыз",
             actBack: "Чатқа оралу",
-            logoConfirm: "Басты бетке оралғыңыз келе ме? Ағымдағы сессия барысы жоғалуы мүмкін.",
         }
     };
 
@@ -1622,18 +1621,6 @@
     // Apply on load
     applyTranslations();
     window.applyTranslations = applyTranslations;
-
-    // ── Logo click confirmation ──
-    document.getElementById("logo-link").addEventListener("click", function() {
-        const t = T[currentLang];
-        const appFlow = document.getElementById("app-flow");
-        // Only show confirmation if user is in the app flow (not on landing page)
-        if (appFlow.classList.contains("active")) {
-            if (confirm(t.logoConfirm)) {
-                goLanding();
-            }
-        }
-    });
 
     // ── State ──
     const API = window.location.origin;
